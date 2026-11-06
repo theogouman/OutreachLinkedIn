@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { actionAnnulerTache, actionTrancher, type Retour } from "@/app/actions";
-import { Notification } from "@/components/notification";
+import { useTransition } from "react";
+import { actionAnnulerTache, actionTrancher } from "@/app/actions";
+import { useRetour } from "@/components/interface/toasts";
 
 export function ActionsTache({ id, statut }: { id: string; statut: string }) {
   const [enCours, demarrer] = useTransition();
-  const [retour, setRetour] = useState<Retour | null>(null);
+  const retourner = useRetour();
   const bouton = "rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ring-inset disabled:opacity-50";
 
   return (
@@ -16,7 +16,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
           type="button"
           disabled={enCours}
           className={`${bouton} text-neutral-700 ring-neutral-300 hover:bg-neutral-50`}
-          onClick={() => demarrer(async () => setRetour(await actionAnnulerTache(id)))}
+          onClick={() => demarrer(async () => retourner(await actionAnnulerTache(id)))}
         >
           Annuler
         </button>
@@ -28,7 +28,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
             disabled={enCours}
             title="L'action est bien partie (vérifié sur LinkedIn)"
             className={`${bouton} text-emerald-700 ring-emerald-300 hover:bg-emerald-50`}
-            onClick={() => demarrer(async () => setRetour(await actionTrancher(id, "faite")))}
+            onClick={() => demarrer(async () => retourner(await actionTrancher(id, "faite")))}
           >
             C&apos;est parti
           </button>
@@ -39,7 +39,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
             className={`${bouton} text-amber-700 ring-amber-300 hover:bg-amber-50`}
             onClick={() => {
               if (window.confirm("Renvoyer cette action ? Si elle était déjà partie, le prospect la recevra deux fois.")) {
-                demarrer(async () => setRetour(await actionTrancher(id, "remettre")));
+                demarrer(async () => retourner(await actionTrancher(id, "remettre")));
               }
             }}
           >
@@ -49,13 +49,12 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
             type="button"
             disabled={enCours}
             className={`${bouton} text-neutral-700 ring-neutral-300 hover:bg-neutral-50`}
-            onClick={() => demarrer(async () => setRetour(await actionTrancher(id, "abandonner")))}
+            onClick={() => demarrer(async () => retourner(await actionTrancher(id, "abandonner")))}
           >
             Abandonner
           </button>
         </>
       )}
-      <Notification retour={retour} />
     </div>
   );
 }

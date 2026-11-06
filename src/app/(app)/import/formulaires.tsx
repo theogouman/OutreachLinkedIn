@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
-import { actionImporterProspects, actionImporterRelations, type Retour } from "@/app/actions";
-import { Notification } from "@/components/notification";
+import { actionImporterProspects, actionImporterRelations } from "@/app/actions";
+import { useRetour } from "@/components/interface/toasts";
+import { ZoneFichier } from "@/components/interface/zone-fichier";
 
 const carte = "flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm";
 const champ = "rounded-lg border border-neutral-300 px-3 py-1.5 text-sm";
@@ -11,11 +12,11 @@ const bouton = "self-start rounded-lg bg-[#b5443d] px-4 py-2 text-sm font-medium
 
 export function ImportRelations() {
   const [enCours, demarrer] = useTransition();
-  const [retour, setRetour] = useState<Retour | null>(null);
+  const retourner = useRetour();
   return (
     <form
       className={carte}
-      action={(fd) => demarrer(async () => setRetour(await actionImporterRelations(fd)))}
+      action={(fd) => demarrer(async () => retourner(await actionImporterRelations(fd)))}
     >
       <div>
         <h2 className="font-semibold">1. Relations LinkedIn (archive)</h2>
@@ -25,11 +26,10 @@ export function ImportRelations() {
           date de connexion sont conservées.
         </p>
       </div>
-      <input type="file" name="fichier" accept=".csv,text/csv" required className="text-sm" />
+      <ZoneFichier name="fichier" titre="Choisir Connections.csv" />
       <button type="submit" disabled={enCours} className={bouton}>
         {enCours ? "Import en cours…" : "Importer les relations"}
       </button>
-      <Notification retour={retour} />
     </form>
   );
 }
@@ -46,7 +46,7 @@ const CHAMPS: { cle: Champ; libelle: string; indices: RegExp; requis?: boolean }
 
 export function ImportProspects() {
   const [enCours, demarrer] = useTransition();
-  const [retour, setRetour] = useState<Retour | null>(null);
+  const retourner = useRetour();
   const [colonnes, setColonnes] = useState<string[]>([]);
   const [choix, setChoix] = useState<Partial<Record<Champ, string>>>({});
 
@@ -72,7 +72,7 @@ export function ImportProspects() {
       className={carte}
       action={(fd) => {
         fd.set("correspondance", JSON.stringify(Object.fromEntries(Object.entries(choix).filter(([, v]) => v))));
-        demarrer(async () => setRetour(await actionImporterProspects(fd)));
+        demarrer(async () => retourner(await actionImporterProspects(fd)));
       }}
     >
       <div>
@@ -82,14 +82,7 @@ export function ImportProspects() {
           file, sous le quota de lecture (un gros import s&apos;étale sur plusieurs jours).
         </p>
       </div>
-      <input
-        type="file"
-        name="fichier"
-        accept=".csv,text/csv"
-        required
-        className="text-sm"
-        onChange={(e) => void lireEnTetes(e.target.files?.[0])}
-      />
+      <ZoneFichier name="fichier" titre="Choisir l'export CSV Notion" onFichier={(f) => void lireEnTetes(f)} />
       {colonnes.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {CHAMPS.map((c) => (
@@ -120,7 +113,6 @@ export function ImportProspects() {
       <button type="submit" disabled={enCours || !choix.url} className={bouton}>
         {enCours ? "Import en cours…" : "Importer les prospects"}
       </button>
-      <Notification retour={retour} />
     </form>
   );
 }

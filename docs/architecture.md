@@ -14,6 +14,8 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - `src/proxy.ts` : rafraîchit la session Supabase, renvoie vers `/login` sans session. Routes publiques : `/login`, `/auth/callback`, `/api/worker/*`, `/api/webhooks/*` (authentifiées par secret / signature dans la route).
 - `src/server/auth.ts` : `exigerUtilisateur()` — session (`getClaims`) + autorisation (RLS : la ligne `reglages` n'est visible que d'une adresse autorisée).
 - `src/lib/supabase/` : clients navigateur et serveur (`@supabase/ssr`).
+- `src/components/interface/` : composants adaptés des dépôts de design (jauge, panneau latéral, notifications, zone de dépôt), notices dans `THIRD_PARTY_NOTICES.md`. `motion` épinglé (14.6.0), `MotionConfig reducedMotion="user"` à la racine.
+- `src/app/(app)/` : écrans protégés (prospects + fiche en panneau `?prospect=id`, file, import, réglages) ; `src/server/donnees.ts` et `mutations.ts` derrière `exigerUtilisateur()`.
 - `src/server/queue/` : `temps.ts` (heure de Paris), `politique.ts` (règles pures), `worker.ts` (un tour de file, connexion directe `pg`), `planification.ts` (une lecture par liste et par jour, heure aléatoire).
 - `src/server/unipile/` : `client-v2.ts` (API v2, réponses validées par Zod), `simule.ts` (aucun appel réseau), `executeur.ts` (tâche → appel → effets en base), `fabrique.ts` (`UNIPILE_MODE`).
 - `src/server/import/` : lecture des CSV (archive LinkedIn, export Notion) et écriture en base.

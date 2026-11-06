@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
-import { filtresProspectsSchema, prospects, referentiels, TAILLE_PAGE } from "@/server/donnees";
+import { ficheProspect, filtresProspectsSchema, prospects, referentiels, TAILLE_PAGE } from "@/server/donnees";
+import { PanneauFiche } from "./fiche";
 import { LIBELLES_STATUT } from "@/lib/statut-relation";
 
 export default function PageProspects({ searchParams }: PageProps<"/">) {
@@ -44,6 +45,17 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
     q.set("page", String(p));
     return `/?${q.toString()}`;
   };
+  const lienFiche = (id: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      const s = premier(v);
+      if (s && k !== "prospect") q.set(k, s);
+    }
+    q.set("prospect", id);
+    return `/?${q.toString()}`;
+  };
+  const idFiche = premier(sp.prospect);
+  const fiche = idFiche ? await ficheProspect(idFiche) : null;
 
   return (
     <>
@@ -91,7 +103,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
 
       {lignes.length === 0 ? (
         <div className="rounded-2xl bg-white p-8 text-center text-sm text-neutral-600 shadow-sm">
-          Aucun prospect. <Link href="/import" className="text-[#b3403a] underline">Importer une liste</Link>
+          Aucun prospect. <Link href="/import" className="text-[#b5443d] underline">Importer une liste</Link>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
@@ -110,7 +122,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
               {lignes.map((p) => (
                 <tr key={p.id} className="hover:bg-[#f5f2f2]/60">
                   <td className="px-4 py-3">
-                    <span className="font-medium">{[p.prenom, p.nom].filter(Boolean).join(" ") || "—"}</span>
+                    <Link href={lienFiche(p.id)} scroll={false} className="font-medium hover:text-[#b5443d] hover:underline">{[p.prenom, p.nom].filter(Boolean).join(" ") || "—"}</Link>
                     {!p.identifie && <span className="ml-2 text-xs text-neutral-400" title="Profil pas encore lu (lecture en file)">· en file</span>}
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{[p.entreprise, p.poste].filter(Boolean).join(" · ") || "—"}</td>
@@ -124,6 +136,8 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
           </table>
         </div>
       )}
+
+      {fiche && <PanneauFiche fiche={fiche} libelleEtape={libelleEtape.get(fiche.etape) ?? fiche.etape} />}
 
       {pages > 1 && (
         <nav className="flex items-center justify-center gap-3 text-sm" aria-label="Pagination">

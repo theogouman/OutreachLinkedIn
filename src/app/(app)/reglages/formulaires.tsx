@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { actionPlafonds, actionReglages, type Retour } from "@/app/actions";
-import { Notification } from "@/components/notification";
+import { actionPlafonds, actionReglages } from "@/app/actions";
+import { useRetour } from "@/components/interface/toasts";
 import { LIBELLES_QUOTA, MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 
 type Plafonds = Record<TypeQuota, { jour: number | null; semaine: number | null; mois: number | null }>;
@@ -22,10 +22,10 @@ const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 export function FormPlafonds({ initial }: { initial: Plafonds }) {
   const [valeurs, setValeurs] = useState(initial);
   const [enCours, demarrer] = useTransition();
-  const [retour, setRetour] = useState<Retour | null>(null);
+  const retourner = useRetour();
 
   return (
-    <form className={carte} action={() => demarrer(async () => setRetour(await actionPlafonds(valeurs)))}>
+    <form className={carte} action={() => demarrer(async () => retourner(await actionPlafonds(valeurs)))}>
       <div>
         <h2 className="font-semibold">Plafonds (compte LinkedIn gratuit)</h2>
         <p className="text-sm text-neutral-600">Jamais au-dessus de la recommandation Unipile, indiquée en gris.</p>
@@ -72,7 +72,6 @@ export function FormPlafonds({ initial }: { initial: Plafonds }) {
         </tbody>
       </table>
       <button type="submit" disabled={enCours} className={bouton}>Enregistrer les plafonds</button>
-      <Notification retour={retour} />
     </form>
   );
 }
@@ -80,12 +79,12 @@ export function FormPlafonds({ initial }: { initial: Plafonds }) {
 export function FormReglages({ initial }: { initial: Reglages }) {
   const [r, setR] = useState(initial);
   const [enCours, demarrer] = useTransition();
-  const [retour, setRetour] = useState<Retour | null>(null);
+  const retourner = useRetour();
   const majCreneau = (i: number, cle: "debut" | "fin", v: string) =>
     setR((s) => ({ ...s, plages: { ...s.plages, creneaux: s.plages.creneaux.map((c, j) => (j === i ? { ...c, [cle]: v } : c)) } }));
 
   return (
-    <form className={carte} action={() => demarrer(async () => setRetour(await actionReglages(r)))}>
+    <form className={carte} action={() => demarrer(async () => retourner(await actionReglages(r)))}>
       <h2 className="font-semibold">Rythme d&apos;activité</h2>
 
       <fieldset className="flex flex-col gap-2 text-sm">
@@ -153,7 +152,6 @@ export function FormReglages({ initial }: { initial: Reglages }) {
       </fieldset>
 
       <button type="submit" disabled={enCours} className={bouton}>Enregistrer</button>
-      <Notification retour={retour} />
     </form>
   );
 }

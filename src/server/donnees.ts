@@ -148,6 +148,61 @@ export async function referentiels() {
   return referentielsDepuis(poolServeur());
 }
 
+// ─── Fiche prospect ───────────────────────────────────────────────────────────
+
+export interface EvenementHistorique {
+  date: Date;
+  type: string;
+  resultat: string | null;
+  enFile: boolean;
+}
+
+export interface FicheProspect extends LigneProspect {
+  notes: string | null;
+  historique: EvenementHistorique[];
+}
+
+export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<FicheProspect | null> {
+  const parse = z.uuid().safeParse(id);
+  if (!parse.success) return null;
+  const p = await pool.query(
+    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes,
+            to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie
+       from public.prospects where id = $1`,
+    [parse.data],
+  );
+  if (!p.rowCount) return null;
+  const h = await pool.query(
+    `select created_at as date, type, resultat, false as en_file from public.actions where prospect_id = $1
+     union all
+     select coalesce(depart_estime, executer_apres), type_action::text, null, true
+       from public.taches where prospect_id = $1 and statut in ('en_attente', 'en_cours', 'incertaine')
+     order by 1 desc limit 100`,
+    [parse.data],
+  );
+  const x = p.rows[0];
+  return {
+    id: x.id,
+    prenom: x.prenom,
+    nom: x.nom,
+    poste: x.poste,
+    entreprise: x.entreprise,
+    linkedinUrl: x.linkedin_url,
+    listeOrigine: x.liste_origine,
+    statutRelation: x.statut_relation,
+    etape: x.etape,
+    prochaineRelance: x.prochaine_relance,
+    identifie: x.identifie,
+    notes: x.notes,
+    historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file })),
+  };
+}
+
+export async function ficheProspect(id: unknown) {
+  await exigerUtilisateur();
+  return ficheProspectDepuis(poolServeur(), id);
+}
+
 // ─── File d'attente ───────────────────────────────────────────────────────────
 
 export interface LigneTache {
