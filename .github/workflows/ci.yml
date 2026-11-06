@@ -91,7 +91,7 @@ jobs:
           persist-credentials: false
       # Échoue sur toute vulnérabilité connue. Une exception se déclare dans
       # osv-scanner.toml, avec une raison et une date d'expiration.
-      - uses: google/osv-scanner-action/osv-scanner-action@6ad84ce1ef2d4124ba333b221894c133c4a970ea # v2.7.0
+      - uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
           scan-args: |-
             --lockfile=package-lock.json
