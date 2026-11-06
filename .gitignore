@@ -40,8 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# exemple de variables, sans valeurs
-!.env.example
 
 # Claude Code : réglages personnels non partagés
 .claude/settings.local.json

@@ -17,7 +17,7 @@ Architecture et décisions : @docs/architecture.md
 
 ## Sécurité — règles non négociables
 - Appliquer le skill `software-security` (Project CodeGuard, `.claude/skills/software-security/`) dès qu'on écrit ou modifie du code.
-- Aucun secret dans le code, les logs, les tests ou les messages de commit. Secrets uniquement via variables d'environnement. Ne jamais lire `.env*` (sauf `.env.example`).
+- Aucun secret dans le code, les logs, les tests ou les messages de commit. Secrets uniquement via variables d'environnement. Ne jamais lire `.env*`. Liste des variables et origine des valeurs : `docs/setup.md`.
 - Seules les variables `NEXT_PUBLIC_` vont côté client, et jamais une clé privée (clé secrète Supabase, clés API tierces). Le code qui utilise une clé privée importe `server-only`.
 - Toute entrée utilisateur est validée côté serveur avec un schéma Zod. Ne jamais faire confiance à la validation client.
 - Chaque route, Server Action ou endpoint vérifie l'authentification ET l'autorisation (cet utilisateur a-t-il le droit sur cette ressource ?).
