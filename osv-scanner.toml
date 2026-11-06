@@ -1,0 +1,6 @@
+# Exceptions OSV-Scanner. Chaque exception doit avoir une raison et une date d'expiration.
+# Exemple :
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2027-01-31
+# reason = "Code vulnérable non atteignable : fonction X jamais appelée. Revoir à la prochaine mise à jour."

@@ -1,0 +1,17 @@
+# Installation (une fois par machine) :
+#   pipx install pre-commit   (ou brew install pre-commit)
+#   pre-commit install
+# Le filet le plus précoce : un secret est bloqué avant de quitter la machine.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e # frozen: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: npx --no-install eslint --max-warnings=0
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
