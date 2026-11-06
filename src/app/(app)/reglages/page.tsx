@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { reglages } from "@/server/donnees";
+import { etatOutil, reglages } from "@/server/donnees";
+import { PanneauDemo } from "./demo";
 import { FormPlafonds, FormReglages } from "./formulaires";
 
 export default function PageReglages() {
@@ -14,11 +15,12 @@ export default function PageReglages() {
 }
 
 async function Contenu() {
-  const r = await reglages();
+  const [r, etat] = await Promise.all([reglages(), etatOutil()]);
   return (
     <>
       <FormPlafonds initial={r.plafonds} />
       <FormReglages initial={{ plages: r.plages, delaiMinS: r.delaiMinS, delaiMaxS: r.delaiMaxS, cadence: r.cadence }} />
+      <PanneauDemo modeSimule={etat.modeSimule} prospectsDemo={etat.prospectsDemo} />
     </>
   );
 }

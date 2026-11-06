@@ -44,9 +44,17 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
 async function Etat() {
   const etat = await etatOutil();
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <JaugeQuotas etat={etat} />
-      <BoutonArret arret={etat.arretDurgence} />
+    <div className="flex flex-col gap-2">
+      {etat.modeSimule && (
+        <p className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+          Mode démo : Unipile n&apos;est pas branché, aucune action n&apos;est envoyée à LinkedIn.
+          {etat.prospectsDemo > 0 ? ` ${etat.prospectsDemo} prospects fictifs affichés.` : " Charge des données fictives dans Réglages."}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <JaugeQuotas etat={etat} />
+        <BoutonArret arret={etat.arretDurgence} />
+      </div>
     </div>
   );
 }
