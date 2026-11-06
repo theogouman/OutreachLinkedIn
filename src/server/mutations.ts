@@ -1,0 +1,104 @@
+import type { Pool } from "pg";
+import { z } from "zod";
+import { MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
+
+/**
+ * Modifications demandées depuis l'interface. Toute entrée est validée ici (Zod),
+ * côté serveur. Les appels passent par des Server Actions qui vérifient d'abord
+ * l'utilisateur (src/app/actions).
+ */
+
+/** Une période sans maximum (null) n'a pas de plafond ; sinon entier entre 0 et le maximum. */
+const borne = (max: number | null): z.ZodType<number | null> =>
+  max === null ? z.null() : z.coerce.number().int().min(0).max(max);
+
+const plafondDe = (t: TypeQuota) =>
+  z.object({ jour: borne(MAXIMA[t].jour), semaine: borne(MAXIMA[t].semaine), mois: borne(MAXIMA[t].mois) });
+
+export const plafondsSchema = z.object({
+  invitation: plafondDe("invitation"),
+  note_invitation: plafondDe("note_invitation"),
+  lecture_profil: plafondDe("lecture_profil"),
+  message: plafondDe("message"),
+  lecture_liste: plafondDe("lecture_liste"),
+});
+
+export async function majPlafonds(pool: Pool, entree: unknown) {
+  const v = plafondsSchema.parse(entree);
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    for (const t of TYPES_QUOTA) {
+      await c.query(
+        "update public.quotas set plafond_jour = $2, plafond_semaine = $3, plafond_mois = $4, updated_at = now() where type_quota = $1",
+        [t, v[t].jour, v[t].semaine, v[t].mois],
+      );
+    }
+    await c.query("commit");
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
+const heure = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+export const reglagesSchema = z
+  .object({
+    plages: z.object({
+      jours: z.array(z.number().int().min(1).max(7)).max(7).refine((j) => new Set(j).size === j.length, "jours en double"),
+      creneaux: z
+        .array(z.object({ debut: heure, fin: heure }).refine((c) => c.debut < c.fin, "début après la fin"))
+        .min(1)
+        .max(6),
+    }),
+    delaiMinS: z.number().int().min(60).max(3600),
+    delaiMaxS: z.number().int().min(60).max(7200),
+    cadence: z.object({ relance_1_jours: z.number().int().min(1).max(60), relance_2_jours: z.number().int().min(1).max(60) }),
+  })
+  .refine((r) => r.delaiMaxS >= r.delaiMinS, { message: "délai max < délai min", path: ["delaiMaxS"] });
+
+export async function majReglages(pool: Pool, entree: unknown) {
+  const v = reglagesSchema.parse(entree);
+  await pool.query(
+    `update public.reglages
+        set plages = $1, delai_min_s = $2, delai_max_s = $3, cadence_relances = $4, updated_at = now()
+      where id`,
+    [{ jours: [...v.plages.jours].sort(), creneaux: v.plages.creneaux }, v.delaiMinS, v.delaiMaxS, v.cadence],
+  );
+}
+
+export async function basculerArret(pool: Pool, arret: boolean) {
+  await pool.query("update public.reglages set arret_d_urgence = $1, updated_at = now() where id", [z.boolean().parse(arret)]);
+}
+
+const idSchema = z.uuid();
+
+/** Annule une tâche pas encore partie. Sans effet sur une tâche en cours ou terminée. */
+export async function annulerTache(pool: Pool, id: unknown): Promise<boolean> {
+  const r = await pool.query(
+    "update public.taches set statut = 'annulee', updated_at = now() where id = $1 and statut = 'en_attente'",
+    [idSchema.parse(id)],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/**
+ * Tâche incertaine (on ne sait pas si l'envoi est parti) : seul l'utilisateur tranche.
+ * « faite » : considérée comme partie. « remettre » : renvoyée (risque de doublon
+ * assumé par l'utilisateur). « abandonner » : annulée.
+ */
+export const decisionSchema = z.enum(["faite", "remettre", "abandonner"]);
+
+export async function trancherIncertaine(pool: Pool, id: unknown, decision: unknown): Promise<boolean> {
+  const d = decisionSchema.parse(decision);
+  const statut = d === "faite" ? "faite" : d === "remettre" ? "en_attente" : "annulee";
+  const r = await pool.query(
+    `update public.taches set statut = $2, motif_attente = null, updated_at = now()
+      where id = $1 and statut = 'incertaine'`,
+    [idSchema.parse(id), statut],
+  );
+  return (r.rowCount ?? 0) > 0;
+}

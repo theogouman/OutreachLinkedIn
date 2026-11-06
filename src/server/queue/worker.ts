@@ -74,7 +74,8 @@ async function dansTransaction<T>(pool: Pool, fn: (c: PoolClient) => Promise<T>)
 
 const TYPES_QUOTA: TypeQuota[] = ["invitation", "note_invitation", "lecture_profil", "message", "lecture_liste"];
 
-async function chargerContexte(c: PoolClient, maintenant: Date): Promise<ContexteDecision> {
+/** Réglages, plafonds, gels et compteurs du moment (aussi utilisé par la jauge de quotas). */
+export async function chargerContexte(c: PoolClient | Pool, maintenant: Date): Promise<ContexteDecision> {
   const r = await c.query(
     "select fuseau, plages, arret_d_urgence, prochaine_action_possible_a from public.reglages where id",
   );
