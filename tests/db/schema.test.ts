@@ -97,6 +97,33 @@ describe.skipIf(!TEST_DATABASE_URL)("schéma : accès et garde-fous", () => {
     expect(res.rows).toEqual([{ prospect_id: null }]);
   });
 
+  it("le hook de création de compte n'accepte que les adresses autorisées", async () => {
+    const appel = async (email: string) => {
+      const c = await db.pool.connect();
+      try {
+        await c.query("begin");
+        await c.query("set local role supabase_auth_admin");
+        const r = await c.query("select public.hook_avant_creation_utilisateur($1) as res", [{ user: { email } }]);
+        return r.rows[0].res;
+      } finally {
+        await c.query("rollback");
+        c.release();
+      }
+    };
+    expect(await appel("Theo@Example.com")).toEqual({});
+    expect(await appel("intrus@example.com")).toEqual({ error: { http_code: 403, message: "Accès refusé." } });
+    expect(await appel("")).toHaveProperty("error");
+  });
+
+  it("le hook n'est pas appelable par l'API (anon, authenticated)", async () => {
+    await expect(
+      asUser(db.pool, AUTORISE, (c) => c.query("select public.hook_avant_creation_utilisateur('{}')")),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      asUser(db.pool, null, (c) => c.query("select public.hook_avant_creation_utilisateur('{}')")),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it("refuse une clé d'idempotence en double", async () => {
     await db.pool.query("insert into public.taches (type_action, cle_idempotence) values ('message', 'dup')");
     await expect(
