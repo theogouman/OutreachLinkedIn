@@ -15,7 +15,15 @@ import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 // ─── Jauge de quotas et état de la file ───────────────────────────────────────
 
 export interface EtatOutil {
-  quotas: Record<TypeQuota, { plafond: { jour: number | null; semaine: number | null; mois: number | null }; compteur: { jour: number; semaine: number; mois: number }; gelJusqua: Date | null }>;
+  quotas: Record<
+    TypeQuota,
+    {
+      plafond: { jour: number | null; semaine: number | null; mois: number | null };
+      compteur: { jour: number; semaine: number; mois: number };
+      gelJusqua: Date | null;
+      gele: boolean;
+    }
+  >;
   arretDurgence: boolean;
   enAttente: number;
   incertaines: number;
@@ -29,12 +37,15 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
   );
   const quotas = {} as EtatOutil["quotas"];
   for (const t of TYPES_QUOTA) {
-    quotas[t] = { plafond: ctx.quotas[t].plafond, compteur: ctx.compteurs[t], gelJusqua: ctx.quotas[t].gelJusqua };
+    const gelJusqua = ctx.quotas[t].gelJusqua;
+    quotas[t] = {
+      plafond: ctx.quotas[t].plafond,
+      compteur: ctx.compteurs[t],
+      gelJusqua,
+      gele: !!gelJusqua && gelJusqua.getTime() > maintenant.getTime(),
+    };
   }
-  const unGel = TYPES_QUOTA.some((t) => {
-    const g = ctx.quotas[t].gelJusqua;
-    return g && g.getTime() > maintenant.getTime();
-  });
+  const unGel = TYPES_QUOTA.some((t) => quotas[t].gele);
   return {
     quotas,
     arretDurgence: ctx.reglages.arretDurgence,

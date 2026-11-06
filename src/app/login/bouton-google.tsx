@@ -45,7 +45,7 @@ export function BoutonGoogle() {
         type="button"
         onClick={seConnecter}
         disabled={enCours}
-        className="rounded-lg bg-[#e0625a] px-5 py-3 font-medium text-white transition hover:bg-[#c9544d] disabled:opacity-60"
+        className="rounded-lg bg-[#b5443d] px-5 py-3 font-medium text-white transition hover:bg-[#9c3a34] disabled:opacity-60"
       >
         {enCours ? "Redirection vers Google…" : "Se connecter avec Google"}
       </button>
