@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { getPublicEnv } from "@/lib/env";
 
 /**
@@ -8,6 +9,9 @@ import { getPublicEnv } from "@/lib/env";
  * l'utilisateur, soumis à la RLS). À appeler sous un <Suspense> (cacheComponents).
  */
 export async function creerClientServeur() {
+  // Le client lit l'heure courante (expiration du jeton) : on signale explicitement à
+  // Next.js que la suite ne s'exécute qu'à la requête, jamais au prérendu.
+  await connection();
   const cookieStore = await cookies();
   const env = getPublicEnv();
   return createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
