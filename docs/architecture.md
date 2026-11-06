@@ -14,7 +14,13 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - `src/proxy.ts` : rafraîchit la session Supabase, renvoie vers `/login` sans session. Routes publiques : `/login`, `/auth/callback`, `/api/worker/*`, `/api/webhooks/*` (authentifiées par secret / signature dans la route).
 - `src/server/auth.ts` : `exigerUtilisateur()` — session (`getClaims`) + autorisation (RLS : la ligne `reglages` n'est visible que d'une adresse autorisée).
 - `src/lib/supabase/` : clients navigateur et serveur (`@supabase/ssr`).
-- `src/server/queue/` : `temps.ts` (heure de Paris), `politique.ts` (règles pures), `worker.ts` (un tour de file, connexion directe `pg`).
+- `src/server/queue/` : `temps.ts` (heure de Paris), `politique.ts` (règles pures), `worker.ts` (un tour de file, connexion directe `pg`), `planification.ts` (une lecture par liste et par jour, heure aléatoire).
+- `src/server/unipile/` : `client-v2.ts` (API v2, réponses validées par Zod), `simule.ts` (aucun appel réseau), `executeur.ts` (tâche → appel → effets en base), `fabrique.ts` (`UNIPILE_MODE`).
+- `src/server/import/` : lecture des CSV (archive LinkedIn, export Notion) et écriture en base.
+- `src/server/relations.ts` : liens LinkedIn connus, recalcul des statuts, acceptations.
+- `src/server/webhooks/unipile.ts` : signature, idempotence, `relation.new`.
+- `src/server/db.ts`, `env-serveur.ts`, `secrets.ts` : connexion Postgres (TLS vérifié), variables privées, comparaisons à temps constant.
+- `src/app/api/worker/tick` (secret Bearer) et `src/app/api/webhooks/unipile` (signature HMAC) : routes minces.
 - `src/lib/` : `env.ts`, `linkedin-url.ts`, `statut-relation.ts`, `redirection.ts`.
 - `supabase/migrations/` : SQL versionné, appliqué au projet via le MCP Supabase. `supabase/tests/bootstrap.sql` : rôles et `auth.jwt()` simulés pour les tests.
 - `next.config.ts` : en-têtes de sécurité (CSP, HSTS, etc.).
