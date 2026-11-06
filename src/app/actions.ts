@@ -8,6 +8,8 @@ import { importerProspects, importerRelations } from "@/server/import/appliquer"
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
 import { annulerTache, basculerArret, majPlafonds, majReglages, trancherIncertaine } from "@/server/mutations";
+import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
+import { envUnipile } from "@/server/env-serveur";
 
 /**
  * Server Actions de l'interface. Chacune vérifie l'utilisateur, valide l'entrée
@@ -25,7 +27,7 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
     refresh();
     return { ok: true, message };
   } catch (e) {
-    if (e instanceof ErreurImport) return { ok: false, message: e.message };
+    if (e instanceof ErreurImport || e instanceof DemoDejaChargee) return { ok: false, message: e.message };
     if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
     console.error(`[action:${nom}]`, e);
     return { ok: false, message: ERREUR };
@@ -89,4 +91,19 @@ export async function actionTrancher(id: string, decision: string): Promise<Reto
   return executer("trancher", async () =>
     (await trancherIncertaine(poolServeur(), id, decision)) ? "Décision enregistrée." : "Cette tâche n'est plus incertaine.",
   );
+}
+
+export async function actionChargerDemo(): Promise<Retour> {
+  return executer("charger-demo", async () => {
+    if (envUnipile().mode !== "simule") throw new ErreurImport("Données de démonstration indisponibles : Unipile est branché.");
+    const r = await semerDemo(poolServeur());
+    return `${r.prospects} prospects fictifs chargés.`;
+  });
+}
+
+export async function actionPurgerDemo(): Promise<Retour> {
+  return executer("purger-demo", async () => {
+    const r = await purgerDemo(poolServeur());
+    return r.prospects ? `${r.prospects} prospects fictifs supprimés, historique compris.` : "Aucune donnée de démonstration.";
+  });
 }

@@ -50,6 +50,12 @@ export interface OptionsTour {
   appliquerEffets?: AppliquerEffets;
   maintenant?: () => Date;
   aleatoire?: () => number;
+  /**
+   * Client Unipile simulé : seules les tâches de prospects de démonstration (et les
+   * synchronisations de listes) sont traitées. Un vrai prospect reste en file jusqu'au
+   * branchement d'Unipile et ne reçoit jamais de faux identifiant LinkedIn.
+   */
+  seulementDemo?: boolean;
 }
 
 export type BilanTour =
@@ -141,7 +147,7 @@ export async function chargerContexte(c: PoolClient | Pool, maintenant: Date): P
  * Candidates : tâches en attente, échues, dans l'ordre de demande. Pour un même
  * prospect, seule la plus ancienne tâche non terminée est candidate (ordre strict).
  */
-async function chargerCandidates(c: PoolClient, maintenant: Date) {
+async function chargerCandidates(c: PoolClient, maintenant: Date, seulementDemo: boolean) {
   const r = await c.query(
     `select t.id, t.type_action, t.avec_note, t.prospect_id, t.payload
        from public.taches t
@@ -153,9 +159,12 @@ async function chargerCandidates(c: PoolClient, maintenant: Date) {
              and p.prospect_id = t.prospect_id
              and p.ordre < t.ordre
              and p.statut in ('en_attente', 'en_cours', 'incertaine'))
+        and (not $2::boolean
+             or t.prospect_id is null
+             or exists (select 1 from public.prospects d where d.id = t.prospect_id and d.demo))
       order by t.ordre
       limit 200`,
-    [maintenant],
+    [maintenant, seulementDemo],
   );
   return r.rows.map(
     (row): TacheAExecuter => ({
@@ -193,7 +202,7 @@ export async function executerUnTour(opts: OptionsTour): Promise<BilanTour> {
     }
 
     const ctx = await chargerContexte(c, maintenant);
-    const candidates = await chargerCandidates(c, maintenant);
+    const candidates = await chargerCandidates(c, maintenant, opts.seulementDemo ?? false);
     const parId = new Map(candidates.map((t) => [t.id, t]));
     const choix = choisirTache(
       candidates.map((t): TacheCandidate => ({ id: t.id, typeAction: t.typeAction, avecNote: t.avecNote })),

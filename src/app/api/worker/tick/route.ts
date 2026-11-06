@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { poolServeur } from "@/server/db";
-import { envWorker } from "@/server/env-serveur";
+import { envUnipile, envWorker } from "@/server/env-serveur";
 import { planifierSynchronisations } from "@/server/queue/planification";
 import { executerUnTour } from "@/server/queue/worker";
 import { jetonBearer, secretsEgaux } from "@/server/secrets";
@@ -29,7 +29,13 @@ export async function POST(request: Request) {
     const pool = poolServeur();
     const maintenant = new Date();
     await planifierSynchronisations(pool, maintenant);
-    const bilan = await executerUnTour({ pool, executeur: creerExecuteur(clientLinkedIn()), appliquerEffets: appliquerEffetsUnipile });
+    const bilan = await executerUnTour({
+      pool,
+      executeur: creerExecuteur(clientLinkedIn()),
+      appliquerEffets: appliquerEffetsUnipile,
+      // Unipile simulé : seules les données de démonstration sont traitées.
+      seulementDemo: envUnipile().mode === "simule",
+    });
     return NextResponse.json({ ok: true, bilan });
   } catch (e) {
     console.error("[worker] tour en erreur", e);

@@ -18,6 +18,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - `src/app/(app)/` : écrans protégés (prospects + fiche en panneau `?prospect=id`, file, import, réglages) ; `src/server/donnees.ts` et `mutations.ts` derrière `exigerUtilisateur()`.
 - `src/server/queue/` : `temps.ts` (heure de Paris), `politique.ts` (règles pures), `worker.ts` (un tour de file, connexion directe `pg`), `planification.ts` (une lecture par liste et par jour, heure aléatoire).
 - `src/server/unipile/` : `client-v2.ts` (API v2, réponses validées par Zod), `simule.ts` (aucun appel réseau), `executeur.ts` (tâche → appel → effets en base), `fabrique.ts` (`UNIPILE_MODE`).
+- `src/server/demo.ts` : données de démonstration (prospects fictifs `demo-…`, colonne `prospects.demo`), chargement et purge depuis Réglages. Avec `UNIPILE_MODE=simule`, le worker ne traite que les tâches de démo (`seulementDemo`) : un vrai prospect n'obtient jamais de faux identifiant.
 - `src/server/import/` : lecture des CSV (archive LinkedIn, export Notion) et écriture en base.
 - `src/server/relations.ts` : liens LinkedIn connus, recalcul des statuts, acceptations.
 - `src/server/webhooks/unipile.ts` : signature, idempotence, `relation.new`.
@@ -45,6 +46,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 | Revue IA | `.github/workflows/security-review.yml` | Non, commentaires |
 
 ## Décisions
+- 2026-11-06 — Branche `main` créée (accord de l'utilisateur) ; évolutions suivantes par PR.
 - 2026-11-06 — CodeGuard installé comme skill (chargé à la demande) plutôt que dans `.claude/rules/` (≈100 Ko chargés à chaque session).
 - 2026-11-06 — CSP sans nonce : compatible avec le rendu statique et `cacheComponents`. Passer à une CSP à nonce si l'app charge des scripts tiers.
 - 2026-11-06 — `overrides` sur `minimatch` (^11.0.5) sous `@typescript-eslint/typescript-estree` pour corriger GHSA-g3hv-75wg-m249 (dev uniquement). À retirer quand typescript-eslint l'intègre.

@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import { z } from "zod";
 import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
+import { envUnipile } from "./env-serveur";
 import { chargerContexte } from "./queue/worker";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 
@@ -28,12 +29,17 @@ export interface EtatOutil {
   enAttente: number;
   incertaines: number;
   etatFile: "en_cours" | "en_pause" | "gele";
+  modeSimule: boolean;
+  prospectsDemo: number;
 }
 
 export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Promise<EtatOutil> {
   const ctx = await chargerContexte(pool, maintenant);
   const f = await pool.query(
-    "select count(*) filter (where statut = 'en_attente')::int as en_attente, count(*) filter (where statut = 'incertaine')::int as incertaines from public.taches",
+    `select count(*) filter (where statut = 'en_attente')::int as en_attente,
+            count(*) filter (where statut = 'incertaine')::int as incertaines,
+            (select count(*) from public.prospects where demo)::int as demo
+       from public.taches`,
   );
   const quotas = {} as EtatOutil["quotas"];
   for (const t of TYPES_QUOTA) {
@@ -52,6 +58,8 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
     enAttente: f.rows[0].en_attente,
     incertaines: f.rows[0].incertaines,
     etatFile: ctx.reglages.arretDurgence ? "en_pause" : unGel ? "gele" : "en_cours",
+    modeSimule: envUnipile().mode === "simule",
+    prospectsDemo: f.rows[0].demo,
   };
 }
 
