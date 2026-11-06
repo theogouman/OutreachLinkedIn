@@ -213,7 +213,8 @@ as $$
   );
 $$;
 
-revoke all on function public.est_autorise() from public;
+-- Supabase accorde par défaut EXECUTE à anon sur les nouvelles fonctions : on le retire.
+revoke all on function public.est_autorise() from public, anon;
 grant execute on function public.est_autorise() to authenticated;
 
 -- RLS partout. Aucun accès pour `anon`. Lecture seule sur les tables que seul le
