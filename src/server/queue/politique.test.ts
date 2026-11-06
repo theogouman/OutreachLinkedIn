@@ -132,7 +132,20 @@ describe("gel sur erreur", () => {
   });
 
   it("le gel dure 24 h", () => {
-    expect(classerErreur({ status: 429, type: "provider/too_many_requests" })).toEqual({ genre: "gel", duree_ms: GEL_24H_MS });
+    expect(classerErreur({ status: 429, type: "provider/too_many_requests" })).toEqual({
+      genre: "gel",
+      duree_ms: GEL_24H_MS,
+      incertain: false,
+    });
+  });
+
+  it("une erreur 5xx sur un envoi gèle ET rend l'envoi incertain (jamais renvoyé seul)", () => {
+    expect(classerErreur({ status: 504, type: "provider/timeout" }, "message")).toMatchObject({ genre: "gel", incertain: true });
+    expect(classerErreur({ status: 502 }, "invitation")).toMatchObject({ genre: "gel", incertain: true });
+    // Une lecture peut être refaite sans risque.
+    expect(classerErreur({ status: 502 }, "lecture_profil")).toMatchObject({ genre: "gel", incertain: false });
+    // 422 / 429 : refus explicite, rien n'est parti.
+    expect(classerErreur({ status: 422, type: "provider/unprocessable_entity" }, "invitation")).toMatchObject({ incertain: false });
   });
 });
 

@@ -163,8 +163,11 @@ export function tirerDelai(minS: number, maxS: number, aleatoire: () => number =
 // ─── Erreurs Unipile / LinkedIn ───────────────────────────────────────────────
 
 export type IssueErreur =
-  /** Gel du type d'action 24 h ; la tâche reste en file. */
-  | { genre: "gel"; duree_ms: number }
+  /**
+   * Gel du type d'action 24 h. La tâche reste en file, sauf si l'envoi a pu partir
+   * (`incertain`) : elle passe alors « incertaine » et n'est jamais renvoyée seule.
+   */
+  | { genre: "gel"; duree_ms: number; incertain: boolean }
   /** Limite propre à Unipile : on réessaie plus tard, sans gel. */
   | { genre: "reessayer"; apres_ms: number }
   /** Demande invalide (404, 400…) : la tâche échoue, rien n'est gelé. */
@@ -178,14 +181,25 @@ export interface ErreurAppel {
   status: number | null; // null = pas de réponse (réseau, délai)
   type?: string; // ex. "provider/too_many_requests", "api/too_many_requests", "cannot_resend_yet"
   retryAfterS?: number | null;
+  /** Détail renvoyé par Unipile (journalisé tel quel, tronqué). */
+  detail?: string;
 }
 
-export function classerErreur(e: ErreurAppel): IssueErreur {
+/** Actions qui modifient quelque chose chez LinkedIn : un doublon serait visible du prospect. */
+export function estUnEnvoi(type: TypeAction): boolean {
+  return type === "invitation" || type === "message";
+}
+
+export function classerErreur(e: ErreurAppel, type: TypeAction = "lecture_liste"): IssueErreur {
   if (e.status === null) return { genre: "incertain" };
   if (e.status === 429 && e.type === "api/too_many_requests") {
     const s = e.retryAfterS && e.retryAfterS > 0 ? e.retryAfterS : 60;
     return { genre: "reessayer", apres_ms: s * 1000 };
   }
-  if (e.status === 422 || e.status === 429 || e.status >= 500) return { genre: "gel", duree_ms: GEL_24H_MS };
+  // 5xx / délai côté LinkedIn : la demande a pu être traitée malgré l'erreur.
+  const peutEtrePartie = e.status >= 500 && estUnEnvoi(type);
+  if (e.status === 422 || e.status === 429 || e.status >= 500) {
+    return { genre: "gel", duree_ms: GEL_24H_MS, incertain: peutEtrePartie };
+  }
   return { genre: "echec_definitif" };
 }

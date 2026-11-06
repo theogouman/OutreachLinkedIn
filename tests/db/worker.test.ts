@@ -245,15 +245,26 @@ describe.skipIf(!TEST_DATABASE_URL)("worker de la file d'attente", () => {
   });
 
   describe("gel sur erreur", () => {
+    it("message en erreur 504 : gel 24 h, tâche incertaine, jamais renvoyée", async () => {
+      const id = await tache("message", await prospect("timeout"), { texte: "bonjour" });
+      const { executeur, appels } = fauxUnipile(() => ({ ok: false, erreur: { status: 504, type: "provider/timeout" } }));
+      expect(await tour(JEUDI_10H, executeur)).toMatchObject({ resultat: "incertain" });
+      expect((await statut(id)).statut).toBe("incertaine");
+      await tour(minutes(JEUDI_10H, 24 * 60 + 5), executeur);
+      expect(appels).toHaveLength(1);
+      const q = await db.pool.query("select gel_jusqu_a from public.quotas where type_quota = 'message'");
+      expect(q.rows[0].gel_jusqu_a).toEqual(minutes(JEUDI_10H, 24 * 60));
+    });
+
     it.each([
-      [{ status: 422, type: "cannot_resend_yet" }],
-      [{ status: 429, type: "provider/too_many_requests" }],
-      [{ status: 500 }],
-    ])("%o gèle le type 24 h et garde la tâche en file", async (erreur) => {
-      const id = await tache("invitation", await prospect(`gel${erreur.status}`));
+      ["invitation", { status: 422, type: "provider/unprocessable_entity" }],
+      ["invitation", { status: 429, type: "provider/too_many_requests" }],
+      ["lecture_profil", { status: 500 }],
+    ] as const)("%s + %o : gel 24 h, tâche gardée en file", async (type, erreur) => {
+      const id = await tache(type, await prospect(`gel${erreur.status}`));
       const { executeur, appels } = fauxUnipile(() => ({ ok: false, erreur }));
       expect(await tour(JEUDI_10H, executeur)).toMatchObject({ resultat: "gel" });
-      const q = await db.pool.query("select gel_jusqu_a from public.quotas where type_quota = 'invitation'");
+      const q = await db.pool.query("select gel_jusqu_a from public.quotas where type_quota = $1", [type]);
       expect(q.rows[0].gel_jusqu_a).toEqual(minutes(JEUDI_10H, 24 * 60));
       expect((await statut(id)).statut).toBe("en_attente");
       // Pendant le gel, rien ne repart.

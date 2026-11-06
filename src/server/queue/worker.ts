@@ -259,21 +259,27 @@ export async function executerUnTour(opts: OptionsTour): Promise<BilanTour> {
 
     const erreur = resultat.erreur;
     const code = [erreur.status ?? "sans_reponse", erreur.type].filter(Boolean).join(" ");
-    const issue = classerErreur(erreur);
+    const details = erreur.detail ? { detail: erreur.detail.slice(0, 500) } : {};
+    const issue = classerErreur(erreur, tache.typeAction);
 
     switch (issue.genre) {
       case "gel":
-        await c.query("update public.actions set resultat = 'echec', code_erreur = $2 where id = $1", [actionId, code]);
+        await c.query("update public.actions set resultat = $3, code_erreur = $2, details = $4 where id = $1", [
+          actionId,
+          code,
+          issue.incertain ? "incertain" : "echec",
+          details,
+        ]);
         await c.query("update public.quotas set gel_jusqu_a = $2 where type_quota = $1", [
           tache.typeAction,
           new Date(fin.getTime() + issue.duree_ms),
         ]);
         await c.query(
-          `update public.taches set statut = 'en_attente', verrou_jusqu_a = null, derniere_erreur = $2,
-                  motif_attente = 'gel', updated_at = $3 where id = $1`,
-          [tache.id, code, fin],
+          `update public.taches set statut = $4, verrou_jusqu_a = null, derniere_erreur = $2,
+                  motif_attente = $5, updated_at = $3 where id = $1`,
+          [tache.id, code, fin, issue.incertain ? "incertaine" : "en_attente", issue.incertain ? "incertaine" : "gel"],
         );
-        return { statut: "execute" as const, tacheId: tache.id, resultat: "gel" as const };
+        return { statut: "execute" as const, tacheId: tache.id, resultat: issue.incertain ? ("incertain" as const) : ("gel" as const) };
       case "reessayer":
         await c.query("update public.actions set resultat = 'echec', code_erreur = $2 where id = $1", [actionId, code]);
         await c.query(
