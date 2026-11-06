@@ -46,6 +46,25 @@ Next.js 16 + TypeScript sur Vercel, Supabase (Postgres, Auth, Realtime).
 - Pas d'événement « invitation acceptée » en v2 : `relation.new` (jusqu'à 6 h de retard) + lecture de la première page des relations et des invitations envoyées 3 fois par jour à heures aléatoires, via la file.
 - Previews Vercel : client Unipile simulé et base de test.
 
+## Interface et design
+
+Source : brief « Outil de prospection LinkedIn », section « Interface et design ».
+
+- Dépôts de référence, clonés dans `design-refs/` (hors du code de l'app, non versionnés ; seul l'inventaire l'est) :
+  `swamimalode07/rare-ui`, `Jakubantalik/transitions.dev`, `starc007/ui-components`, `ddoemonn/interior`,
+  `elayadesign/ai-design-skills`.
+- Avant toute ligne d'UI : lire README et chaque composant / animation / transition, appliquer les consignes de
+  `ai-design-skills`, produire `design-refs/INVENTAIRE.md` (dépôt, chemin, rôle, dépendances, licence, écran
+  cible, choix justifié en une ligne).
+- Copier et adapter les composants retenus, jamais un dépôt entier. Licence vérifiée pour chacun ; sans licence
+  claire : s'en inspirer sans copier.
+- Besoins : liste / tableau filtrable, kanban avec glisser-déposer, fiche en panneau latéral avec historique,
+  Inbox (liste, fil, saisie, état « envoi en cours »), badges de statut et d'étape, jauge de quotas toujours
+  visible, graphiques et entonnoir, transitions, notifications (envoi réussi, quota atteint, action gelée).
+- Charte : SF Pro Display (police système), accent `#e0625a`, surface `#f5f2f2` ; les composants s'adaptent à
+  la charte. Animations courtes qui accompagnent un changement d'état sans retarder l'action ;
+  `prefers-reduced-motion` respecté.
+
 ## Phase 1 — tâches
 
 1. Base : migrations, RLS, Postgres de test en CI.
@@ -61,5 +80,7 @@ Next.js 16 + TypeScript sur Vercel, Supabase (Postgres, Auth, Realtime).
 11. Synchronisation des statuts par listes.
 12. Webhook signé et idempotent.
 13. Réglages : plafonds bornés, plages, délais, cadence, bouton d'arrêt.
-14. Interface : jauge de quotas et état de la file, liste CRM, vue File d'attente.
+14. Interface :
+    a. clonage des dépôts de design, lecture complète, `design-refs/INVENTAIRE.md` avec licences et choix ;
+    b. jauge de quotas et état de la file, liste CRM, vue File d'attente, avec les composants retenus.
 15. Mise en production : pg_cron, variables Vercel, mode simulé en preview.
