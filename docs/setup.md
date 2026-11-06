@@ -40,6 +40,15 @@ Projet Supabase : `qmweywmldehnsjhqexbl` (région eu-central-1). Seules les adre
 3. **Actions → General** : *Workflow permissions* = « Read repository contents ». *Fork pull request workflows* : exiger l'approbation pour les contributeurs externes.
 4. **Secrets and variables → Actions** : secret `ANTHROPIC_API_KEY` (clé dédiée à la revue sécurité, plafond de dépense bas). Variable optionnelle `SECURITY_REVIEW_MODEL` pour choisir le modèle ; vide = défaut de l'action.
 
+## Production (déployée le 2026-11-06)
+- Projet Vercel `outreach-linkedin` (équipe Notion Club), fonctions en `fra1` (proche de Supabase eu-central-1), Node 22.
+- URL : https://outreach-linkedin-eta.vercel.app (alias https://outreach-linkedin-g0uman.vercel.app).
+- Worker : `cron.job` « worker-tick » (Supabase pg_cron) appelle `/api/worker/tick` chaque minute avec le secret
+  `worker_secret` du coffre Supabase (Vault). Tant que `WORKER_SECRET` n'est pas défini dans Vercel, la route répond 503.
+- Variables Vercel à ajouter à la main (Settings → Environment Variables, type *Sensitive*, Production) :
+  `DATABASE_URL`, `DATABASE_CA_CERT`, `WORKER_SECRET` (valeur : Supabase → Vault → `worker_secret`),
+  puis plus tard `UNIPILE_*`. Redéployer après ajout.
+
 ## Vercel
 1. Importer le repo. Production Branch = `main`. Ne jamais déployer en CLI.
 2. Variables d'environnement séparées Production / Preview / Development. Previews sur un projet Supabase de test. Clés privées marquées *Sensitive*.
