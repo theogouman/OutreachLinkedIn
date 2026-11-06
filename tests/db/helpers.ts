@@ -21,7 +21,9 @@ export function migrationsSql(): string[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))
     .sort()
-    .map((f) => readFileSync(join(dir, f), "utf8"));
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    // Migrations propres à Supabase (pg_cron, Vault) : absentes d'un Postgres nu.
+    .filter((sql) => !sql.startsWith("-- @production-uniquement"));
 }
 
 export interface TestDb {
