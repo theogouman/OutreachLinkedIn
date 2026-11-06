@@ -42,12 +42,24 @@ Projet Supabase : `qmweywmldehnsjhqexbl` (région eu-central-1). Seules les adre
 
 ## Production (déployée le 2026-11-06)
 - Projet Vercel `outreach-linkedin` (équipe Notion Club), fonctions en `fra1` (proche de Supabase eu-central-1), Node 22.
-- URL : https://outreach-linkedin-eta.vercel.app (alias https://outreach-linkedin-g0uman.vercel.app).
+- URL : **https://outreach.gouman.fr** (CNAME `outreach` → `2ba026043f4deb2b.vercel-dns-017.com.` dans la zone Hostinger
+  de gouman.fr). Alias : https://outreach-gouman.vercel.app, https://outreach-linkedin-eta.vercel.app.
 - Worker : `cron.job` « worker-tick » (Supabase pg_cron) appelle `/api/worker/tick` chaque minute avec le secret
   `worker_secret` du coffre Supabase (Vault). Tant que `WORKER_SECRET` n'est pas défini dans Vercel, la route répond 503.
-- Variables Vercel à ajouter à la main (Settings → Environment Variables, type *Sensitive*, Production) :
-  `DATABASE_URL`, `DATABASE_CA_CERT`, `WORKER_SECRET` (valeur : Supabase → Vault → `worker_secret`),
-  puis plus tard `UNIPILE_*`. Redéployer après ajout.
+- Variables Vercel (Settings → Environment Variables). Déjà renseignées : `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `UNIPILE_MODE=simule`. Pré-créées en *Sensitive* (Production) avec la valeur
+  `A_REMPLIR`, volontairement invalide (la route concernée refuse tout tant qu'elle n'est pas remplacée) :
+
+  | Variable | Où la trouver |
+  |---|---|
+  | `DATABASE_URL` | Supabase → Connect → Transaction pooler (mot de passe de la base inclus, sans `sslmode`) |
+  | `DATABASE_CA_CERT` | Supabase → Project Settings → Database → SSL Configuration → Download certificate (contenu PEM) |
+  | `WORKER_SECRET` | Supabase → Project Settings → Vault → `worker_secret` (afficher la valeur) |
+  | `UNIPILE_API_KEY` | Dashboard Unipile → API Keys (v2) |
+  | `UNIPILE_ACCOUNT_ID` | Dashboard Unipile → Accounts → compte LinkedIn (`acc_…`) |
+  | `UNIPILE_WEBHOOK_SECRET` | Dashboard Unipile → Webhooks → endpoint `https://outreach.gouman.fr/api/webhooks/unipile` |
+
+  Passer `UNIPILE_MODE` à `reel` seulement quand les trois `UNIPILE_*` sont remplis. Redéployer après chaque modification.
 
 ## Vercel
 1. Importer le repo. Production Branch = `main`. Ne jamais déployer en CLI.
