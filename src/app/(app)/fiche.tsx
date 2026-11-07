@@ -7,6 +7,8 @@ import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
 import Link from "next/link";
 import { Avatar } from "@/components/interface/elements";
+import { LogoLinkedIn } from "@/components/logos";
+import { lienProfilLinkedIn } from "@/lib/linkedin-url";
 
 const EVENEMENTS: Record<string, string> = {
   invitation: "Invitation",
@@ -39,6 +41,7 @@ export function PanneauFiche({
     router.replace(q.size ? `${chemin}?${q}` : chemin, { scroll: false });
   };
   const nom = [fiche.prenom, fiche.nom].filter(Boolean).join(" ") || "Prospect";
+  const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
 
   return (
     <Panneau ouvert fermer={fermer} titre={nom} description={[fiche.poste, fiche.entreprise].filter(Boolean).join(" · ") || undefined}>
@@ -50,12 +53,17 @@ export function PanneauFiche({
             <BadgeEtape libelle={libelleEtape} />
           </div>
         </div>
+        {lienProfil && (
+          <a href={lienProfil} target="_blank" rel="noopener noreferrer" className="bouton bouton-contour self-start">
+            <LogoLinkedIn taille={18} />
+            Ouvrir son LinkedIn
+            <span className="sr-only"> (nouvel onglet)</span>
+          </a>
+        )}
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-trait ring-1 ring-trait">
           {[
-            // Lien affiché seulement : l'ouvrir compte comme une visite de profil sur LinkedIn.
-            { t: "Profil", d: fiche.linkedinUrl.replace(/^https:\/\/(www\.)?/, ""), large: true },
-            { t: "Liste d'origine", d: fiche.listeOrigine ?? "—" },
-            { t: "Prochaine relance", d: fiche.prochaineRelance ?? "—" },
+            { t: "Liste d'origine", d: fiche.listeOrigine ?? "Aucune" },
+            { t: "Prochaine relance", d: fiche.prochaineRelance ?? "Non planifiée" },
             { t: "Identifiant LinkedIn", d: fiche.identifie ? "Lu" : "Lecture en file", large: true },
           ].map((x) => (
             <div key={x.t} className={`flex min-w-0 flex-col gap-0.5 bg-carte px-3 py-2.5 ${x.large ? "col-span-2" : ""}`}>

@@ -106,7 +106,6 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                     aria-current={actif ? "true" : undefined}
                     className={`relative flex gap-3 px-4 py-3 outline-none transition-colors duration-150 focus-visible:bg-accent-doux ${actif ? "bg-accent-doux" : "hover:bg-creux"}`}
                   >
-                    {actif && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-action" aria-hidden />}
                     <Avatar nom={c.nom} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center justify-between gap-2">

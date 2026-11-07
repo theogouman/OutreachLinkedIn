@@ -8,45 +8,60 @@ import { IconeFile, IconeImport, IconeInbox, IconeProspects, IconeReglages } fro
 const LIENS = [
   { href: "/", libelle: "Prospects", Icone: IconeProspects, compte: null },
   { href: "/inbox", libelle: "Inbox", Icone: IconeInbox, compte: "nonLus" },
-  { href: "/file", libelle: "File d'attente", Icone: IconeFile, compte: "enAttente" },
+  { href: "/file", libelle: "File", Icone: IconeFile, compte: "enAttente" },
   { href: "/import", libelle: "Import", Icone: IconeImport, compte: null },
   { href: "/reglages", libelle: "Réglages", Icone: IconeReglages, compte: null },
 ] as const;
 
-const GLISSE = { type: "spring", stiffness: 520, damping: 40, mass: 0.6 } as const;
+/* Pilule glissante NC : 220 ms, courbe nc-ease. */
+const GLISSE = { duration: 0.22, ease: [0.22, 1, 0.36, 1] } as const;
 
-/** Navigation principale : page courante signalée (fond glissant), compteurs. */
-export function Navigation({ comptes, horizontale = false }: { comptes: { nonLus: number; enAttente: number }; horizontale?: boolean }) {
+type Comptes = { nonLus: number; enAttente: number };
+
+/**
+ * Navigation principale (DA Notion Club) : pilule glissante sous l'onglet actif.
+ * « haut » : barre flottante desktop ; « bas » : barre de pouce mobile.
+ */
+export function Navigation({ comptes, variante }: { comptes: Comptes; variante: "haut" | "bas" }) {
   const chemin = usePathname();
   const reduit = useReducedMotion();
   const estActif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
+  const bas = variante === "bas";
 
   return (
     <nav aria-label="Navigation principale">
-      <ul className={horizontale ? "flex gap-1 overflow-x-auto" : "flex flex-col gap-0.5"}>
+      <ul className={bas ? "flex items-stretch justify-between gap-1" : "flex items-center gap-0.5"}>
         {LIENS.map(({ href, libelle, Icone, compte }) => {
           const actif = estActif(href);
           const n = compte ? comptes[compte] : 0;
           return (
-            <li key={href} className="relative">
+            <li key={href} className={`relative ${bas ? "flex-1" : ""}`}>
               {actif && (
                 <motion.span
-                  layoutId={horizontale ? "nav-actif-h" : "nav-actif"}
+                  layoutId={`nav-actif-${variante}`}
                   transition={reduit ? { duration: 0 } : GLISSE}
-                  className="absolute inset-0 rounded-lg bg-carte shadow-[0_1px_2px_rgba(28,25,23,0.06)] ring-1 ring-trait"
+                  className="absolute inset-0 rounded-full bg-black/[0.07]"
                 />
               )}
               <Link
                 href={href}
                 aria-current={actif ? "page" : undefined}
-                className={`relative flex items-center gap-3 rounded-lg px-3 py-2 body-5 whitespace-nowrap outline-none transition-colors duration-200 focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] ${
-                  actif ? "text-encre" : "text-encre-2 hover:text-encre"
-                }`}
+                aria-label={n > 0 ? `${libelle} (${n})` : undefined}
+                className={`relative flex items-center rounded-full whitespace-nowrap text-encre outline-none transition-colors duration-150 focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] ${
+                  bas ? "flex-col gap-0.5 px-2 py-1.5 text-[11px]" : "gap-2 px-4 py-2 text-sm"
+                } ${actif ? "font-semibold" : "font-normal hover:bg-black/[0.04]"}`}
               >
-                <Icone taille={18} className={actif ? "text-action" : "text-encre-3"} />
+                <span className="relative">
+                  <Icone taille={bas ? 20 : 17} />
+                  {n > 0 && bas && (
+                    <span className={`absolute -right-2 -top-1 min-w-4 rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums ${compte === "nonLus" ? "bg-action text-white" : "bg-sombre text-white"}`}>
+                      {n}
+                    </span>
+                  )}
+                </span>
                 <span>{libelle}</span>
-                {n > 0 && (
-                  <span className={`ml-auto min-w-5 rounded-full px-1.5 text-center caption-3 tabular-nums ${compte === "nonLus" ? "bg-accent text-white" : "bg-black/5 text-encre-2"}`}>
+                {n > 0 && !bas && (
+                  <span className={`min-w-5 rounded-full px-1.5 text-center caption-3 tabular-nums ${compte === "nonLus" ? "bg-action text-white" : "bg-black/[0.06] text-encre-2"}`}>
                     {n}
                   </span>
                 )}

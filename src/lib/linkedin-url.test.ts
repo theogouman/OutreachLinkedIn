@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { identifiantVersProfil, normaliserUrlLinkedIn } from "./linkedin-url";
+import { identifiantVersProfil, lienProfilLinkedIn, normaliserUrlLinkedIn } from "./linkedin-url";
 
 describe("normaliserUrlLinkedIn", () => {
   it.each([
@@ -41,5 +41,24 @@ describe("identifiantVersProfil", () => {
   it("construit la forme normalisée", () => {
     expect(identifiantVersProfil("John-Smith-123")?.urlNormalisee).toBe("linkedin.com/in/john-smith-123");
     expect(identifiantVersProfil("../etc")).toBeNull();
+  });
+});
+
+describe("lienProfilLinkedIn", () => {
+  it("reconstruit un lien https vers linkedin.com depuis une URL stockée", () => {
+    expect(lienProfilLinkedIn("linkedin.com/in/camille-durand")).toBe("https://www.linkedin.com/in/camille-durand/");
+    expect(lienProfilLinkedIn("https://fr.linkedin.com/in/Camille-Durand?trk=x")).toBe("https://www.linkedin.com/in/camille-durand/");
+  });
+
+  it("encode les identifiants accentués", () => {
+    expect(lienProfilLinkedIn("linkedin.com/in/léa-bernard")).toBe("https://www.linkedin.com/in/l%C3%A9a-bernard/");
+  });
+
+  it("refuse tout ce qui n'est pas un profil LinkedIn", () => {
+    expect(lienProfilLinkedIn("javascript:alert(1)")).toBeNull();
+    expect(lienProfilLinkedIn("https://evil.example/in/camille")).toBeNull();
+    expect(lienProfilLinkedIn("https://linkedin.com.evil.example/in/camille")).toBeNull();
+    expect(lienProfilLinkedIn("")).toBeNull();
+    expect(lienProfilLinkedIn(null)).toBeNull();
   });
 });

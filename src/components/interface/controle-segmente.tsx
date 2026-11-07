@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 
 const CELLULE = { type: "spring", stiffness: 520, damping: 34, mass: 0.45 } as const;
-const SEG = "px-3 py-1.5 text-center text-sm leading-5 font-medium whitespace-nowrap";
+const SEG = "px-3.5 py-1.5 text-center text-sm leading-5 font-medium whitespace-nowrap";
 
 export interface OptionSegment {
   valeur: string;
@@ -30,7 +30,7 @@ export function ControleSegmente({
   onChange: (valeur: string) => void;
 }) {
   const n = Math.max(1, options.length);
-  const gabarit = `repeat(${n}, minmax(0, 1fr))`;
+  const gabarit = `repeat(${n}, 1fr)`;
   const trouve = options.findIndex((o) => o.valeur === valeur);
   const index = trouve < 0 ? 0 : trouve;
   const [survol, setSurvol] = useState(-1);
@@ -67,11 +67,11 @@ export function ControleSegmente({
     }
   };
 
-  const contenu = (o: OptionSegment, actif: boolean) => (
+  const contenu = (o: OptionSegment) => (
     <>
       {o.libelle}
       {o.compte !== undefined && (
-        <span className={`ml-1.5 tabular-nums ${actif ? "text-white/70" : "text-encre-3"}`}>{o.compte}</span>
+        <span className="ml-1.5 tabular-nums text-encre-3">{o.compte}</span>
       )}
     </>
   );
@@ -80,29 +80,29 @@ export function ControleSegmente({
     <div
       role="radiogroup"
       aria-label={libelle}
-      className="relative inline-block max-w-full select-none overflow-x-auto rounded-xl border border-trait bg-creux p-[3px]"
+      className="relative inline-block max-w-full select-none overflow-x-auto rounded-full border border-trait bg-creux p-[3px]"
     >
-      <div className="relative grid" style={{ gridTemplateColumns: gabarit, touchAction: "manipulation" }}>
+      <div className="relative grid w-max min-w-full" style={{ gridTemplateColumns: gabarit, touchAction: "manipulation" }}>
         {options.map((o, i) => (
           <span
             key={o.valeur}
             aria-hidden
             className={`${SEG} pointer-events-none ${survol === i && i !== index ? "text-encre" : "text-encre-2"}`}
           >
-            {contenu(o, false)}
+            {contenu(o)}
           </span>
         ))}
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-lg bg-encre shadow-[0_1px_2px_rgba(28,25,23,0.28)]"
+          className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-full bg-carte shadow-[0_1px_3px_rgba(0,0,0,0.1),0_0_0_0.5px_rgba(0,0,0,0.06)]"
           style={{ width: `${100 / n}%`, x: xPastille }}
           initial={false}
         >
           <motion.div className="absolute inset-0" style={{ x: xMasque }} initial={false}>
             <div className="absolute inset-y-0 left-0 grid" style={{ width: `${n * 100}%`, gridTemplateColumns: gabarit }}>
               {options.map((o) => (
-                <span key={o.valeur} className={`${SEG} text-white`}>
-                  {contenu(o, true)}
+                <span key={o.valeur} className={`${SEG} font-semibold text-encre`}>
+                  {contenu(o)}
                 </span>
               ))}
             </div>

@@ -15,7 +15,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - `src/server/auth.ts` : `exigerUtilisateur()` — session (`getClaims`) + autorisation (RLS : la ligne `reglages` n'est visible que d'une adresse autorisée).
 - `src/lib/supabase/` : clients navigateur et serveur (`@supabase/ssr`).
 - `src/components/interface/` : composants adaptés des dépôts de design (jauge, panneau latéral, notifications, zone de dépôt, contrôle segmenté, table triable, compteur), éléments communs (`elements.tsx` : en-tête de page, avatar, état vide, squelettes), notices dans `THIRD_PARTY_NOTICES.md`.
-- Système visuel : jetons de couleur et styles de texte nommés dans `src/app/globals.css` (`@theme`, `@utility` : `carte`, `bouton*`, `champ`, `heading-5`, `body-6`…) ; ne pas écrire de couleurs en dur. Icônes Phosphor dans `src/components/icones.tsx`, navigation latérale dans `src/components/navigation.tsx`. `motion` épinglé (14.6.0), `MotionConfig reducedMotion="user"` à la racine.
+- Système visuel : DA Notion Club (dépôt Notion-Club/Infrastructure : brand #e0625a, page #f5f2f2 à taches latérales, cartes 24 px, boutons en pilule sombre, navigation en pilule flottante en haut et barre de pouce en bas sur mobile), contrôlée avec anti-slop. Jetons de couleur et styles de texte nommés dans `src/app/globals.css` (`@theme`, `@utility` : `carte`, `bouton*`, `champ`, `heading-5`, `body-6`…) ; ne pas écrire de couleurs en dur. Icônes Phosphor dans `src/components/icones.tsx` (pas les SF Symbols du dépôt NC : licence Apple limitée aux plateformes Apple), logos de marque en ligne dans `src/components/logos.tsx`, navigation latérale dans `src/components/navigation.tsx`. `motion` épinglé (14.6.0), `MotionConfig reducedMotion="user"` à la racine.
 - `src/app/(app)/` : écrans protégés (prospects + fiche en panneau `?prospect=id`, file, import, réglages) ; `src/server/donnees.ts` et `mutations.ts` derrière `exigerUtilisateur()`.
 - `src/server/queue/` : `temps.ts` (heure de Paris), `politique.ts` (règles pures), `worker.ts` (un tour de file, connexion directe `pg`), `planification.ts` (une lecture par liste et par jour, heure aléatoire).
 - `src/server/unipile/` : `client-v2.ts` (API v2, réponses validées par Zod), `simule.ts` (aucun appel réseau), `executeur.ts` (tâche → appel → effets en base), `fabrique.ts` (`UNIPILE_MODE`).
@@ -47,6 +47,8 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 | Revue IA | `.github/workflows/security-review.yml` | Non, commentaires |
 
 ## Décisions
+- 2026-11-07 — Lien « Ouvrir son LinkedIn » reconstruit par `lienProfilLinkedIn()` depuis l'identifiant validé (jamais l'URL stockée telle quelle) : aucun autre domaine ni schéma possible.
+- 2026-11-07 — Boutons d'action en pilule sombre plutôt que rouge brand : le blanc sur #e0625a ne passe pas le contraste AA (3,4:1).
 - 2026-11-07 — Règle de l'utilisateur : déploiement direct en production à chaque push, pas de PR. `main` n'est plus utilisée.
 - 2026-11-06 — CodeGuard installé comme skill (chargé à la demande) plutôt que dans `.claude/rules/` (≈100 Ko chargés à chaque session).
 - 2026-11-06 — CSP sans nonce : compatible avec le rendu statique et `cacheComponents`. Passer à une CSP à nonce si l'app charge des scripts tiers.

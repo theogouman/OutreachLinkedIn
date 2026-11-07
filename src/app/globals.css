@@ -1,28 +1,34 @@
 @import "tailwindcss";
 
 /*
- * Système de design de l'outil.
- * - Charte : SF Pro Display (police système, licence Apple), accent #e0625a, surface #f5f2f2.
- * - Règles appliquées (ai-design-skills, MIT) : styles de texte nommés sur l'échelle Tailwind,
- *   espacements de l'échelle, fonds plats, rayons emboîtés, mouvement décéléré.
- * - Jetons de mouvement : transitions.dev (_root.css).
+ * Système de design de l'outil, aligné sur la DA Notion Club (dépôt Notion-Club/Infrastructure) :
+ * - SF Pro Display (police système), brand #e0625a, page #f5f2f2 à deux taches latérales,
+ *   textes #000 / #52525b / #64748b, bordures #e5e7eb, surfaces relevées #f5f5f5.
+ * - Rayons NC : 12 px (champs), 24 px (cartes), pilule (boutons, navigation).
+ * - Boutons d'action en pilule sombre (#1a1a1a) : contraste 17:1. Le rouge brand sert aux
+ *   accents (indicateurs, focus, sélection) ; sur fond rouge, le texte blanc passe par #b5443d.
+ * - Règles de qualité : ai-design-skills (MIT) et anti-slop (MIT).
  */
 @theme {
   --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 
-  /* Couleurs */
-  --color-surface: #f5f2f2; /* fond de l'application */
-  --color-carte: #ffffff;
-  --color-creux: #faf8f8; /* zones en retrait dans une carte */
-  --color-trait: #e9e4e3; /* bordures */
-  --color-trait-fort: #d9d2d0;
-  --color-encre: #1c1917; /* texte principal */
-  --color-encre-2: #4a4542; /* texte secondaire */
-  --color-encre-3: #6b6461; /* métadonnées (contraste ≥ 4,5:1 sur blanc et sur la surface) */
-  --color-accent: #e0625a; /* jauges, indicateurs, anneaux */
-  --color-action: #b5443d; /* boutons pleins et liens (5,4:1 sur blanc) */
+  /* Couleurs (jetons NC) */
+  --color-surface: #f5f2f2; /* surface-page */
+  --color-carte: #ffffff; /* surface-card */
+  --color-creux: #f5f5f5; /* surface-raised */
+  --color-trait: #e5e7eb; /* border-default */
+  --color-trait-fort: #d4d4d8;
+  --color-encre: #000000; /* text-primary */
+  --color-encre-2: #52525b; /* text-secondary */
+  --color-encre-3: #64748b; /* text-muted (4,7:1 sur blanc) */
+  --color-accent: #e0625a; /* brand */
+  --color-action: #b5443d; /* brand assombri : texte rouge et fonds rouges sous texte blanc (5,4:1) */
   --color-action-fonce: #9c3a34;
-  --color-accent-doux: #fbeceb;
+  --color-accent-doux: #fef3f2;
+  --color-sombre: #1a1a1a; /* boutons CTA sombres NC */
+
+  --radius-champ: 12px;
+  --radius-carte: 24px;
 
   /* Mouvement (transitions.dev) */
   --ease-sortie: cubic-bezier(0.22, 1, 0.36, 1);
@@ -30,13 +36,12 @@
 
   --animate-apparition: apparition 250ms var(--ease-sortie);
   --animate-chiffre: chiffre 500ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
-  --animate-lueur: lueur 1.4s linear infinite;
 }
 
 @keyframes apparition {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -58,15 +63,6 @@
   }
 }
 
-/* Skeleton (transitions.dev 14) */
-@keyframes lueur {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-}
 
 /* ── Styles de texte nommés (ai-design-skills B1) ─────────────────────────── */
 @utility heading-5 {
@@ -140,9 +136,15 @@
 /* ── Composants de base ──────────────────────────────────────────────────── */
 @utility carte {
   background: var(--color-carte);
-  border: 1px solid var(--color-trait);
-  border-radius: var(--radius-2xl);
-  box-shadow: 0 1px 2px rgb(28 25 23 / 0.04), 0 8px 24px -16px rgb(28 25 23 / 0.18);
+  border: 1px solid rgb(229 231 235 / 0.7);
+  border-radius: var(--radius-carte);
+  box-shadow: rgba(0, 0, 0, 0.06) 0 4px 24px 0, rgba(0, 0, 0, 0.04) 0 1px 2px 0; /* nc-shadow-3 */
+}
+/* Surfaces flottantes (navigation, menus) : nc-shadow-2. */
+@utility flottant {
+  background: var(--color-carte);
+  border: 0.5px solid var(--color-trait);
+  box-shadow: rgba(0, 0, 0, 0.03) 0 -2px 16px -4px, rgba(0, 0, 0, 0.08) 0 16px 40px -8px, rgba(0, 0, 0, 0.04) 0 1px 3px 0;
 }
 
 /* Bouton principal : 8 px × 12 px (ai-design-skills B2), états complets (B9). */
@@ -151,12 +153,14 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-lg);
+  padding: 9px 16px;
+  border-radius: 9999px;
   font-size: var(--text-sm);
   line-height: var(--text-sm--line-height);
   font-weight: 600;
-  transition-property: background-color, color, box-shadow, transform;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition-property: background-color, color, box-shadow, transform, opacity;
   transition-duration: 200ms;
   transition-timing-function: var(--ease-sortie);
   outline: none;
@@ -172,8 +176,17 @@
   }
 }
 @utility bouton-plein {
+  background: var(--color-sombre);
+  color: white;
+  &:hover:not(:disabled) {
+    background: #333333;
+  }
+}
+/* Pilule brand (une action forte par écran au plus : arrêt, connexion). */
+@utility bouton-marque {
   background: var(--color-action);
   color: white;
+  box-shadow: 0 10px 24px -12px rgba(224, 98, 90, 0.7);
   &:hover:not(:disabled) {
     background: var(--color-action-fonce);
   }
@@ -181,7 +194,7 @@
 @utility bouton-contour {
   background: var(--color-carte);
   color: var(--color-encre);
-  box-shadow: inset 0 0 0 1px var(--color-trait-fort);
+  box-shadow: inset 0 0 0 1px var(--color-trait);
   &:hover:not(:disabled) {
     background: var(--color-creux);
   }
@@ -189,35 +202,67 @@
 @utility bouton-discret {
   color: var(--color-encre-2);
   &:hover:not(:disabled) {
-    background: rgb(28 25 23 / 0.05);
+    background: rgba(0, 0, 0, 0.04); /* nc-nav-hover-bg */
     color: var(--color-encre);
   }
 }
 
 @utility champ {
   width: 100%;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-champ);
   background: var(--color-carte);
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: var(--text-sm);
   line-height: var(--text-sm--line-height);
   color: var(--color-encre);
-  box-shadow: inset 0 0 0 1px var(--color-trait-fort);
+  box-shadow: inset 0 0 0 1px var(--color-trait);
   outline: none;
   transition: box-shadow 200ms var(--ease-sortie);
   &::placeholder {
     color: var(--color-encre-3);
   }
   &:focus-visible {
-    box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 3px rgb(224 98 90 / 0.18);
+    box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 3px rgb(224 98 90 / 0.12);
   }
 }
 
+/* nc-skeleton : pulsation douce sur la couleur de bordure. */
 @utility squelette {
   border-radius: var(--radius-md);
-  background: linear-gradient(90deg, #efeae9 25%, #f7f4f3 37%, #efeae9 63%);
-  background-size: 400% 100%;
-  animation: var(--animate-lueur);
+  background: var(--color-trait);
+  animation: squelette-pulse 1.4s var(--ease-sortie) infinite;
+}
+@keyframes squelette-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Fond d'application NC : surface unie et deux taches brand latérales, un seul élément fixe. */
+.fond-app {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(56% 50% at -8% 50%, rgba(224, 99, 90, 0.28) 0%, transparent 72%),
+    radial-gradient(56% 50% at 108% 50%, rgba(224, 99, 90, 0.26) 0%, transparent 72%),
+    var(--color-surface);
+}
+
+::selection {
+  background: rgba(224, 98, 90, 0.24);
+  color: inherit;
+}
+
+/* Apparition échelonnée (nc-content-enter) : --i = rang de l'élément. */
+.entree {
+  animation: apparition 250ms var(--ease-sortie) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
 }
 
 body {
@@ -237,4 +282,34 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Carte d'authentification NC : liseré brand en rotation lente (arrêté si mouvement réduit). */
+@property --angle-liseré {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rotation-liseré {
+  to {
+    --angle-liseré: 360deg;
+  }
+}
+.carte-lisere {
+  position: relative;
+  border-radius: var(--radius-carte);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--angle-liseré),
+    rgba(224, 98, 90, 0.08),
+    rgba(224, 98, 90, 0.85) 25%,
+    rgba(224, 98, 90, 0.08) 50%,
+    rgba(224, 98, 90, 0.08) 100%
+  );
+  animation: rotation-liseré 4s linear infinite;
+  box-shadow: rgba(0, 0, 0, 0.03) 0 -2px 16px -4px, rgba(0, 0, 0, 0.08) 0 16px 40px -8px, rgba(0, 0, 0, 0.04) 0 1px 3px 0;
+}
+.carte-lisere > * {
+  border-radius: 22px;
+  background: var(--color-carte);
 }

@@ -2,54 +2,64 @@ import { Suspense } from "react";
 import { JaugeQuotas } from "@/components/jauge-quotas";
 import { BoutonArret } from "@/components/bouton-arret";
 import { Navigation } from "@/components/navigation";
-import { IconeDeconnexion, IconeLinkedIn } from "@/components/icones";
+import { IconeDeconnexion } from "@/components/icones";
 import { etatOutil } from "@/server/donnees";
 import { exigerUtilisateur } from "@/server/auth";
 import { seDeconnecter } from "../actions-auth";
 
+/*
+ * Coque de l'application, DA Notion Club : fond à taches latérales, barre de navigation
+ * en pilule flottante (desktop) et barre de pouce en bas (mobile).
+ */
 export default function LayoutApp({ children }: LayoutProps<"/">) {
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div className="min-h-dvh">
+      <div className="fond-app" aria-hidden />
       <a
         href="#contenu"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-carte focus:px-3 focus:py-2 focus:body-5 focus:shadow"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-carte focus:px-4 focus:py-2 focus:body-5 focus:shadow"
       >
         Aller au contenu
       </a>
 
-      {/* Colonne de navigation (écran large) */}
-      <aside className="sticky top-0 hidden h-screen flex-col gap-8 px-4 py-6 lg:flex">
-        <Marque />
-        <Suspense fallback={<SqueletteNav />}>
-          <NavigationAvecComptes />
-        </Suspense>
-        <div className="mt-auto">
-          <Suspense fallback={<span className="squelette block h-10 w-full" />}>
+      {/* Barre flottante (écran moyen et plus) */}
+      <header className="fixed inset-x-0 top-0 z-40 hidden justify-center px-6 pt-3.5 md:flex lg:px-10">
+        <div className="flottant flex w-full max-w-[1080px] items-center justify-between gap-6 rounded-full py-2 pl-6 pr-2">
+          <div className="flex min-w-0 items-center gap-4">
+            <Marque />
+            <span aria-hidden className="h-[22px] w-px shrink-0 bg-trait" />
+            <Suspense fallback={<SqueletteNav />}>
+              <NavigationAvecComptes variante="haut" />
+            </Suspense>
+          </div>
+          <Suspense fallback={<span className="squelette block size-9 rounded-full" />}>
             <Compte />
           </Suspense>
         </div>
-      </aside>
+      </header>
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-30 bg-surface/85 px-4 pb-3 pt-4 backdrop-blur-md lg:px-8">
-          <div className="mb-3 flex items-center justify-between gap-3 lg:hidden">
-            <Marque />
-            <Suspense fallback={null}>
-              <Compte compact />
-            </Suspense>
-          </div>
-          <div className="mb-3 lg:hidden">
-            <Suspense fallback={<span className="squelette block h-9 w-full" />}>
-              <NavigationAvecComptes horizontale />
-            </Suspense>
-          </div>
-          <Suspense fallback={<span className="squelette block h-[68px] w-full rounded-2xl" />}>
-            <Etat />
+      {/* En-tête mobile */}
+      <div className="flex items-center justify-between px-4 pt-4 md:hidden">
+        <Marque />
+        <Suspense fallback={null}>
+          <Compte />
+        </Suspense>
+      </div>
+
+      <main id="contenu" className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-[104px] lg:px-0">
+        <Suspense fallback={<span className="squelette block h-[76px] w-full rounded-[24px]" />}>
+          <Etat />
+        </Suspense>
+        {children}
+      </main>
+
+      {/* Barre de pouce (mobile) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] md:hidden">
+        <div className="flottant rounded-full px-2 py-1.5">
+          <Suspense fallback={<span className="squelette block h-11 w-full rounded-full" />}>
+            <NavigationAvecComptes variante="bas" />
           </Suspense>
-        </header>
-        <main id="contenu" className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-4 lg:px-8">
-          {children}
-        </main>
+        </div>
       </div>
     </div>
   );
@@ -57,41 +67,39 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
 
 function Marque() {
   return (
-    <div className="flex items-center gap-3 px-1">
-      <span className="grid size-9 place-items-center rounded-xl bg-action text-white shadow-[0_1px_2px_rgba(28,25,23,0.2)]">
-        <IconeLinkedIn taille={20} />
-      </span>
-      <div className="leading-tight">
-        <p className="title-4 text-encre">Prospection</p>
-        <p className="caption-5 text-encre-3">LinkedIn · Théo</p>
-      </div>
-    </div>
+    <p className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap">
+      <span className="text-[17px] font-bold tracking-[-0.02em] text-encre">Prospection</span>
+      <span className="size-1.5 rounded-full bg-accent" aria-hidden />
+    </p>
   );
 }
 
 function SqueletteNav() {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex gap-1">
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className="squelette h-9 w-full rounded-lg" />
+        <span key={i} className="squelette h-9 w-24 rounded-full" />
       ))}
     </div>
   );
 }
 
-async function NavigationAvecComptes({ horizontale = false }: { horizontale?: boolean }) {
+async function NavigationAvecComptes({ variante }: { variante: "haut" | "bas" }) {
   const etat = await etatOutil();
-  return <Navigation horizontale={horizontale} comptes={{ nonLus: etat.nonLus, enAttente: etat.enAttente }} />;
+  return <Navigation variante={variante} comptes={{ nonLus: etat.nonLus, enAttente: etat.enAttente }} />;
 }
 
 async function Etat() {
   const etat = await etatOutil();
   return (
-    <div className="carte flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
+    <div className="carte flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-3.5">
       <JaugeQuotas etat={etat} />
       <div className="ml-auto flex items-center gap-3">
         {etat.modeSimule && (
-          <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800 ring-1 ring-inset ring-amber-200" title="Aucune action n'est envoyée à LinkedIn tant qu'Unipile n'est pas branché.">
+          <span
+            className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800 ring-1 ring-inset ring-amber-200"
+            title="Aucune action n'est envoyée à LinkedIn tant qu'Unipile n'est pas branché."
+          >
             Mode démo
           </span>
         )}
@@ -101,12 +109,19 @@ async function Etat() {
   );
 }
 
-async function Compte({ compact = false }: { compact?: boolean }) {
+async function Compte() {
   const u = await exigerUtilisateur();
+  const initiale = (u.email ?? "?").charAt(0).toUpperCase();
   return (
-    <form action={seDeconnecter} className="flex items-center gap-2">
-      {!compact && <span className="min-w-0 flex-1 truncate caption-5 text-encre-3">{u.email}</span>}
-      <button type="submit" className="bouton bouton-discret px-2" aria-label="Se déconnecter" title="Se déconnecter">
+    <form action={seDeconnecter} className="flex items-center gap-1">
+      <span
+        className="grid size-9 place-items-center rounded-full bg-accent text-sm font-semibold text-white"
+        title={u.email ?? undefined}
+        aria-hidden
+      >
+        {initiale}
+      </span>
+      <button type="submit" className="bouton bouton-discret size-9 p-0" aria-label="Se déconnecter" title="Se déconnecter">
         <IconeDeconnexion taille={18} />
       </button>
     </form>
