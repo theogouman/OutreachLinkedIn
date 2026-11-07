@@ -1,12 +1,36 @@
 @import "tailwindcss";
 
-/* Design system : SF Pro Display via la police système (licence Apple : non servie
-   en police web), accent #e0625a, surface #f5f2f2. */
+/*
+ * Système de design de l'outil.
+ * - Charte : SF Pro Display (police système, licence Apple), accent #e0625a, surface #f5f2f2.
+ * - Règles appliquées (ai-design-skills, MIT) : styles de texte nommés sur l'échelle Tailwind,
+ *   espacements de l'échelle, fonds plats, rayons emboîtés, mouvement décéléré.
+ * - Jetons de mouvement : transitions.dev (_root.css).
+ */
 @theme {
-  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --color-accent: #e0625a;
-  --color-surface: #f5f2f2;
-  --animate-apparition: apparition 180ms ease-out;
+  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* Couleurs */
+  --color-surface: #f5f2f2; /* fond de l'application */
+  --color-carte: #ffffff;
+  --color-creux: #faf8f8; /* zones en retrait dans une carte */
+  --color-trait: #e9e4e3; /* bordures */
+  --color-trait-fort: #d9d2d0;
+  --color-encre: #1c1917; /* texte principal */
+  --color-encre-2: #4a4542; /* texte secondaire */
+  --color-encre-3: #6b6461; /* métadonnées (contraste ≥ 4,5:1 sur blanc et sur la surface) */
+  --color-accent: #e0625a; /* jauges, indicateurs, anneaux */
+  --color-action: #b5443d; /* boutons pleins et liens (5,4:1 sur blanc) */
+  --color-action-fonce: #9c3a34;
+  --color-accent-doux: #fbeceb;
+
+  /* Mouvement (transitions.dev) */
+  --ease-sortie: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-rebond: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  --animate-apparition: apparition 250ms var(--ease-sortie);
+  --animate-chiffre: chiffre 500ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  --animate-lueur: lueur 1.4s linear infinite;
 }
 
 @keyframes apparition {
@@ -20,11 +44,190 @@
   }
 }
 
-body {
-  font-family: var(--font-sans);
+/* Number pop-in (transitions.dev 02) */
+@keyframes chiffre {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
 }
 
-/* Animations courtes et jamais bloquantes ; supprimées si l'utilisateur le demande. */
+/* Skeleton (transitions.dev 14) */
+@keyframes lueur {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Styles de texte nommés (ai-design-skills B1) ─────────────────────────── */
+@utility heading-5 {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl--line-height);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+@utility heading-6 {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl--line-height);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+@utility title-2 {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg--line-height);
+  font-weight: 500;
+}
+@utility title-3 {
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  font-weight: 500;
+}
+@utility title-4 {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+}
+@utility body-5 {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+}
+@utility body-6 {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 400;
+  text-wrap: pretty;
+}
+@utility button-sm {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 600;
+}
+@utility caption-3 {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 600;
+}
+@utility caption-4 {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 500;
+}
+@utility caption-5 {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 400;
+}
+@utility chiffre-cle {
+  font-size: var(--text-3xl);
+  line-height: var(--text-3xl--line-height);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Composants de base ──────────────────────────────────────────────────── */
+@utility carte {
+  background: var(--color-carte);
+  border: 1px solid var(--color-trait);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 1px 2px rgb(28 25 23 / 0.04), 0 8px 24px -16px rgb(28 25 23 / 0.18);
+}
+
+/* Bouton principal : 8 px × 12 px (ai-design-skills B2), états complets (B9). */
+@utility bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 600;
+  transition-property: background-color, color, box-shadow, transform;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-sortie);
+  outline: none;
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-carte), 0 0 0 4px var(--color-accent);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+@utility bouton-plein {
+  background: var(--color-action);
+  color: white;
+  &:hover:not(:disabled) {
+    background: var(--color-action-fonce);
+  }
+}
+@utility bouton-contour {
+  background: var(--color-carte);
+  color: var(--color-encre);
+  box-shadow: inset 0 0 0 1px var(--color-trait-fort);
+  &:hover:not(:disabled) {
+    background: var(--color-creux);
+  }
+}
+@utility bouton-discret {
+  color: var(--color-encre-2);
+  &:hover:not(:disabled) {
+    background: rgb(28 25 23 / 0.05);
+    color: var(--color-encre);
+  }
+}
+
+@utility champ {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  background: var(--color-carte);
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  color: var(--color-encre);
+  box-shadow: inset 0 0 0 1px var(--color-trait-fort);
+  outline: none;
+  transition: box-shadow 200ms var(--ease-sortie);
+  &::placeholder {
+    color: var(--color-encre-3);
+  }
+  &:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 3px rgb(224 98 90 / 0.18);
+  }
+}
+
+@utility squelette {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, #efeae9 25%, #f7f4f3 37%, #efeae9 63%);
+  background-size: 400% 100%;
+  animation: var(--animate-lueur);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+  color: var(--color-encre);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Animations courtes et jamais bloquantes ; remplacées par rien si l'utilisateur le demande. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

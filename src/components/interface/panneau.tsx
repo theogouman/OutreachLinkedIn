@@ -23,7 +23,7 @@ export interface PanneauProps {
   children: ReactNode;
 }
 
-export function Panneau({ ouvert, fermer, titre, description, largeur = 440, children }: PanneauProps) {
+export function Panneau({ ouvert, fermer, titre, description, largeur = 480, children }: PanneauProps) {
   const reduit = useReducedMotion();
   const titreId = useId();
   const panneauRef = useRef<HTMLDivElement>(null);
@@ -74,7 +74,7 @@ export function Panneau({ ouvert, fermer, titre, description, largeur = 440, chi
         <div className="fixed inset-0 z-50">
           <motion.div
             aria-hidden
-            className="absolute inset-0 bg-neutral-900/25"
+            className="absolute inset-0 bg-encre/25 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: FERMETURE }}
@@ -88,29 +88,29 @@ export function Panneau({ ouvert, fermer, titre, description, largeur = 440, chi
             tabIndex={-1}
             onKeyDown={onKeyDown}
             style={{ width: largeur, maxWidth: "calc(100% - 40px)" }}
-            className="absolute inset-y-0 right-0 flex flex-col rounded-l-[14px] border-l border-neutral-200 bg-white shadow-[0_28px_56px_-24px_rgba(24,22,20,0.45)] outline-none"
+            className="absolute inset-y-0 right-0 flex flex-col rounded-l-[14px] border-l border-trait bg-carte shadow-[0_28px_56px_-24px_rgba(24,22,20,0.45)] outline-none"
             initial={reduit ? { opacity: 0 } : { x: largeur + 24 }}
             animate={reduit ? { opacity: 1 } : { x: 0 }}
             exit={reduit ? { opacity: 0 } : { x: largeur + 24, transition: FERMETURE }}
             transition={reduit ? { duration: 0 } : OUVERTURE}
           >
-            <header className="flex items-start gap-3 border-b border-neutral-200 px-5 py-4">
+            <header className="flex items-start gap-3 border-b border-trait px-5 py-4">
               <div className="min-w-0 flex-1">
-                <h2 id={titreId} className="truncate text-base font-semibold text-neutral-900">{titre}</h2>
-                {description && <p className="mt-0.5 truncate text-sm text-neutral-500">{description}</p>}
+                <h2 id={titreId} className="truncate heading-6 text-encre">{titre}</h2>
+                {description && <p className="mt-0.5 truncate body-6 text-encre-3">{description}</p>}
               </div>
               <button
                 type="button"
                 onClick={fermer}
                 aria-label="Fermer le panneau"
-                className="-mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 focus-visible:outline-2 focus-visible:outline-[#b5443d]"
+                className="-mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-encre-3 hover:bg-creux hover:text-encre outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <svg width="13" height="13" viewBox="0 0 256 256" fill="none" aria-hidden>
                   <path d="M200 56 56 200M200 200 56 56" stroke="currentColor" strokeWidth="16" strokeLinecap="round" />
                 </svg>
               </button>
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">{children}</div>
           </motion.div>
         </div>
       )}

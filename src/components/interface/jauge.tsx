@@ -28,13 +28,13 @@ export function Jauge({ libelle, valeur, max, unite, gele = false }: JaugeProps)
   const atteint = fraction >= 1;
   const proche = !atteint && fraction >= 0.8;
   const etat = gele ? "gelé" : atteint ? "atteint" : proche ? "bientôt atteint" : null;
-  const couleur = gele ? "bg-amber-400" : atteint ? "bg-[#b5443d]" : "bg-[#e0625a]";
+  const couleur = gele ? "bg-amber-400" : atteint ? "bg-action" : "bg-accent";
 
   return (
-    <div className="flex min-w-[8.5rem] flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span id={id} className="truncate text-neutral-600">{libelle}</span>
-        <span className={`shrink-0 tabular-nums ${gele ? "text-amber-700" : atteint ? "text-[#b5443d]" : "text-neutral-800"}`}>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span id={id} className="truncate caption-5 text-encre-3">{libelle}</span>
+        <span className={`shrink-0 caption-4 tabular-nums ${gele ? "text-amber-700" : atteint ? "text-action" : "text-encre"}`}>
           {gele ? "gelé" : `${valeur}/${max} ${unite}`}
         </span>
       </div>
@@ -45,12 +45,12 @@ export function Jauge({ libelle, valeur, max, unite, gele = false }: JaugeProps)
         aria-valuemax={max}
         aria-valuenow={valeur}
         aria-valuetext={`${valeur} sur ${max} ${unite}${etat ? `, ${etat}` : ""}`}
-        className="rounded-[4px] bg-neutral-200/70 p-[2px] shadow-[inset_0_1px_2px_rgba(28,25,23,0.08)]"
+        className="rounded-full bg-black/[0.06] p-px"
       >
-        <div className="relative h-[6px] overflow-hidden rounded-[2px]">
+        <div className="relative h-1.5 overflow-hidden rounded-full">
           <motion.span
             aria-hidden
-            className={`absolute inset-0 block origin-left rounded-[2px] ${couleur}`}
+            className={`absolute inset-0 block origin-left rounded-full ${couleur}`}
             initial={false}
             animate={{ scaleX: fraction }}
             transition={reduit ? IMMEDIAT : REMPLISSAGE}

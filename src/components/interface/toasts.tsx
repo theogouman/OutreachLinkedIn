@@ -46,9 +46,9 @@ const ICONES: Record<StatutToast, ReactNode> = {
 };
 
 const COULEUR: Record<StatutToast, string> = {
-  info: "bg-neutral-100 text-neutral-600",
+  info: "bg-creux text-encre-2",
   succes: "bg-emerald-50 text-emerald-700",
-  erreur: "bg-[#e0625a]/10 text-[#b5443d]",
+  erreur: "bg-accent-doux text-action",
 };
 
 let graine = 0;
@@ -121,19 +121,19 @@ function Pile({ toasts, fermer }: { toasts: Toast[]; fermer: (id: string) => voi
             className="pointer-events-auto"
             style={{ zIndex: 20 - i }}
           >
-            <div className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+            <div className="flex items-start gap-3 rounded-2xl border border-trait bg-carte/95 p-3 shadow-[0_16px_40px_-16px_rgb(28_25_23/0.35)] backdrop-blur">
               <span className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${COULEUR[t.statut]}`}>
                 {ICONES[t.statut]}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium leading-5 text-neutral-900">{t.titre}</p>
-                {t.description && <p className="mt-0.5 text-xs leading-4 text-neutral-600">{t.description}</p>}
+                <p className="title-4 text-encre">{t.titre}</p>
+                {t.description && <p className="mt-0.5 caption-5 text-encre-2">{t.description}</p>}
               </div>
               <button
                 type="button"
                 onClick={() => fermer(t.id)}
                 aria-label="Fermer la notification"
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-encre-3 hover:bg-creux"
               >
                 <svg viewBox="0 0 256 256" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={20} strokeLinecap="round" aria-hidden>
                   <path d="M200 56 56 200M200 200 56 56" />

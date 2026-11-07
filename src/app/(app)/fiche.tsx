@@ -6,6 +6,7 @@ import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
 import Link from "next/link";
+import { Avatar } from "@/components/interface/elements";
 
 const EVENEMENTS: Record<string, string> = {
   invitation: "Invitation",
@@ -41,58 +42,68 @@ export function PanneauFiche({
 
   return (
     <Panneau ouvert fermer={fermer} titre={nom} description={[fiche.poste, fiche.entreprise].filter(Boolean).join(" · ") || undefined}>
-      <div className="flex flex-col gap-5 text-sm">
-        <div className="flex flex-wrap gap-2">
-          <BadgeStatut statut={fiche.statutRelation} />
-          <BadgeEtape libelle={libelleEtape} />
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center gap-3">
+          <Avatar nom={nom} taille={48} />
+          <div className="flex flex-wrap gap-2">
+            <BadgeStatut statut={fiche.statutRelation} />
+            <BadgeEtape libelle={libelleEtape} />
+          </div>
         </div>
-        <dl className="grid grid-cols-[8rem_1fr] gap-y-2">
-          <dt className="text-neutral-500">Profil</dt>
-          <dd className="truncate">
-            {/* Lien affiché seulement : l'ouvrir compte comme une visite de profil sur LinkedIn. */}
-            <span className="text-neutral-700">{fiche.linkedinUrl.replace(/^https:\/\/(www\.)?/, "")}</span>
-          </dd>
-          <dt className="text-neutral-500">Liste d&apos;origine</dt>
-          <dd>{fiche.listeOrigine ?? "—"}</dd>
-          <dt className="text-neutral-500">Prochaine relance</dt>
-          <dd>{fiche.prochaineRelance ?? "—"}</dd>
-          <dt className="text-neutral-500">Identifiant LinkedIn</dt>
-          <dd>{fiche.identifie ? "Lu" : "Lecture en file"}</dd>
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-trait ring-1 ring-trait">
+          {[
+            // Lien affiché seulement : l'ouvrir compte comme une visite de profil sur LinkedIn.
+            { t: "Profil", d: fiche.linkedinUrl.replace(/^https:\/\/(www\.)?/, ""), large: true },
+            { t: "Liste d'origine", d: fiche.listeOrigine ?? "—" },
+            { t: "Prochaine relance", d: fiche.prochaineRelance ?? "—" },
+            { t: "Identifiant LinkedIn", d: fiche.identifie ? "Lu" : "Lecture en file", large: true },
+          ].map((x) => (
+            <div key={x.t} className={`flex min-w-0 flex-col gap-0.5 bg-carte px-3 py-2.5 ${x.large ? "col-span-2" : ""}`}>
+              <dt className="caption-4 text-encre-3">{x.t}</dt>
+              <dd className="truncate body-6 text-encre">{x.d}</dd>
+            </div>
+          ))}
         </dl>
         {fiche.notes && (
-          <section>
-            <h3 className="mb-1 font-medium">Notes</h3>
-            <p className="whitespace-pre-wrap text-neutral-700">{fiche.notes}</p>
+          <section className="flex flex-col gap-2">
+            <h3 className="caption-3 uppercase tracking-wide text-encre-3">Notes</h3>
+            <p className="whitespace-pre-wrap rounded-xl bg-creux px-3 py-2.5 body-6 text-encre-2">{fiche.notes}</p>
           </section>
         )}
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="font-medium">Conversation LinkedIn</h3>
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="caption-3 uppercase tracking-wide text-encre-3">Conversation LinkedIn</h3>
             {conversation && (
-              <Link href={`/inbox?conversation=${conversation.id}`} className="text-xs text-[#b5443d] hover:underline">
+              <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret px-2 py-1 caption-3 text-action">
                 Ouvrir dans l&apos;Inbox
               </Link>
             )}
           </div>
-          {conversation ? <FilMessages messages={conversation.messages} nom={nom} /> : <p className="text-neutral-500">Aucune conversation.</p>}
-        </section>
-        <section>
-          <h3 className="mb-2 font-medium">Historique</h3>
-          {fiche.historique.length === 0 ? (
-            <p className="text-neutral-500">Aucun événement.</p>
+          {conversation ? (
+            <div className="rounded-xl bg-creux p-3">
+              <FilMessages messages={conversation.messages} nom={nom} />
+            </div>
           ) : (
-            <ol className="relative flex flex-col gap-3 border-l border-neutral-200 pl-4">
+            <p className="caption-5 text-encre-3">Aucune conversation pour l&apos;instant.</p>
+          )}
+        </section>
+        <section className="flex flex-col gap-3">
+          <h3 className="caption-3 uppercase tracking-wide text-encre-3">Historique</h3>
+          {fiche.historique.length === 0 ? (
+            <p className="caption-5 text-encre-3">Aucun événement.</p>
+          ) : (
+            <ol className="relative ml-1 flex flex-col gap-4 border-l border-trait pl-5">
               {fiche.historique.map((e, i) => (
                 <li key={i} className="relative">
                   <span
                     aria-hidden
-                    className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${e.enFile ? "bg-neutral-300" : e.resultat === "succes" ? "bg-[#e0625a]" : "bg-amber-400"}`}
+                    className={`absolute -left-[25.5px] top-1 size-2.5 rounded-full ring-4 ring-carte ${e.enFile ? "bg-trait-fort" : e.resultat === "succes" ? "bg-accent" : "bg-amber-400"}`}
                   />
-                  <p className="text-neutral-800">
+                  <p className="title-4 text-encre">
                     {EVENEMENTS[e.type] ?? e.type}
-                    {e.enFile ? " · en file" : (RESULTATS[e.resultat ?? ""] ?? "")}
+                    <span className="font-normal text-encre-3">{e.enFile ? " · en file" : (RESULTATS[e.resultat ?? ""] ?? "")}</span>
                   </p>
-                  <time dateTime={new Date(e.date).toISOString()} className="text-xs text-neutral-500">
+                  <time dateTime={new Date(e.date).toISOString()} className="caption-5 text-encre-3">
                     {e.enFile ? "Départ estimé " : ""}
                     {fmt.format(new Date(e.date))}
                   </time>

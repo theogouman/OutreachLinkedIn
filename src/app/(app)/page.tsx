@@ -1,19 +1,80 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { BadgeEtape, BadgeStatut } from "@/components/badges";
-import { etatOutil, ficheProspect, fil, filtresProspectsSchema, prospects, referentiels, TAILLE_PAGE } from "@/server/donnees";
+import {
+  etatOutil,
+  ficheProspect,
+  fil,
+  filtresProspectsSchema,
+  prospects,
+  referentiels,
+  statsProspects,
+  TAILLE_PAGE,
+} from "@/server/donnees";
 import { BoutonDemo } from "@/components/bouton-demo";
+import { Chiffre, EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
+import { IconeCalendrier, IconeAttente, IconeImport, IconeInbox, IconeProspects, IconeRecherche } from "@/components/icones";
 import { PanneauFiche } from "./fiche";
-import { LIBELLES_STATUT } from "@/lib/statut-relation";
+import { FiltreStatut, TableProspects } from "./liste-prospects";
 
 export default function PageProspects({ searchParams }: PageProps<"/">) {
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Prospects</h1>
-      <Suspense fallback={<p className="text-sm text-neutral-500">Chargement…</p>}>
+    <section className="flex flex-col gap-6">
+      <EnTetePage
+        titre="Prospects"
+        description="Statut de relation, étape et prochaine relance de chaque prospect, sans ouvrir un seul profil LinkedIn."
+        actions={
+          <Link href="/import" className="bouton bouton-plein">
+            <IconeImport taille={18} />
+            Importer
+          </Link>
+        }
+      />
+      <Suspense fallback={<SqueletteCartes />}>
+        <Indicateurs />
+      </Suspense>
+      <Suspense
+        fallback={
+          <>
+            <span className="squelette block h-10 w-full max-w-xl rounded-xl" />
+            <SqueletteLignes />
+          </>
+        }
+      >
         <Liste searchParams={searchParams} />
       </Suspense>
     </section>
+  );
+}
+
+async function Indicateurs() {
+  const s = await statsProspects();
+  const cartes = [
+    { libelle: "En relation", valeur: s.parStatut.en_relation, aide: `sur ${s.total} prospects`, Icone: IconeProspects, href: "/?statut=en_relation" },
+    { libelle: "Invitations en attente", valeur: s.parStatut.en_attente, aide: "acceptation non reçue", Icone: IconeAttente, href: "/?statut=en_attente" },
+    { libelle: "Réponses à traiter", valeur: s.aTraiter, aide: "dernier message reçu", Icone: IconeInbox, href: "/inbox?filtre=a_traiter", accent: s.aTraiter > 0 },
+    { libelle: "Relances dues", valeur: s.relancesDues, aide: "aujourd'hui ou en retard", Icone: IconeCalendrier, href: `/?relance=${new Date().toISOString().slice(0, 10)}`, accent: s.relancesDues > 0 },
+  ];
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {cartes.map((c) => (
+        <Link
+          key={c.libelle}
+          href={c.href}
+          className="carte group flex flex-col gap-3 p-4 outline-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)]"
+        >
+          <span className="flex items-center justify-between">
+            <span className="body-5 text-encre-2">{c.libelle}</span>
+            <span className={`grid size-8 place-items-center rounded-lg ${c.accent ? "bg-accent-doux text-action" : "bg-creux text-encre-3"}`}>
+              <c.Icone taille={18} />
+            </span>
+          </span>
+          <span className="flex items-baseline gap-2">
+            <Chiffre valeur={c.valeur} className="chiffre-cle text-encre" />
+            <span className="caption-5 text-encre-3">{c.aide}</span>
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -33,132 +94,110 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
     page: premier(sp.page) ?? 1,
   });
   const filtres = parse.success ? parse.data : { page: 1 };
-  const [{ lignes, total }, refs] = await Promise.all([prospects(filtres), referentiels()]);
-  const libelleEtape = new Map(refs.etapes.map((e) => [e.code, e.libelle]));
+  const idFiche = premier(sp.prospect);
+  const [{ lignes, total }, refs, stats, etat, fiche, conversation] = await Promise.all([
+    prospects(filtres),
+    referentiels(),
+    statsProspects(),
+    etatOutil(),
+    idFiche ? ficheProspect(idFiche) : null,
+    idFiche ? fil({ prospectId: idFiche }) : null,
+  ]);
+  const etapes = Object.fromEntries(refs.etapes.map((e) => [e.code, e.libelle]));
   const pages = Math.max(1, Math.ceil(total / TAILLE_PAGE));
+  const filtre = !!(filtres.recherche || filtres.etape || filtres.liste || filtres.relanceAvant || filtres.statut);
 
   const lienPage = (p: number) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries(sp)) {
       const s = premier(v);
-      if (s && k !== "page") q.set(k, s);
+      if (s && k !== "page" && k !== "prospect") q.set(k, s);
     }
     q.set("page", String(p));
     return `/?${q.toString()}`;
   };
-  const lienFiche = (id: string) => {
-    const q = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      const s = premier(v);
-      if (s && k !== "prospect") q.set(k, s);
-    }
-    q.set("prospect", id);
-    return `/?${q.toString()}`;
-  };
-  const idFiche = premier(sp.prospect);
-  const [fiche, conversation, etat] = await Promise.all([
-    idFiche ? ficheProspect(idFiche) : null,
-    idFiche ? fil({ prospectId: idFiche }) : null,
-    etatOutil(),
-  ]);
 
   return (
     <>
-      <form className="flex flex-wrap items-end gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm" role="search">
-        <label className="flex flex-col gap-1">
-          <span className="text-neutral-600">Recherche</span>
-          <input name="q" defaultValue={filtres.recherche} maxLength={100} className="rounded-lg border border-neutral-300 px-3 py-1.5" placeholder="Nom, entreprise…" />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-neutral-600">Statut</span>
-          <select name="statut" defaultValue={filtres.statut ?? ""} className="rounded-lg border border-neutral-300 px-3 py-1.5">
-            <option value="">Tous</option>
-            {Object.entries(LIBELLES_STATUT).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-neutral-600">Étape</span>
-          <select name="etape" defaultValue={filtres.etape ?? ""} className="rounded-lg border border-neutral-300 px-3 py-1.5">
-            <option value="">Toutes</option>
-            {refs.etapes.map((e) => (
-              <option key={e.code} value={e.code}>{e.libelle}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-neutral-600">Liste d&apos;origine</span>
-          <select name="liste" defaultValue={filtres.liste ?? ""} className="rounded-lg border border-neutral-300 px-3 py-1.5">
-            <option value="">Toutes</option>
-            {refs.listes.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-neutral-600">Relance avant le</span>
-          <input type="date" name="relance" defaultValue={filtres.relanceAvant} className="rounded-lg border border-neutral-300 px-3 py-1.5" />
-        </label>
-        <button type="submit" className="rounded-lg bg-[#b5443d] px-4 py-1.5 font-medium text-white hover:bg-[#9c3a34]">Filtrer</button>
-        <Link href="/" className="px-2 py-1.5 text-neutral-600 hover:underline">Réinitialiser</Link>
-      </form>
-
-      <p className="text-sm text-neutral-600">{total} prospect{total > 1 ? "s" : ""}</p>
+      <div className="flex flex-col gap-3">
+        <FiltreStatut stats={stats} />
+        <form className="flex flex-wrap items-center gap-2" role="search">
+          {filtres.statut && <input type="hidden" name="statut" value={filtres.statut} />}
+          <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
+            <span className="sr-only">Rechercher</span>
+            <IconeRecherche taille={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-encre-3" />
+            <input name="q" defaultValue={filtres.recherche} maxLength={100} placeholder="Nom, entreprise, poste" className="champ pl-9" />
+          </label>
+          <label>
+            <span className="sr-only">Étape</span>
+            <select name="etape" defaultValue={filtres.etape ?? ""} className="champ w-auto">
+              <option value="">Toutes les étapes</option>
+              {refs.etapes.map((e) => (
+                <option key={e.code} value={e.code}>{e.libelle}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="sr-only">Liste d&apos;origine</span>
+            <select name="liste" defaultValue={filtres.liste ?? ""} className="champ w-auto">
+              <option value="">Toutes les listes</option>
+              {refs.listes.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="caption-4 text-encre-3">Relance avant le</span>
+            <input type="date" name="relance" defaultValue={filtres.relanceAvant} className="champ w-auto" />
+          </label>
+          <button type="submit" className="bouton bouton-contour">Filtrer</button>
+          {filtre && (
+            <Link href="/" className="bouton bouton-discret">
+              Réinitialiser
+            </Link>
+          )}
+        </form>
+      </div>
 
       {lignes.length === 0 ? (
-        <div className="rounded-2xl bg-white p-8 text-center text-sm text-neutral-600 shadow-sm">
-          <p>
-            Aucun prospect. <Link href="/import" className="text-[#b5443d] underline">Importer une liste</Link>
-            {etat.modeSimule && total === 0 && !filtres.recherche ? " ou charge des données fictives pour essayer l'outil." : ""}
-          </p>
-          {etat.modeSimule && total === 0 && !filtres.recherche && etat.prospectsDemo === 0 && (
-            <div className="mt-4 flex justify-center">
-              <BoutonDemo />
-            </div>
-          )}
-        </div>
+        filtre ? (
+          <EtatVide icone={<IconeRecherche taille={22} />} titre="Aucun prospect ne correspond" texte="Élargis la recherche ou réinitialise les filtres." action={<Link href="/" className="bouton bouton-contour">Réinitialiser les filtres</Link>} />
+        ) : (
+          <EtatVide
+            icone={<IconeProspects taille={22} />}
+            titre="Aucun prospect pour l'instant"
+            texte={
+              etat.modeSimule
+                ? "Importe ta base Notion, ou charge des prospects fictifs pour essayer l'outil avant de brancher Unipile."
+                : "Importe l'export CSV de ta base Notion pour commencer."
+            }
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link href="/import" className="bouton bouton-contour">Importer une liste</Link>
+                {etat.modeSimule && etat.prospectsDemo === 0 && <BoutonDemo />}
+              </div>
+            }
+          />
+        )
       ) : (
-        <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Nom</th>
-                <th className="px-4 py-3 font-medium">Entreprise · poste</th>
-                <th className="px-4 py-3 font-medium">Relation</th>
-                <th className="px-4 py-3 font-medium">Étape</th>
-                <th className="px-4 py-3 font-medium">Relance</th>
-                <th className="px-4 py-3 font-medium">Liste</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {lignes.map((p) => (
-                <tr key={p.id} className="hover:bg-[#f5f2f2]/60">
-                  <td className="px-4 py-3">
-                    <Link href={lienFiche(p.id)} scroll={false} className="font-medium hover:text-[#b5443d] hover:underline">{[p.prenom, p.nom].filter(Boolean).join(" ") || "—"}</Link>
-                    {!p.identifie && <span className="ml-2 text-xs text-neutral-400" title="Profil pas encore lu (lecture en file)">· en file</span>}
-                  </td>
-                  <td className="px-4 py-3 text-neutral-600">{[p.entreprise, p.poste].filter(Boolean).join(" · ") || "—"}</td>
-                  <td className="px-4 py-3"><BadgeStatut statut={p.statutRelation} /></td>
-                  <td className="px-4 py-3"><BadgeEtape libelle={libelleEtape.get(p.etape) ?? p.etape} /></td>
-                  <td className="px-4 py-3 text-neutral-600">{p.prochaineRelance ?? "—"}</td>
-                  <td className="px-4 py-3 text-neutral-600">{p.listeOrigine ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <TableProspects lignes={lignes} etapes={etapes} />
+          <div className="flex items-center justify-between caption-5 text-encre-3">
+            <span>
+              {total} prospect{total > 1 ? "s" : ""}
+              {pages > 1 && ` · page ${filtres.page} sur ${pages}`}
+            </span>
+            {pages > 1 && (
+              <nav className="flex gap-2" aria-label="Pagination">
+                {filtres.page > 1 && <Link href={lienPage(filtres.page - 1)} className="bouton bouton-contour">Précédent</Link>}
+                {filtres.page < pages && <Link href={lienPage(filtres.page + 1)} className="bouton bouton-contour">Suivant</Link>}
+              </nav>
+            )}
+          </div>
+        </>
       )}
 
-      {fiche && <PanneauFiche fiche={fiche} libelleEtape={libelleEtape.get(fiche.etape) ?? fiche.etape} conversation={conversation} />}
-
-      {pages > 1 && (
-        <nav className="flex items-center justify-center gap-3 text-sm" aria-label="Pagination">
-          {filtres.page > 1 && <Link href={lienPage(filtres.page - 1)} className="rounded-lg px-3 py-1.5 hover:bg-white">← Précédent</Link>}
-          <span className="text-neutral-600">Page {filtres.page} / {pages}</span>
-          {filtres.page < pages && <Link href={lienPage(filtres.page + 1)} className="rounded-lg px-3 py-1.5 hover:bg-white">Suivant →</Link>}
-        </nav>
-      )}
+      {fiche && <PanneauFiche fiche={fiche} libelleEtape={etapes[fiche.etape] ?? fiche.etape} conversation={conversation} />}
     </>
   );
 }

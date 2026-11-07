@@ -3,23 +3,24 @@
 import { useTransition } from "react";
 import { actionArret } from "@/app/actions";
 import { useRetour } from "./interface/toasts";
+import { IconePlay, IconeStop } from "./icones";
 
-/** Bouton d'arrêt d'urgence : coupe immédiatement toutes les actions sortantes. */
+/**
+ * Arrêt d'urgence : un clic, effet immédiat côté serveur, sans animation ni maintien
+ * avant l'action (inventaire design, besoin 6). Confirmation après coup par notification.
+ */
 export function BoutonArret({ arret }: { arret: boolean }) {
   const [enCours, demarrer] = useTransition();
   const retourner = useRetour();
   return (
-    <>
-      <button
-        type="button"
-        disabled={enCours}
-        onClick={() => demarrer(async () => retourner(await actionArret(!arret)))}
-        className={`rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-60 ${
-          arret ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-[#b5443d] text-white hover:bg-[#9c3a34]"
-        }`}
-      >
-        {arret ? "Reprendre la file" : "Arrêt d'urgence"}
-      </button>
-    </>
+    <button
+      type="button"
+      disabled={enCours}
+      onClick={() => demarrer(async () => retourner(await actionArret(!arret)))}
+      className={`bouton ${arret ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bouton-contour text-action"}`}
+    >
+      {arret ? <IconePlay taille={18} /> : <IconeStop taille={18} />}
+      {arret ? "Reprendre la file" : "Arrêt d'urgence"}
+    </button>
   );
 }

@@ -31,6 +31,7 @@ export interface EtatOutil {
   etatFile: "en_cours" | "en_pause" | "gele";
   modeSimule: boolean;
   prospectsDemo: number;
+  nonLus: number;
 }
 
 export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Promise<EtatOutil> {
@@ -38,7 +39,8 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
   const f = await pool.query(
     `select count(*) filter (where statut = 'en_attente')::int as en_attente,
             count(*) filter (where statut = 'incertaine')::int as incertaines,
-            (select count(*) from public.prospects where demo)::int as demo
+            (select count(*) from public.prospects where demo)::int as demo,
+            (select count(*) from public.conversations where non_lu)::int as non_lus
        from public.taches`,
   );
   const quotas = {} as EtatOutil["quotas"];
@@ -60,6 +62,7 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
     etatFile: ctx.reglages.arretDurgence ? "en_pause" : unGel ? "gele" : "en_cours",
     modeSimule: envUnipile().mode === "simule",
     prospectsDemo: f.rows[0].demo,
+    nonLus: f.rows[0].non_lus,
   };
 }
 
@@ -373,4 +376,40 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
 export async function fil(cle: { conversationId?: unknown; prospectId?: unknown }) {
   await exigerUtilisateur();
   return filDepuis(poolServeur(), cle);
+}
+
+// ─── Indicateurs de la liste de prospects ─────────────────────────────────────
+
+export interface StatsProspects {
+  total: number;
+  parStatut: Record<"en_relation" | "en_attente" | "invitation_recue" | "a_inviter", number>;
+  aTraiter: number;
+  relancesDues: number;
+}
+
+export async function statsProspectsDepuis(pool: Pool): Promise<StatsProspects> {
+  const r = await pool.query(
+    `select count(*)::int as total,
+            count(*) filter (where statut_relation = 'en_relation')::int as en_relation,
+            count(*) filter (where statut_relation = 'en_attente')::int as en_attente,
+            count(*) filter (where statut_relation = 'invitation_recue')::int as invitation_recue,
+            count(*) filter (where statut_relation = 'a_inviter')::int as a_inviter,
+            count(*) filter (where prochaine_relance <= (now() at time zone 'Europe/Paris')::date
+                             and etape not in (select code from public.etapes where terminale))::int as relances_dues,
+            (select count(*) from public.conversations c
+              where (select sens from public.messages m where m.conversation_id = c.id order by envoye_at desc limit 1) = 'entrant')::int as a_traiter
+       from public.prospects`,
+  );
+  const x = r.rows[0];
+  return {
+    total: x.total,
+    parStatut: { en_relation: x.en_relation, en_attente: x.en_attente, invitation_recue: x.invitation_recue, a_inviter: x.a_inviter },
+    aTraiter: x.a_traiter,
+    relancesDues: x.relances_dues,
+  };
+}
+
+export async function statsProspects() {
+  await exigerUtilisateur();
+  return statsProspectsDepuis(poolServeur());
 }

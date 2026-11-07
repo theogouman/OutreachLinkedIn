@@ -8,7 +8,10 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | `src/components/interface/panneau.tsx` | interior — `components/interior/drawer.tsx` | MIT, © 2026 ozzy |
 | `src/components/interface/toasts.tsx` | ui-components — `components/motion/animated-toast-stack.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/zone-fichier.tsx` | ui-components — `components/motion/file-upload.tsx` | MIT, © 2026 Saurabh Chauhan |
-| Icônes SVG en ligne | Phosphor Icons | MIT |
+| `src/components/interface/controle-segmente.tsx` | interior — `components/interior/segmented-control.tsx` | MIT, © 2026 ozzy |
+| `src/components/interface/table-triable.tsx` | interior — `components/interior/sortable-table.tsx` | MIT, © 2026 ozzy |
+| `src/components/icones.tsx` et icônes SVG en ligne | Phosphor Icons (`@phosphor-icons/core` 2.1.1) | MIT, © 2020 Phosphor Icons |
+| Règles de typographie, d'espacement et d'états (`src/app/globals.css`) | ai-design-skills | MIT |
 
 Texte de la licence MIT :
 
@@ -25,4 +28,4 @@ Texte de la licence MIT :
 > COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 > OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Aucun composant de rare-ui (licence avec Commons Clause et attribution) ni de transitions.dev n'est copié.
+Aucun code de rare-ui (licence avec Commons Clause et attribution) ni de transitions.dev n'est copié : le compteur −/+ (`compteur.tsx`), l'apparition des chiffres et les squelettes de chargement en reprennent seulement l'idée, réécrite.
