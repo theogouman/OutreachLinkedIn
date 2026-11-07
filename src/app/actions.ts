@@ -7,7 +7,7 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, majPlafonds, majReglages, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, majPlafonds, majReglages, marquerLue, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
 
@@ -106,4 +106,8 @@ export async function actionPurgerDemo(): Promise<Retour> {
     const r = await purgerDemo(poolServeur());
     return r.prospects ? `${r.prospects} prospects fictifs supprimés, historique compris.` : "Aucune donnée de démonstration.";
   });
+}
+
+export async function actionMarquerLue(id: string): Promise<Retour> {
+  return executer("marquer-lue", async () => ((await marquerLue(poolServeur(), id)) ? "Conversation marquée comme lue." : ""));
 }

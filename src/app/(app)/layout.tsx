@@ -8,6 +8,7 @@ import { seDeconnecter } from "../actions-auth";
 
 const NAV = [
   { href: "/", libelle: "Prospects" },
+  { href: "/inbox", libelle: "Inbox" },
   { href: "/file", libelle: "File d'attente" },
   { href: "/import", libelle: "Import" },
   { href: "/reglages", libelle: "Réglages" },

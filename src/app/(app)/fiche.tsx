@@ -3,7 +3,9 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Panneau } from "@/components/interface/panneau";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
-import type { FicheProspect } from "@/server/donnees";
+import type { FicheProspect, MessageFil } from "@/server/donnees";
+import { FilMessages } from "@/components/fil-messages";
+import Link from "next/link";
 
 const EVENEMENTS: Record<string, string> = {
   invitation: "Invitation",
@@ -18,7 +20,15 @@ const RESULTATS: Record<string, string> = { succes: "", echec: " · échec", inc
 const fmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" });
 
 /** Fiche en panneau latéral, ouverte par ?prospect=<id> (lien direct possible). */
-export function PanneauFiche({ fiche, libelleEtape }: { fiche: FicheProspect; libelleEtape: string }) {
+export function PanneauFiche({
+  fiche,
+  libelleEtape,
+  conversation,
+}: {
+  fiche: FicheProspect;
+  libelleEtape: string;
+  conversation: { id: string; messages: MessageFil[] } | null;
+}) {
   const router = useRouter();
   const chemin = usePathname();
   const params = useSearchParams();
@@ -55,6 +65,17 @@ export function PanneauFiche({ fiche, libelleEtape }: { fiche: FicheProspect; li
             <p className="whitespace-pre-wrap text-neutral-700">{fiche.notes}</p>
           </section>
         )}
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="font-medium">Conversation LinkedIn</h3>
+            {conversation && (
+              <Link href={`/inbox?conversation=${conversation.id}`} className="text-xs text-[#b5443d] hover:underline">
+                Ouvrir dans l&apos;Inbox
+              </Link>
+            )}
+          </div>
+          {conversation ? <FilMessages messages={conversation.messages} nom={nom} /> : <p className="text-neutral-500">Aucune conversation.</p>}
+        </section>
         <section>
           <h3 className="mb-2 font-medium">Historique</h3>
           {fiche.historique.length === 0 ? (

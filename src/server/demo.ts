@@ -50,6 +50,87 @@ export const PROSPECTS_DEMO: Etat[] = [
   { id: "demo-raphael-andre", prenom: "Raphaël", nom: "André", poste: "Head of Product", entreprise: "Lagune", liste: NOTION, statut: "en_relation", etape: "premier_message", relance: 1, lu: true },
 ];
 
+
+type Msg = ["entrant" | "sortant", number, string]; // sens, jours avant aujourd'hui (décimal), texte
+
+/** Conversations fictives, rattachées aux prospects de démo (clé = identifiant public). */
+export const CONVERSATIONS_DEMO: Record<string, { nonLu?: boolean; messages: Msg[] }> = {
+  "demo-lea-moreau": {
+    messages: [
+      ["sortant", 8.9, "Bonjour Léa, merci d'avoir accepté l'invitation ! J'ai vu qu'Orbe Logiciels venait de passer à 40 personnes : c'est souvent le moment où la doc produit se disperse entre Notion, Drive et Slack. Comment vous vous organisez aujourd'hui ?"],
+    ],
+  },
+  "demo-raphael-andre": {
+    messages: [
+      ["sortant", 7.8, "Bonjour Raphaël, ravi d'être connecté. Je travaille avec des équipes produit qui veulent un vrai espace Notion de référence (roadmap, specs, décisions). C'est un sujet chez Lagune en ce moment ?"],
+    ],
+  },
+  "demo-thomas-petit": {
+    messages: [
+      ["sortant", 9.1, "Bonjour Thomas, merci pour la connexion. Chez Kairos Conseil, le suivi des missions est centralisé ou chaque consultant a ses propres outils ?"],
+      ["sortant", 4.2, "Je me permets de revenir vers vous : j'ai publié un modèle Notion de suivi de missions pour cabinets de conseil, je peux vous l'envoyer si ça vous parle."],
+    ],
+  },
+  "demo-manon-laurent": {
+    messages: [
+      ["sortant", 12.0, "Bonjour Manon, merci d'avoir accepté. En RevOps, vous partez plutôt sur un CRM classique ou vous avez déjà regardé Notion pour le pipe ?"],
+      ["sortant", 7.9, "Petite relance : je viens d'accompagner une équipe de 15 commerciaux sur ce sujet, je peux vous partager ce qu'on a mis en place."],
+      ["sortant", 0.9, "Dernier message de ma part, promis ! Si le sujet revient sur la table, je reste disponible pour un échange de 20 minutes."],
+    ],
+  },
+  "demo-sophie-dubois": {
+    nonLu: true,
+    messages: [
+      ["sortant", 9.0, "Bonjour Sophie, merci pour la connexion ! Chez Brique & Co, les process d'onboarding des chantiers sont documentés quelque part ?"],
+      ["sortant", 5.1, "Je reviens vers vous avec un exemple concret : un wiki chantier sous Notion qui a divisé par deux les questions des nouveaux conducteurs de travaux."],
+      ["entrant", 0.2, "Bonjour, oui c'est un vrai sujet chez nous en ce moment, on a tout dans des PDF. Vous intervenez comment concrètement ? Et c'est quel budget en général ?"],
+    ],
+  },
+  "demo-claire-martin": {
+    messages: [
+      ["sortant", 11.2, "Bonjour Claire, merci d'avoir accepté. J'ai vu que vous étiez sur Notion chez Atelier Nova : vous l'utilisez pour toute l'équipe ou juste les ops ?"],
+      ["entrant", 9.7, "Bonjour ! Pour toute l'équipe en théorie, mais en pratique c'est un peu le bazar, personne ne retrouve rien."],
+      ["sortant", 9.5, "Classique quand l'espace grandit sans structure. On pourrait en parler 30 minutes ? Je vous montre comment d'autres agences s'y prennent."],
+      ["entrant", 8.1, "Avec plaisir. Jeudi 14h ça vous irait ?"],
+      ["sortant", 8.0, "Parfait, je vous envoie l'invitation pour jeudi 14h. À jeudi !"],
+    ],
+  },
+  "demo-julien-bernard": {
+    messages: [
+      ["sortant", 14.0, "Bonjour Julien, merci pour la connexion. Studio Lumen grandit vite, la gestion des projets clients suit ?"],
+      ["entrant", 12.8, "Honnêtement non, on jongle entre trois outils."],
+      ["sortant", 12.6, "Je vous propose un audit gratuit de 30 minutes de votre organisation actuelle. Vous êtes dispo cette semaine ?"],
+      ["entrant", 11.0, "Ok pour vendredi matin."],
+      ["sortant", 4.0, "Merci encore pour la confiance ! Je vous envoie le devis signé et on démarre lundi."],
+      ["entrant", 3.6, "Super, à lundi !"],
+    ],
+  },
+  "demo-nicolas-simon": {
+    messages: [
+      ["sortant", 10.0, "Bonjour Nicolas, merci d'avoir accepté. Côté tech chez Datagrove, la doc interne vit dans Notion ou dans un outil dédié ?"],
+      ["entrant", 6.5, "On est sur Confluence et ça nous va bien, merci."],
+    ],
+  },
+};
+
+/** Conversations hors CRM : la personne n'est pas (encore) un prospect. */
+export const CONVERSATIONS_HORS_CRM_DEMO: { nom: string; provider: string; nonLu?: boolean; messages: Msg[] }[] = [
+  {
+    nom: "Margaux Perrin",
+    provider: "ACoDEMOmargauxperrin",
+    nonLu: true,
+    messages: [["entrant", 0.4, "Bonjour Théo, j'ai vu votre post sur les espaces Notion pour PME. Vous faites aussi des formations pour les équipes ?"]],
+  },
+  {
+    nom: "Yanis Cordier",
+    provider: "ACoDEMOyaniscordier",
+    messages: [
+      ["entrant", 6.0, "Salut Théo, on se croise au salon SaaS jeudi ?"],
+      ["sortant", 5.8, "Oui, je serai là toute la journée, passe me voir !"],
+    ],
+  },
+];
+
 /** Invitations « acceptées » à la prochaine synchronisation simulée. */
 export const ACCEPTEES_DEMO = ["demo-camille-roux", "demo-hugo-lefevre"];
 
@@ -159,6 +240,27 @@ export async function semerDemo(pool: Pool, maintenant = new Date()) {
       [ids.get("demo-lea-moreau"), { texte: "Bonjour Léa, merci pour l'acceptation ! …" }, `demo:message:${ids.get("demo-lea-moreau")}`],
     );
 
+    // Conversations LinkedIn fictives (ce que la synchronisation Unipile importerait).
+    const inserer = async (prospectId: string | null, nom: string | null, provider: string, nonLu: boolean, messages: Msg[]) => {
+      const dernier = Math.min(...messages.map((m) => m[1]));
+      const conv = await c.query(
+        `insert into public.conversations (unipile_chat_id, prospect_id, interlocuteur_nom, interlocuteur_provider_id, dernier_message_at, non_lu, demo)
+         values ($1, $2, $3, $4, $5, $6, true) returning id`,
+        [`demo-chat-${provider}`, prospectId, nom, provider, jour(-dernier), nonLu],
+      );
+      for (const [i, [sens, avant, texte]] of messages.entries()) {
+        await c.query(
+          "insert into public.messages (conversation_id, unipile_message_id, sens, texte, envoye_at) values ($1, $2, $3, $4, $5)",
+          [conv.rows[0].id, `demo-msg-${provider}-${i}`, sens, texte, jour(-avant)],
+        );
+      }
+    };
+    for (const [id, conv] of Object.entries(CONVERSATIONS_DEMO)) {
+      const p = PROSPECTS_DEMO.find((x) => x.id === id)!;
+      await inserer(ids.get(id)!, `${p.prenom} ${p.nom}`, providerDemo(id), conv.nonLu ?? false, conv.messages);
+    }
+    for (const h of CONVERSATIONS_HORS_CRM_DEMO) await inserer(null, h.nom, h.provider, h.nonLu ?? false, h.messages);
+
     await c.query("commit");
     return { prospects: PROSPECTS_DEMO.length };
   } catch (e) {
@@ -177,6 +279,7 @@ export async function purgerDemo(pool: Pool) {
     // Journal d'abord : sinon prospect_id passerait à NULL et les actions resteraient
     // dans les compteurs de quotas.
     await c.query("delete from public.actions where prospect_id in (select id from public.prospects where demo)");
+    await c.query("delete from public.conversations where demo");
     const p = await c.query("delete from public.prospects where demo");
     await c.query(
       "delete from public.liens_linkedin where url_normalisee like 'linkedin.com/in/demo-%' or provider_id like 'ACoDEMO%'",

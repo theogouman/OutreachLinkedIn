@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
-import { ficheProspect, filtresProspectsSchema, prospects, referentiels, TAILLE_PAGE } from "@/server/donnees";
+import { etatOutil, ficheProspect, fil, filtresProspectsSchema, prospects, referentiels, TAILLE_PAGE } from "@/server/donnees";
+import { BoutonDemo } from "@/components/bouton-demo";
 import { PanneauFiche } from "./fiche";
 import { LIBELLES_STATUT } from "@/lib/statut-relation";
 
@@ -55,7 +56,11 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
     return `/?${q.toString()}`;
   };
   const idFiche = premier(sp.prospect);
-  const fiche = idFiche ? await ficheProspect(idFiche) : null;
+  const [fiche, conversation, etat] = await Promise.all([
+    idFiche ? ficheProspect(idFiche) : null,
+    idFiche ? fil({ prospectId: idFiche }) : null,
+    etatOutil(),
+  ]);
 
   return (
     <>
@@ -103,7 +108,15 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
 
       {lignes.length === 0 ? (
         <div className="rounded-2xl bg-white p-8 text-center text-sm text-neutral-600 shadow-sm">
-          Aucun prospect. <Link href="/import" className="text-[#b5443d] underline">Importer une liste</Link>
+          <p>
+            Aucun prospect. <Link href="/import" className="text-[#b5443d] underline">Importer une liste</Link>
+            {etat.modeSimule && total === 0 && !filtres.recherche ? " ou charge des données fictives pour essayer l'outil." : ""}
+          </p>
+          {etat.modeSimule && total === 0 && !filtres.recherche && etat.prospectsDemo === 0 && (
+            <div className="mt-4 flex justify-center">
+              <BoutonDemo />
+            </div>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
@@ -137,7 +150,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
         </div>
       )}
 
-      {fiche && <PanneauFiche fiche={fiche} libelleEtape={libelleEtape.get(fiche.etape) ?? fiche.etape} />}
+      {fiche && <PanneauFiche fiche={fiche} libelleEtape={libelleEtape.get(fiche.etape) ?? fiche.etape} conversation={conversation} />}
 
       {pages > 1 && (
         <nav className="flex items-center justify-center gap-3 text-sm" aria-label="Pagination">
