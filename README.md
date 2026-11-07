@@ -8,4 +8,4 @@ Application Next.js + Supabase déployée sur Vercel, développée majoritaireme
 
 Production : https://outreach.gouman.fr (Vercel, déploiement à chaque push). Pas d'environnement local pour l'instant.
 
-Règle d'or : rien n'arrive sur `main` sans être passé par une PR qui a réussi la CI.
+Règle : chaque push sur la branche de travail est déployé en production, sans PR (voir CLAUDE.md).

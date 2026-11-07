@@ -7,7 +7,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - Next.js 16, App Router, TypeScript strict, Tailwind 4, `cacheComponents` activé. Node 22 (`.nvmrc`, `engines`).
 - Supabase (projet `qmweywmldehnsjhqexbl`, Postgres 17) : base, Auth (Google OAuth), plus tard Realtime et pg_cron.
 - Validation : Zod 4. Tests : Vitest, dont tests sur un vrai Postgres (`tests/db/`, `TEST_DATABASE_URL`).
-- Hébergement : Vercel. `main` = production, chaque PR = preview.
+- Hébergement : Vercel. Branche de production : `claude/confident-ritchie-6v4383` ; chaque push part en production, sans PR.
 
 ## Arborescence
 - `src/app/` : routes. `login/` (bouton Google), `auth/callback/` (échange PKCE), `page.tsx` (accueil protégé).
@@ -46,7 +46,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 | Revue IA | `.github/workflows/security-review.yml` | Non, commentaires |
 
 ## Décisions
-- 2026-11-06 — Branche `main` créée (accord de l'utilisateur) ; évolutions suivantes par PR.
+- 2026-11-07 — Règle de l'utilisateur : déploiement direct en production à chaque push, pas de PR. `main` n'est plus utilisée.
 - 2026-11-06 — CodeGuard installé comme skill (chargé à la demande) plutôt que dans `.claude/rules/` (≈100 Ko chargés à chaque session).
 - 2026-11-06 — CSP sans nonce : compatible avec le rendu statique et `cacheComponents`. Passer à une CSP à nonce si l'app charge des scripts tiers.
 - 2026-11-06 — `overrides` sur `minimatch` (^11.0.5) sous `@typescript-eslint/typescript-estree` pour corriger GHSA-g3hv-75wg-m249 (dev uniquement). À retirer quand typescript-eslint l'intègre.
