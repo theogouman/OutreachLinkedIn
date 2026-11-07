@@ -278,3 +278,99 @@ export async function reglages() {
   await exigerUtilisateur();
   return reglagesDepuis(poolServeur());
 }
+
+// ─── Inbox ────────────────────────────────────────────────────────────────────
+
+export const filtreInboxSchema = z.enum(["tous", "non_lus", "a_traiter", "hors_crm"]).catch("tous");
+export type FiltreInbox = z.infer<typeof filtreInboxSchema>;
+
+export interface LigneConversation {
+  id: string;
+  prospectId: string | null;
+  nom: string;
+  sousTitre: string | null;
+  etape: string | null;
+  apercu: string;
+  dernierSens: "entrant" | "sortant";
+  dernierMessageAt: Date | null;
+  nonLu: boolean;
+}
+
+export async function inboxDepuis(pool: Pool, filtre: FiltreInbox): Promise<LigneConversation[]> {
+  const r = await pool.query(
+    `select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
+            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
+            nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape,
+            m.texte as apercu, m.sens as dernier_sens
+       from public.conversations c
+       left join public.prospects p on p.id = c.prospect_id
+       left join lateral (
+         select texte, sens from public.messages where conversation_id = c.id order by envoye_at desc limit 1
+       ) m on true
+      where case $1::text
+              when 'non_lus' then c.non_lu
+              when 'a_traiter' then m.sens = 'entrant'
+              when 'hors_crm' then c.prospect_id is null
+              else true
+            end
+      order by c.dernier_message_at desc nulls last
+      limit 200`,
+    [filtre],
+  );
+  return r.rows.map((x) => ({
+    id: x.id,
+    prospectId: x.prospect_id,
+    nom: x.nom,
+    sousTitre: x.sous_titre,
+    etape: x.etape,
+    apercu: (x.apercu ?? "").slice(0, 160),
+    dernierSens: x.dernier_sens ?? "sortant",
+    dernierMessageAt: x.dernier_message_at,
+    nonLu: x.non_lu,
+  }));
+}
+
+export async function inbox(filtre: unknown) {
+  await exigerUtilisateur();
+  return inboxDepuis(poolServeur(), filtreInboxSchema.parse(filtre));
+}
+
+export interface MessageFil {
+  id: string;
+  sens: "entrant" | "sortant";
+  texte: string;
+  envoyeAt: Date;
+}
+
+export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; prospectId?: unknown }) {
+  const conv = z.uuid().safeParse(cle.conversationId);
+  const prospect = z.uuid().safeParse(cle.prospectId);
+  if (!conv.success && !prospect.success) return null;
+  const c = await pool.query(
+    `select c.id, c.prospect_id, c.non_lu,
+            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
+            nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre
+       from public.conversations c left join public.prospects p on p.id = c.prospect_id
+      where ($1::uuid is not null and c.id = $1) or ($2::uuid is not null and c.prospect_id = $2)
+      order by c.dernier_message_at desc nulls last limit 1`,
+    [conv.success ? conv.data : null, prospect.success ? prospect.data : null],
+  );
+  if (!c.rowCount) return null;
+  const m = await pool.query(
+    "select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500",
+    [c.rows[0].id],
+  );
+  return {
+    id: c.rows[0].id as string,
+    prospectId: c.rows[0].prospect_id as string | null,
+    nom: c.rows[0].nom as string,
+    sousTitre: c.rows[0].sous_titre as string | null,
+    nonLu: c.rows[0].non_lu as boolean,
+    messages: m.rows.map((x): MessageFil => ({ id: x.id, sens: x.sens, texte: x.texte, envoyeAt: x.envoye_at })),
+  };
+}
+
+export async function fil(cle: { conversationId?: unknown; prospectId?: unknown }) {
+  await exigerUtilisateur();
+  return filDepuis(poolServeur(), cle);
+}

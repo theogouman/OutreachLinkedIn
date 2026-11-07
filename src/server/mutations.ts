@@ -102,3 +102,9 @@ export async function trancherIncertaine(pool: Pool, id: unknown, decision: unkn
   );
   return (r.rowCount ?? 0) > 0;
 }
+
+/** Marque une conversation comme lue (seule modification possible depuis l'Inbox en lecture). */
+export async function marquerLue(pool: Pool, id: unknown): Promise<boolean> {
+  const r = await pool.query("update public.conversations set non_lu = false where id = $1 and non_lu", [idSchema.parse(id)]);
+  return (r.rowCount ?? 0) > 0;
+}
