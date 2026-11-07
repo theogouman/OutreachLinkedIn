@@ -313,3 +313,33 @@ body {
   border-radius: 22px;
   background: var(--color-carte);
 }
+
+/* ── PWA iOS (modèle Notion-Club/Infrastructure) ─────────────────────────── */
+/* Fond du canevas = zone révélée par le rebond iOS : même couleur que la surface. */
+html {
+  background-color: var(--color-surface);
+}
+/* Champs à 16 px sur mobile : Safari iOS ne zoome plus au focus, sans bloquer le zoom. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+/* App installée : pas de rebond du document, pas de sélection accidentelle hors champs. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable="true"],
+  .selectionnable {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}

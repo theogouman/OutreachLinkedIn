@@ -1,10 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicEnv } from "@/lib/env";
+import { estRoutePublique } from "@/lib/routes-publiques";
 
-// Routes accessibles sans session. Le worker et les webhooks ont leur propre
-// authentification (secret, signature) vérifiée dans la route elle-même.
-const ROUTES_PUBLIQUES = [/^\/login$/, /^\/auth\/callback$/, /^\/api\/worker\//, /^\/api\/webhooks\//];
 
 /**
  * Rafraîchit la session Supabase à chaque navigation et renvoie vers /login
@@ -32,7 +30,7 @@ export async function proxy(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const chemin = request.nextUrl.pathname;
-  if (!data?.claims && !ROUTES_PUBLIQUES.some((r) => r.test(chemin))) {
+  if (!data?.claims && !estRoutePublique(chemin)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
@@ -49,5 +47,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

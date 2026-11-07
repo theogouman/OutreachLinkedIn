@@ -94,7 +94,7 @@ export function Panneau({ ouvert, fermer, titre, description, largeur = 480, chi
             exit={reduit ? { opacity: 0 } : { x: largeur + 24, transition: FERMETURE }}
             transition={reduit ? { duration: 0 } : OUVERTURE}
           >
-            <header className="flex items-start gap-3 border-b border-trait px-5 py-4">
+            <header className="flex items-start gap-3 border-b border-trait px-5 pb-4 pt-[max(16px,env(safe-area-inset-top))]">
               <div className="min-w-0 flex-1">
                 <h2 id={titreId} className="truncate heading-6 text-encre">{titre}</h2>
                 {description && <p className="mt-0.5 truncate body-6 text-encre-3">{description}</p>}

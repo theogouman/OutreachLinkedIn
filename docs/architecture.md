@@ -11,7 +11,8 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 
 ## Arborescence
 - `src/app/` : routes. `login/` (bouton Google), `auth/callback/` (échange PKCE), `page.tsx` (accueil protégé).
-- `src/proxy.ts` : rafraîchit la session Supabase, renvoie vers `/login` sans session. Routes publiques : `/login`, `/auth/callback`, `/api/worker/*`, `/api/webhooks/*` (authentifiées par secret / signature dans la route).
+- `src/proxy.ts` : rafraîchit la session Supabase, renvoie vers `/login` sans session. Routes publiques (`src/lib/routes-publiques.ts`, testé) : `/login`, `/auth/callback`, `/api/worker/*`, `/api/webhooks/*` (authentifiées par secret / signature dans la route), `/manifest.webmanifest`, `/sw.js`.
+- PWA iOS (modèle Notion-Club/Infrastructure) : `src/app/manifest.ts`, balises Apple et 11 écrans de lancement dans `src/app/layout.tsx` (`src/lib/pwa-ios.ts`), icônes `public/icons`, splash `public/splash` (régénérés par `scripts/generer-*.mjs`), `public/sw.js` enregistré en production, en-têtes dans `next.config.ts`. Marges `env(safe-area-inset-*)` car la barre d'état est transparente.
 - `src/server/auth.ts` : `exigerUtilisateur()` — session (`getClaims`) + autorisation (RLS : la ligne `reglages` n'est visible que d'une adresse autorisée).
 - `src/lib/supabase/` : clients navigateur et serveur (`@supabase/ssr`).
 - `src/components/interface/` : composants adaptés des dépôts de design (jauge, panneau latéral, notifications, zone de dépôt, contrôle segmenté, table triable, compteur), éléments communs (`elements.tsx` : en-tête de page, avatar, état vide, squelettes), notices dans `THIRD_PARTY_NOTICES.md`.
@@ -47,6 +48,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 | Revue IA | `.github/workflows/security-review.yml` | Non, commentaires |
 
 ## Décisions
+- 2026-11-07 — Service worker limité aux fichiers statiques : contrairement au modèle NC, les pages HTML ne sont pas mises en cache (aucune donnée de prospect conservée sur l'appareil après déconnexion). Zoom laissé actif (accessibilité) ; l'auto-zoom iOS est évité par des champs à 16 px sur mobile.
 - 2026-11-07 — Lien « Ouvrir son LinkedIn » reconstruit par `lienProfilLinkedIn()` depuis l'identifiant validé (jamais l'URL stockée telle quelle) : aucun autre domaine ni schéma possible.
 - 2026-11-07 — Boutons d'action en pilule sombre plutôt que rouge brand : le blanc sur #e0625a ne passe pas le contraste AA (3,4:1).
 - 2026-11-07 — Règle de l'utilisateur : déploiement direct en production à chaque push, pas de PR. `main` n'est plus utilisée.

@@ -107,7 +107,7 @@ export function useRetour() {
 function Pile({ toasts, fermer }: { toasts: Toast[]; fermer: (id: string) => void }) {
   const reduit = useReducedMotion();
   return (
-    <ol aria-live="polite" className="pointer-events-none fixed bottom-6 right-4 z-[90] flex w-[calc(100vw-2rem)] max-w-sm flex-col-reverse gap-2">
+    <ol aria-live="polite" className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] right-4 z-[90] md:bottom-6 flex w-[calc(100vw-2rem)] max-w-sm flex-col-reverse gap-2">
       <AnimatePresence initial={false} mode="popLayout">
         {toasts.map((t, i) => (
           <motion.li

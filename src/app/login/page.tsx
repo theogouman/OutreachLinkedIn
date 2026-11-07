@@ -8,7 +8,7 @@ export default function PageConnexion() {
   return (
     <main className="relative flex min-h-dvh flex-col">
       <div className="fond-app" aria-hidden />
-      <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col items-center justify-center gap-10 px-4 py-16">
+      <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col items-center justify-center gap-10 px-4 pb-[calc(env(safe-area-inset-bottom)+64px)] pt-[calc(env(safe-area-inset-top)+64px)]">
         <header className="flex flex-col items-center gap-6 text-center">
           <p className="flex items-baseline gap-1.5">
             <span className="text-[22px] font-bold tracking-[-0.02em] text-encre">Prospection</span>

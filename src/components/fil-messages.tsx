@@ -15,7 +15,7 @@ export function FilMessages({ messages, nom }: { messages: MessageFil[]; nom: st
             {!moi && <Avatar nom={nom} taille={28} />}
             <div className={`flex max-w-[80%] flex-col gap-1 ${moi ? "items-end" : "items-start"}`}>
               <p
-                className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 body-6 ${
+                className={`selectionnable whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 body-6 ${
                   moi ? "rounded-br-md bg-action text-white" : "rounded-bl-md bg-creux text-encre ring-1 ring-inset ring-trait"
                 }`}
               >

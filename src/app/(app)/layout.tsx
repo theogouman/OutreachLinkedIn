@@ -23,7 +23,7 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
       </a>
 
       {/* Barre flottante (écran moyen et plus) */}
-      <header className="fixed inset-x-0 top-0 z-40 hidden justify-center px-6 pt-3.5 md:flex lg:px-10">
+      <header className="fixed inset-x-0 top-0 z-40 hidden justify-center px-6 pt-[calc(env(safe-area-inset-top)+14px)] md:flex lg:px-10">
         <div className="flottant flex w-full max-w-[1080px] items-center justify-between gap-6 rounded-full py-2 pl-6 pr-2">
           <div className="flex min-w-0 items-center gap-4">
             <Marque />
@@ -39,14 +39,14 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
       </header>
 
       {/* En-tête mobile */}
-      <div className="flex items-center justify-between px-4 pt-4 md:hidden">
+      <div className="flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+16px)] md:hidden">
         <Marque />
         <Suspense fallback={null}>
           <Compte />
         </Suspense>
       </div>
 
-      <main id="contenu" className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-[104px] lg:px-0">
+      <main id="contenu" className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-[calc(env(safe-area-inset-top)+104px)] lg:px-0">
         <Suspense fallback={<span className="squelette block h-[76px] w-full rounded-[24px]" />}>
           <Etat />
         </Suspense>

@@ -75,7 +75,7 @@ export function PanneauFiche({
         {fiche.notes && (
           <section className="flex flex-col gap-2">
             <h3 className="caption-3 uppercase tracking-wide text-encre-3">Notes</h3>
-            <p className="whitespace-pre-wrap rounded-xl bg-creux px-3 py-2.5 body-6 text-encre-2">{fiche.notes}</p>
+            <p className="selectionnable whitespace-pre-wrap rounded-xl bg-creux px-3 py-2.5 body-6 text-encre-2">{fiche.notes}</p>
           </section>
         )}
         <section className="flex flex-col gap-3">
