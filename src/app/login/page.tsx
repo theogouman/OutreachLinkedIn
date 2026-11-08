@@ -11,7 +11,7 @@ export default function PageConnexion() {
       <div className="fond-app" aria-hidden />
       <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col items-center justify-center gap-10 px-4 pb-[calc(env(safe-area-inset-bottom)+64px)] pt-[calc(env(safe-area-inset-top)+64px)]">
         <header className="flex flex-col items-center gap-6 text-center">
-          <Logo taille={64} />
+          <Logo taille={72} />
           <h1 className="text-[clamp(24px,3vw,32px)] font-bold leading-tight tracking-[-0.02em] text-encre">
             Ton suivi de prospection LinkedIn
           </h1>

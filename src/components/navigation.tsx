@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { IconeFile, IconeImport, IconeInbox, IconeProspects, IconeReglages } from "./icones";
+import { IconeFile, IconeImport, IconeInbox, IconeProspects, IconeReglages, IconeStatistiques } from "./icones";
 
 const LIENS = [
   { href: "/", libelle: "Prospects", Icone: IconeProspects, compte: null },
   { href: "/inbox", libelle: "Inbox", Icone: IconeInbox, compte: "nonLus" },
   { href: "/file", libelle: "File", Icone: IconeFile, compte: "enAttente" },
+  { href: "/statistiques", libelle: "Stats", Icone: IconeStatistiques, compte: null },
   { href: "/import", libelle: "Import", Icone: IconeImport, compte: null },
   { href: "/reglages", libelle: "Réglages", Icone: IconeReglages, compte: null },
 ] as const;

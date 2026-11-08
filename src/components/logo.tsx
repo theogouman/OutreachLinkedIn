@@ -1,15 +1,70 @@
+"use client";
+
+import { useId } from "react";
+
 /**
- * Logo de l'outil (logo-glow.svg, fourni par l'utilisateur) : tracé blanc à halo,
- * donc toujours posé sur une tuile sombre pour rester visible sur les fonds clairs.
+ * Logo de l'outil (logo-glow.svg, fourni par l'utilisateur), en ligne et sans fond.
+ * Tracé et halo suivent `currentColor` : noir sur fond clair (couleur d'encre par défaut),
+ * blanc si un parent sombre le demande (className="text-white").
  */
-export function Logo({ taille = 36, className = "" }: { taille?: number; className?: string }) {
+export function Logo({ taille = 36, className = "text-encre" }: { taille?: number; className?: string }) {
+  const id = `lueur-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
-    <span
-      className={`inline-grid shrink-0 place-items-center bg-sombre ${className}`}
-      style={{ width: taille, height: taille, borderRadius: taille * 0.28 }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique, aucune optimisation utile */}
-      <img src="/logo-glow.svg" alt="" width={taille * 0.82} height={taille * 0.82} draggable={false} />
-    </span>
+    <svg viewBox="0 0 590 590" width={taille} height={taille} className={className} aria-hidden focusable="false">
+      <defs>
+        <filter id={id} filterUnits="userSpaceOnUse" x="0" y="0" width="590" height="590" colorInterpolationFilters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1 0"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="h0"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0 1"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="v0"/>
+      <feBlend in="h0" in2="v0" mode="lighten" result="d0"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5 0"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="h1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0 2.5"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="v1"/>
+      <feBlend in="h1" in2="v1" mode="lighten" result="d1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="d2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="d3"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="32"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="d4"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="75"/>
+      <feColorMatrix values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1" result="d5"/>
+      <feColorMatrix in="d0" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.1364 0 0 0 0" result="h_0"/>
+      <feColorMatrix in="d1" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.3534 0 0 0 0" result="h_1"/>
+      <feColorMatrix in="d2" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.2441 0 0 0 0" result="h_2"/>
+      <feColorMatrix in="d3" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.2162 0 0 0 0" result="h_3"/>
+      <feColorMatrix in="d4" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.0224 0 0 0 0" result="h_4"/>
+      <feColorMatrix in="d5" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.0275 0 0 0 0" result="h_5"/>
+      <feComposite in="h_0" in2="h_1" operator="arithmetic" k2="1" k3="1" result="h_s1"/>
+      <feComposite in="h_s1" in2="h_2" operator="arithmetic" k2="1" k3="1" result="h_s2"/>
+      <feComposite in="h_s2" in2="h_3" operator="arithmetic" k2="1" k3="1" result="h_s3"/>
+      <feComposite in="h_s3" in2="h_4" operator="arithmetic" k2="1" k3="1" result="h_s4"/>
+      <feComposite in="h_s4" in2="h_5" operator="arithmetic" k2="1" k3="1" result="h_s5"/>
+      <feColorMatrix in="d0" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.0910 0 0 0 0" result="l_0"/>
+      <feColorMatrix in="d1" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.8273 0 0 0 0" result="l_1"/>
+      <feColorMatrix in="d2" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.9531 0 0 0 0" result="l_2"/>
+      <feColorMatrix in="d3" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.7295 0 0 0 0" result="l_3"/>
+      <feColorMatrix in="d4" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.1793 0 0 0 0" result="l_4"/>
+      <feColorMatrix in="d5" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.2199 0 0 0 0" result="l_5"/>
+      <feComposite in="l_0" in2="l_1" operator="arithmetic" k2="1" k3="1" result="l_s1"/>
+      <feComposite in="l_s1" in2="l_2" operator="arithmetic" k2="1" k3="1" result="l_s2"/>
+      <feComposite in="l_s2" in2="l_3" operator="arithmetic" k2="1" k3="1" result="l_s3"/>
+      <feComposite in="l_s3" in2="l_4" operator="arithmetic" k2="1" k3="1" result="l_s4"/>
+      <feComposite in="l_s4" in2="l_5" operator="arithmetic" k2="1" k3="1" result="l_s5"/>
+      <feComponentTransfer in="l_s5" result="mL"><feFuncA type="table" tableValues="0 0.0144 0.0288 0.0432 0.0576 0.072 0.0864 0.1008 0.1152 0.1296 0.1441 0.1585 0.1729 0.1873 0.2017 0.2161 0.2305 0.2365 0.2424 0.2484 0.2543 0.2603 0.2663 0.2722 0.2782 0.2842 0.2901 0.2961 0.3021 0.308 0.314 0.32 0.3259 0.3319 0.3379 0.344 0.35 0.356 0.362 0.368 0.374 0.38 0.386 0.392 0.398 0.404 0.41 0.416 0.4221 0.4281 0.4342 0.4403 0.4464 0.4525 0.4586 0.4647 0.4708 0.4769 0.483 0.489 0.4951 0.5012 0.5073 0.5134 0.5195"/></feComponentTransfer>
+      <feComponentTransfer in="h_s5" result="mH"><feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 0 0.0293 0.0586 0.0854 0.1123 0.1369 0.1615 0.1786 0.1956 0.2162 0.2367 0.2459 0.2552 0.2709 0.2867 0.2949 0.3031 0.3096 0.3161 0.3545 0.3928 0.3928 0.3928 0.3982 0.4035 0.427 0.4506 0.4655 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805 0.4805"/></feComponentTransfer>
+      <feComposite in="mL" in2="mH" operator="arithmetic" k2="1" k3="1" result="m"/>
+      <feFlood floodColor="currentColor"/>
+      <feComposite in2="m" operator="in" result="halo"/>
+      <feMerge>
+        <feMergeNode in="halo"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+      </defs>
+      <path d="M105 151H494V184H527V405H494V440H105V405H72V184H105ZM139 217V378H458V217Z" fill="currentColor" fillRule="evenodd" filter={`url(#${id})`} shapeRendering="crispEdges" />
+    </svg>
   );
 }

@@ -2,7 +2,7 @@ import type { EtatOutil } from "@/server/donnees";
 import { LIBELLES_QUOTA, TYPES_QUOTA } from "@/lib/plafonds";
 import { Jauge } from "./interface/jauge";
 
-const ETAT_FILE = {
+export const ETAT_FILE = {
   en_cours: { libelle: "File active", point: "bg-emerald-500", halo: "bg-emerald-500/30" },
   en_pause: { libelle: "File en pause", point: "bg-encre-3", halo: "" },
   gele: { libelle: "Action gelée 24 h", point: "bg-amber-500", halo: "bg-amber-500/30" },
@@ -10,11 +10,11 @@ const ETAT_FILE = {
 
 const UNITE = { jour: "j", semaine: "sem.", mois: "mois" } as const;
 
-/** État de la file et jauges de quotas, visibles en permanence. */
+/** État de la file et jauges de quotas (menu Statuts de la barre de navigation). */
 export function JaugeQuotas({ etat }: { etat: EtatOutil }) {
   const f = ETAT_FILE[etat.etatFile];
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-3">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2.5">
         <span className="relative flex size-2.5" aria-hidden>
           {f.halo && <span className={`absolute inline-flex size-full animate-ping rounded-full ${f.halo}`} />}
@@ -28,8 +28,8 @@ export function JaugeQuotas({ etat }: { etat: EtatOutil }) {
           </p>
         </div>
       </div>
-      <div className="hidden h-8 w-px bg-trait sm:block" aria-hidden />
-      <div className="grid flex-1 grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="h-px bg-trait" aria-hidden />
+      <div className="grid grid-cols-1 gap-y-3">
         {TYPES_QUOTA.map((t) => {
           const q = etat.quotas[t];
           const periode = q.plafond.jour !== null ? "jour" : q.plafond.semaine !== null ? "semaine" : "mois";

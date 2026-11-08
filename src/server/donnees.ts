@@ -413,3 +413,93 @@ export async function statsProspects() {
   await exigerUtilisateur();
   return statsProspectsDepuis(poolServeur());
 }
+
+// ─── Statistiques : entonnoir par étape, activité par jour ───────────────────
+
+export interface EtapeEntonnoir {
+  code: string;
+  libelle: string;
+  valeur: number;
+}
+
+/**
+ * Entonnoir : étapes non terminales puis la première étape terminale (« Gagné »).
+ * Chaque étape compte les prospects qui l'ont atteinte : étape actuelle, ou plus haute étape
+ * franchie d'après le journal (un prospect « Perdu » après « Connecté » compte jusqu'à « Connecté »).
+ * Les autres étapes terminales (Perdu, Pas intéressé) sont des sorties, comptées à part.
+ */
+export async function entonnoirDepuis(pool: Pool): Promise<{ etapes: EtapeEntonnoir[]; sorties: EtapeEntonnoir[] }> {
+  const r = await pool.query(
+    `with etapes_ordonnees as (
+       select code, libelle, ordre, terminale,
+              not terminale or ordre = (select min(ordre) from public.etapes where terminale) as dans_entonnoir
+         from public.etapes
+     ),
+     entonnoir as (select code, ordre from etapes_ordonnees where dans_entonnoir),
+     atteint as (
+       select p.id,
+              greatest(
+                (select min(ordre) from entonnoir),
+                (select e.ordre from entonnoir e where e.code = p.etape),
+                (select max(e.ordre) from public.actions a join entonnoir e on e.code = a.details->>'vers'
+                  where a.prospect_id = p.id and a.type = 'changement_etape')
+              ) as ordre
+         from public.prospects p
+     )
+     select eo.code, eo.libelle, eo.dans_entonnoir,
+            case when eo.dans_entonnoir
+                 then (select count(*) from atteint where atteint.ordre >= eo.ordre)
+                 else (select count(*) from public.prospects p where p.etape = eo.code)
+            end::int as valeur
+       from etapes_ordonnees eo
+      order by eo.ordre`,
+  );
+  const ligne = (x: { code: string; libelle: string; valeur: number }) => ({ code: x.code, libelle: x.libelle, valeur: x.valeur });
+  return {
+    etapes: r.rows.filter((x) => x.dans_entonnoir).map(ligne),
+    sorties: r.rows.filter((x) => !x.dans_entonnoir).map(ligne),
+  };
+}
+
+export interface JourActivite {
+  jour: string; // AAAA-MM-JJ, heure de Paris
+  total: number;
+  invitations: number;
+  messages: number;
+  lectures: number;
+}
+
+const jourParis = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris" });
+
+/**
+ * Activité de prospection : actions LinkedIn réussies (invitations, messages, lectures de profil)
+ * par jour de Paris, sur `semaines` semaines complètes du lundi au jour courant.
+ * Les synchronisations de liste sont techniques et ne comptent pas.
+ */
+export async function activiteDepuis(pool: Pool, maintenant = new Date(), semaines = 26) {
+  const fin = jourParis.format(maintenant);
+  const d = new Date(`${fin}T00:00:00Z`);
+  const lundi = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000);
+  const debut = new Date(lundi.getTime() - (semaines - 1) * 7 * 86_400_000).toISOString().slice(0, 10);
+  const r = await pool.query(
+    `select to_char((created_at at time zone 'Europe/Paris')::date, 'YYYY-MM-DD') as jour,
+            count(*)::int as total,
+            count(*) filter (where type = 'invitation')::int as invitations,
+            count(*) filter (where type = 'message')::int as messages,
+            count(*) filter (where type = 'lecture_profil')::int as lectures
+       from public.actions
+      where sortante and resultat = 'succes' and type in ('invitation', 'message', 'lecture_profil')
+        and (created_at at time zone 'Europe/Paris')::date between $1::date and $2::date
+      group by 1 order by 1`,
+    [debut, fin],
+  );
+  const jours: JourActivite[] = r.rows;
+  return { debut, fin, jours, joursActifs: jours.length };
+}
+
+export async function statistiques() {
+  await exigerUtilisateur();
+  const pool = poolServeur();
+  const [entonnoir, activite] = await Promise.all([entonnoirDepuis(pool), activiteDepuis(pool)]);
+  return { entonnoir, activite };
+}

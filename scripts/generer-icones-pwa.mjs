@@ -1,4 +1,5 @@
-// Génère les icônes de l'app (public/icons) : logo-glow.svg sur fond sombre #1a1a1a.
+// Génère les icônes de l'app (public/icons) : logo-glow.svg passé en noir sur la surface #f5f2f2
+// (iOS exige une icône opaque ; le logo devient noir sur fond clair).
 // Rendu par Chromium via Playwright (préinstallé dans l'environnement, pas une dépendance).
 // Usage : node scripts/generer-icones-pwa.mjs
 import { mkdirSync, readFileSync } from "node:fs";
@@ -9,7 +10,9 @@ import { createRequire } from "node:module";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SORTIE = join(RACINE, "public/icons");
-const LOGO = readFileSync(join(RACINE, "public/logo-glow.svg"), "utf8");
+const LOGO = readFileSync(join(RACINE, "public/logo-glow.svg"), "utf8")
+  .replace('fill="#fff"', 'fill="#000"')
+  .replace('flood-color="#ffffff"', 'flood-color="#000000"');
 
 // échelle : part du carré occupée par le logo (réduite pour la zone sûre des icônes « maskable »)
 const ICONES = [
@@ -20,7 +23,7 @@ const ICONES = [
 ];
 
 const page = (taille, echelle) => `<!doctype html><html><body style="margin:0">
-<div style="width:${taille}px;height:${taille}px;background:#1a1a1a;display:grid;place-items:center">
+<div style="width:${taille}px;height:${taille}px;background:#f5f2f2;display:grid;place-items:center">
   <div style="width:${taille * echelle}px;height:${taille * echelle}px">${LOGO.replace("<svg ", '<svg style="width:100%;height:100%;display:block" ')}</div>
 </div></body></html>`;
 

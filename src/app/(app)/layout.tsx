@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { JaugeQuotas } from "@/components/jauge-quotas";
 import { BoutonArret } from "@/components/bouton-arret";
+import { MenuStatuts } from "@/components/menu-statuts";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Logo } from "@/components/logo";
@@ -34,8 +35,8 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
               <NavigationAvecComptes variante="haut" />
             </Suspense>
           </div>
-          <Suspense fallback={<span className="squelette block size-9 rounded-full" />}>
-            <Compte />
+          <Suspense fallback={<span className="squelette block h-9 w-20 rounded-full" />}>
+            <Actions />
           </Suspense>
         </div>
       </header>
@@ -44,14 +45,11 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
       <div className="flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+16px)] md:hidden">
         <Marque />
         <Suspense fallback={null}>
-          <Compte />
+          <Actions />
         </Suspense>
       </div>
 
       <main id="contenu" className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-[calc(env(safe-area-inset-top)+104px)] lg:px-0">
-        <Suspense fallback={<span className="squelette block h-[76px] w-full rounded-[24px]" />}>
-          <Etat />
-        </Suspense>
         {children}
       </main>
 
@@ -70,7 +68,7 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
 function Marque() {
   return (
     <Link href="/" aria-label="Prospection, accueil" className="shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-accent">
-      <Logo taille={36} />
+      <Logo taille={40} />
     </Link>
   );
 }
@@ -90,33 +88,34 @@ async function NavigationAvecComptes({ variante }: { variante: "haut" | "bas" })
   return <Navigation variante={variante} comptes={{ nonLus: etat.nonLus, enAttente: etat.enAttente }} />;
 }
 
-async function Etat() {
-  const etat = await etatOutil();
+/** Droite de la barre : menu Statuts (point clignotant, ouvert au survol) puis déconnexion. */
+async function Actions() {
+  const [etat] = await Promise.all([etatOutil(), exigerUtilisateur()]);
   return (
-    <div className="carte flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-3.5">
-      <JaugeQuotas etat={etat} />
-      <div className="ml-auto flex items-center gap-3">
-        {etat.modeSimule && (
-          <span
-            className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800 ring-1 ring-inset ring-amber-200"
-            title="Aucune action n'est envoyée à LinkedIn tant qu'Unipile n'est pas branché."
-          >
-            Mode démo
-          </span>
-        )}
-        <BoutonArret arret={etat.arretDurgence} />
-      </div>
+    <div className="flex items-center gap-1">
+      <MenuStatuts etatFile={etat.etatFile} alerte={etat.incertaines > 0 || etat.arretDurgence}>
+        <div className="flex flex-col gap-4">
+          <JaugeQuotas etat={etat} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-trait pt-4">
+            {etat.modeSimule ? (
+              <span
+                className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800 ring-1 ring-inset ring-amber-200"
+                title="Aucune action n'est envoyée à LinkedIn tant qu'Unipile n'est pas branché."
+              >
+                Mode démo
+              </span>
+            ) : (
+              <span />
+            )}
+            <BoutonArret arret={etat.arretDurgence} />
+          </div>
+        </div>
+      </MenuStatuts>
+      <form action={seDeconnecter}>
+        <button type="submit" className="bouton bouton-discret size-9 p-0" aria-label="Se déconnecter" title="Se déconnecter">
+          <IconeDeconnexion taille={18} />
+        </button>
+      </form>
     </div>
-  );
-}
-
-async function Compte() {
-  await exigerUtilisateur();
-  return (
-    <form action={seDeconnecter}>
-      <button type="submit" className="bouton bouton-discret size-9 p-0" aria-label="Se déconnecter" title="Se déconnecter">
-        <IconeDeconnexion taille={18} />
-      </button>
-    </form>
   );
 }
