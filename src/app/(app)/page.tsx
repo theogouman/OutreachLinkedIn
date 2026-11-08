@@ -14,7 +14,8 @@ import { BoutonDemo } from "@/components/bouton-demo";
 import { Chiffre, EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
 import { IconeCalendrier, IconeAttente, IconeImport, IconeInbox, IconeProspects, IconeRecherche } from "@/components/icones";
 import { PanneauFiche } from "./fiche";
-import { FiltreStatut, TableProspects } from "./liste-prospects";
+import { TableProspects } from "./liste-prospects";
+import { ChampRecherche, FournisseurRecherche } from "./recherche-prospects";
 
 export default function PageProspects({ searchParams }: PageProps<"/">) {
   return (
@@ -94,10 +95,9 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
   });
   const filtres = parse.success ? parse.data : { page: 1 };
   const idFiche = premier(sp.prospect);
-  const [{ lignes, total }, refs, stats, etat, fiche, conversation] = await Promise.all([
+  const [{ lignes, total }, refs, etat, fiche, conversation] = await Promise.all([
     prospects(filtres),
     referentiels(),
-    statsProspects(),
     etatOutil(),
     idFiche ? ficheProspect(idFiche) : null,
     idFiche ? fil({ prospectId: idFiche }) : null,
@@ -117,16 +117,12 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
   };
 
   return (
-    <>
+    <FournisseurRecherche initiale={filtres.recherche?.trim() ?? ""}>
       <div className="flex flex-col gap-3">
-        <FiltreStatut stats={stats} />
         <form className="flex flex-wrap items-center gap-2" role="search">
           {filtres.statut && <input type="hidden" name="statut" value={filtres.statut} />}
-          <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
-            <span className="sr-only">Rechercher</span>
-            <IconeRecherche taille={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-encre-3" />
-            <input name="q" defaultValue={filtres.recherche} maxLength={100} placeholder="Nom, entreprise, poste" className="champ pl-9" />
-          </label>
+          {filtres.recherche && <input type="hidden" name="q" value={filtres.recherche} />}
+          <ChampRecherche />
           <label>
             <span className="sr-only">Étape</span>
             <select name="etape" defaultValue={filtres.etape ?? ""} className="champ w-auto">
@@ -158,7 +154,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
         </form>
       </div>
 
-      {lignes.length === 0 ? (
+      {lignes.length === 0 && !filtres.recherche ? (
         filtre ? (
           <EtatVide icone={<IconeRecherche taille={22} />} titre="Aucun prospect ne correspond" texte="Élargis la recherche ou réinitialise les filtres." action={<Link href="/" className="bouton bouton-contour">Réinitialiser les filtres</Link>} />
         ) : (
@@ -197,6 +193,6 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
       )}
 
       {fiche && <PanneauFiche fiche={fiche} libelleEtape={etapes[fiche.etape] ?? fiche.etape} conversation={conversation} />}
-    </>
+    </FournisseurRecherche>
   );
 }

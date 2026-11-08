@@ -6,6 +6,7 @@ import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
 import { chargerContexte } from "./queue/worker";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
+import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
 /**
  * Couche d'accès aux données pour l'interface. Chaque fonction exportée vérifie
@@ -109,7 +110,10 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
         and ($2::text is null or etape = $2)
         and ($3::text is null or liste_origine = $3)
         and ($4::date is null or prochaine_relance <= $4)
-        and ($5::text is null or concat_ws(' ', prenom, nom, entreprise, poste) ilike '%' || $5 || '%')
+        and not exists (
+              select 1 from unnest($5::text[]) as terme
+               where position(terme in translate(lower(concat_ws(' ', prenom, nom, entreprise, poste)), $8, $9)) = 0
+            )
       order by coalesce(nom, ''), coalesce(prenom, ''), id
       limit $6 offset $7`,
     [
@@ -117,9 +121,11 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
       filtres.etape ?? null,
       filtres.liste ?? null,
       filtres.relanceAvant ?? null,
-      filtres.recherche ? filtres.recherche.replace(/[\\%_]/g, (m) => `\\${m}`) : null,
+      termesRecherche(filtres.recherche ?? ""),
       TAILLE_PAGE,
       (filtres.page - 1) * TAILLE_PAGE,
+      TRANSLATE_DE,
+      TRANSLATE_VERS,
     ],
   );
   const lignes: LigneProspect[] = r.rows.map((x) => ({

@@ -3,11 +3,12 @@
  * Adapté de interior (components/interior/sortable-table.tsx)
  * MIT License — Copyright (c) 2026 ozzy — https://github.com/ddoemonn/interior
  * Modifications : charte de l'outil, libellés et annonces en français, colonne de marquage
- * retirée, ligne cliquable (ouvre la fiche), tri local de la page affichée, comparaison fr.
+ * retirée, ligne cliquable (ouvre la fiche), tri local de la page affichée, comparaison fr,
+ * lignes qui entrent et sortent animées quand la liste est filtrée (recherche en temps réel).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 const CELLULE = { type: "spring", stiffness: 520, damping: 34, mass: 0.45 } as const;
 const PETIT = { type: "spring", stiffness: 700, damping: 46, mass: 0.5 } as const;
@@ -16,6 +17,7 @@ const MONTRER = { duration: 0.25, ease: [0.23, 1, 0.32, 1] } as const;
 const PAS = 0.018;
 const PAS_MAX = 8;
 const STABLE_MS = 380;
+const SORTIE_LIGNE = { duration: 0.16, ease: [0.4, 0, 1, 1] } as const;
 
 export type Sens = "asc" | "desc";
 export type Tri = { colonne: string; sens: Sens };
@@ -37,6 +39,7 @@ export function TableTriable<T>({
   libelle,
   hauteurLigne = 60,
   surLigne,
+  vide,
 }: {
   lignes: T[];
   colonnes: Colonne<T>[];
@@ -44,6 +47,8 @@ export function TableTriable<T>({
   libelle: string;
   hauteurLigne?: number;
   surLigne?: (l: T) => void;
+  /** Contenu affiché quand aucune ligne ne reste (filtrage en cours). */
+  vide?: ReactNode;
 }) {
   const reduit = useReducedMotion();
   const [tri, setTri] = useState<Tri | null>(null);
@@ -125,34 +130,60 @@ export function TableTriable<T>({
               })}
             </div>
           </div>
-          <div role="rowgroup" className="relative" style={{ height: (lignes.length || 1) * hauteurLigne }}>
-            {ordonnees.map(({ id, l, index }) => (
-              <motion.div
-                key={id}
-                role="row"
-                initial={false}
-                animate={{ y: index * hauteurLigne }}
-                transition={reduit ? { duration: 0 } : { ...CELLULE, delay: Math.min(index, PAS_MAX) * PAS }}
-                onClick={surLigne ? () => surLigne(l) : undefined}
-                className={`absolute inset-x-0 top-0 grid items-center gap-x-3 px-4 transition-colors duration-200 ${surLigne ? "cursor-pointer hover:bg-creux" : ""}`}
-                style={{ height: hauteurLigne, gridTemplateColumns: gabarit }}
-              >
-                {colonnes.map((c) => {
-                  const brut = c.valeur?.(l);
-                  return (
-                    <div key={c.id} role="cell" className={`min-w-0 body-6 text-encre-2 ${c.aDroite ? "text-right" : ""}`}>
-                      {c.cellule ? c.cellule(l) : brut === null || brut === undefined || brut === "" ? "—" : String(brut)}
-                    </div>
-                  );
-                })}
-              </motion.div>
-            ))}
-            <motion.div aria-hidden initial={false} animate={{ opacity: bouge ? 0 : 1 }} transition={bouge ? CACHER : MONTRER} className="pointer-events-none absolute inset-0">
-              {Array.from({ length: Math.max(0, lignes.length - 1) }, (_, i) => (
-                <div key={i} className="absolute inset-x-4 border-t border-trait" style={{ top: (i + 1) * hauteurLigne }} />
+          <motion.div
+            role="rowgroup"
+            className="relative overflow-hidden"
+            initial={false}
+            animate={{ height: (lignes.length || 1) * hauteurLigne }}
+            transition={reduit ? { duration: 0 } : CELLULE}
+          >
+            <AnimatePresence initial={false}>
+              {ordonnees.map(({ id, l, index }) => (
+                <motion.div
+                  key={id}
+                  role="row"
+                  initial={reduit ? { opacity: 0, y: index * hauteurLigne } : { opacity: 0, y: index * hauteurLigne + 8 }}
+                  animate={{ opacity: 1, y: index * hauteurLigne }}
+                  exit={{ opacity: 0, transition: SORTIE_LIGNE }}
+                  transition={reduit ? { duration: 0 } : { ...CELLULE, delay: Math.min(index, PAS_MAX) * PAS }}
+                  onClick={surLigne ? () => surLigne(l) : undefined}
+                  className={`absolute inset-x-0 top-0 grid items-center gap-x-3 px-4 transition-colors duration-200 ${surLigne ? "cursor-pointer hover:bg-creux" : ""}`}
+                  style={{ height: hauteurLigne, gridTemplateColumns: gabarit }}
+                >
+                  {index > 0 && (
+                    <motion.span
+                      aria-hidden
+                      initial={false}
+                      animate={{ opacity: bouge ? 0 : 1 }}
+                      transition={bouge ? CACHER : MONTRER}
+                      className="pointer-events-none absolute inset-x-4 top-0 border-t border-trait"
+                    />
+                  )}
+                  {colonnes.map((c) => {
+                    const brut = c.valeur?.(l);
+                    return (
+                      <div key={c.id} role="cell" className={`min-w-0 body-6 text-encre-2 ${c.aDroite ? "text-right" : ""}`}>
+                        {c.cellule ? c.cellule(l) : brut === null || brut === undefined || brut === "" ? "—" : String(brut)}
+                      </div>
+                    );
+                  })}
+                </motion.div>
               ))}
-            </motion.div>
-          </div>
+            </AnimatePresence>
+            <AnimatePresence>
+              {lignes.length === 0 && vide && (
+                <motion.div
+                  key="vide"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, transition: MONTRER }}
+                  exit={{ opacity: 0, transition: CACHER }}
+                  className="absolute inset-0 grid place-items-center px-4"
+                >
+                  {vide}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
       <div role="status" aria-live="polite" className="sr-only">

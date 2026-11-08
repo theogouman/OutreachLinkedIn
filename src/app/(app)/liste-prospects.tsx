@@ -1,11 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableTriable, type Colonne } from "@/components/interface/table-triable";
-import { ControleSegmente } from "@/components/interface/controle-segmente";
 import { Avatar } from "@/components/interface/elements";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
-import type { LigneProspect, StatsProspects } from "@/server/donnees";
+import type { LigneProspect } from "@/server/donnees";
+import { correspond } from "@/lib/recherche";
+import { useSaisieRecherche } from "./recherche-prospects";
 
 const fmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" });
 
@@ -16,38 +18,13 @@ function libelleRelance(date: string | null) {
   return { texte: date === aujourdhui ? "Aujourd'hui" : fmt.format(d), retard: date <= aujourdhui };
 }
 
-/** Filtre de statut (contrôle segmenté) : met à jour l'URL, le filtrage reste côté serveur. */
-export function FiltreStatut({ stats }: { stats: StatsProspects }) {
-  const router = useRouter();
-  const chemin = usePathname();
-  const params = useSearchParams();
-  const valeur = params.get("statut") ?? "tous";
-  return (
-    <ControleSegmente
-      libelle="Filtrer par statut de relation"
-      valeur={valeur}
-      onChange={(v) => {
-        const q = new URLSearchParams(params);
-        if (v === "tous") q.delete("statut");
-        else q.set("statut", v);
-        q.delete("page");
-        router.push(q.size ? `${chemin}?${q}` : chemin, { scroll: false });
-      }}
-      options={[
-        { valeur: "tous", libelle: "Tous", compte: stats.total },
-        { valeur: "en_relation", libelle: "En relation", compte: stats.parStatut.en_relation },
-        { valeur: "en_attente", libelle: "En attente", compte: stats.parStatut.en_attente },
-        { valeur: "invitation_recue", libelle: "Reçues", compte: stats.parStatut.invitation_recue },
-        { valeur: "a_inviter", libelle: "À inviter", compte: stats.parStatut.a_inviter },
-      ]}
-    />
-  );
-}
-
 export function TableProspects({ lignes, etapes }: { lignes: LigneProspect[]; etapes: Record<string, string> }) {
   const router = useRouter();
   const chemin = usePathname();
   const params = useSearchParams();
+  const saisie = useSaisieRecherche();
+  // Filtrage instantané pendant la frappe ; le serveur confirme ensuite sur toute la base.
+  const visibles = useMemo(() => lignes.filter((p) => correspond(p, saisie)), [lignes, saisie]);
   const nom = (p: LigneProspect) => [p.prenom, p.nom].filter(Boolean).join(" ") || "Sans nom";
 
   const colonnes: Colonne<LigneProspect>[] = [
@@ -84,7 +61,8 @@ export function TableProspects({ lignes, etapes }: { lignes: LigneProspect[]; et
 
   return (
     <TableTriable
-      lignes={lignes}
+      lignes={visibles}
+      vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à « {saisie.trim()} ».</p>}
       colonnes={colonnes}
       idDe={(p) => p.id}
       libelle="Prospects"
