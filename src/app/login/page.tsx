@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { BoutonGoogle } from "./bouton-google";
+import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = { title: "Connexion · Prospection LinkedIn" };
 
@@ -10,10 +11,7 @@ export default function PageConnexion() {
       <div className="fond-app" aria-hidden />
       <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col items-center justify-center gap-10 px-4 pb-[calc(env(safe-area-inset-bottom)+64px)] pt-[calc(env(safe-area-inset-top)+64px)]">
         <header className="flex flex-col items-center gap-6 text-center">
-          <p className="flex items-baseline gap-1.5">
-            <span className="text-[22px] font-bold tracking-[-0.02em] text-encre">Prospection</span>
-            <span className="size-2 rounded-full bg-accent" aria-hidden />
-          </p>
+          <Logo taille={64} />
           <h1 className="text-[clamp(24px,3vw,32px)] font-bold leading-tight tracking-[-0.02em] text-encre">
             Ton suivi de prospection LinkedIn
           </h1>

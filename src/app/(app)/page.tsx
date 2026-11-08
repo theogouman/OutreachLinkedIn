@@ -21,7 +21,6 @@ export default function PageProspects({ searchParams }: PageProps<"/">) {
     <section className="flex flex-col gap-6">
       <EnTetePage
         titre="Prospects"
-        description="Statut de relation, étape et prochaine relance de chaque prospect, sans ouvrir un seul profil LinkedIn."
         actions={
           <Link href="/import" className="bouton bouton-plein">
             <IconeImport taille={18} />

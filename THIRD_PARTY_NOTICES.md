@@ -11,6 +11,7 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | `src/components/interface/controle-segmente.tsx` | interior — `components/interior/segmented-control.tsx` | MIT, © 2026 ozzy |
 | `src/components/interface/table-triable.tsx` | interior — `components/interior/sortable-table.tsx` | MIT, © 2026 ozzy |
 | `src/components/icones.tsx` et icônes SVG en ligne | Phosphor Icons (`@phosphor-icons/core` 2.1.1) | MIT, © 2020 Phosphor Icons |
+| `public/logo-glow.svg`, `src/app/icon.svg`, icônes PWA | Logo fourni par l'utilisateur | Propriété de l'utilisateur |
 | `src/components/logos.tsx` (logo LinkedIn) | homarr-labs/dashboard-icons — `svg/linkedin.svg` | Apache License 2.0 |
 | `src/components/logos.tsx` (logo Google) | selfhst/icons — `svg/google.svg` | CC BY 4.0, © selfh.st |
 | Jetons, fond, navigation en pilule, carte de connexion (`globals.css`, `navigation.tsx`, `login/`) | Notion-Club/Infrastructure (dépôt de l'utilisateur) | Usage interne |

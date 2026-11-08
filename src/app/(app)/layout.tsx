@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import { JaugeQuotas } from "@/components/jauge-quotas";
 import { BoutonArret } from "@/components/bouton-arret";
+import Link from "next/link";
 import { Navigation } from "@/components/navigation";
+import { Logo } from "@/components/logo";
 import { IconeDeconnexion } from "@/components/icones";
 import { etatOutil } from "@/server/donnees";
 import { exigerUtilisateur } from "@/server/auth";
@@ -24,7 +26,7 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
 
       {/* Barre flottante (écran moyen et plus) */}
       <header className="fixed inset-x-0 top-0 z-40 hidden justify-center px-6 pt-[calc(env(safe-area-inset-top)+14px)] md:flex lg:px-10">
-        <div className="flottant flex w-full max-w-[1080px] items-center justify-between gap-6 rounded-full py-2 pl-6 pr-2">
+        <div className="flottant flex w-full max-w-[1080px] items-center justify-between gap-6 rounded-full py-2 pl-2.5 pr-2">
           <div className="flex min-w-0 items-center gap-4">
             <Marque />
             <span aria-hidden className="h-[22px] w-px shrink-0 bg-trait" />
@@ -67,10 +69,9 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
 
 function Marque() {
   return (
-    <p className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap">
-      <span className="text-[17px] font-bold tracking-[-0.02em] text-encre">Prospection</span>
-      <span className="size-1.5 rounded-full bg-accent" aria-hidden />
-    </p>
+    <Link href="/" aria-label="Prospection, accueil" className="shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-accent">
+      <Logo taille={36} />
+    </Link>
   );
 }
 
@@ -110,17 +111,9 @@ async function Etat() {
 }
 
 async function Compte() {
-  const u = await exigerUtilisateur();
-  const initiale = (u.email ?? "?").charAt(0).toUpperCase();
+  await exigerUtilisateur();
   return (
-    <form action={seDeconnecter} className="flex items-center gap-1">
-      <span
-        className="grid size-9 place-items-center rounded-full bg-accent text-sm font-semibold text-white"
-        title={u.email ?? undefined}
-        aria-hidden
-      >
-        {initiale}
-      </span>
+    <form action={seDeconnecter}>
       <button type="submit" className="bouton bouton-discret size-9 p-0" aria-label="Se déconnecter" title="Se déconnecter">
         <IconeDeconnexion taille={18} />
       </button>
