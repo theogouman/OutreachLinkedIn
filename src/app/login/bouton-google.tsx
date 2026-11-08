@@ -38,7 +38,7 @@ export function BoutonGoogle() {
   return (
     <div className="flex flex-col gap-4">
       {message && (
-        <p role="alert" className="encart ton-rouge px-4 py-3 caption-4">
+        <p role="alert" className="rounded-[12px] bg-accent-doux px-4 py-3 body-6 text-action">
           {message}
         </p>
       )}
@@ -46,9 +46,9 @@ export function BoutonGoogle() {
         type="button"
         onClick={seConnecter}
         disabled={enCours}
-        className="bouton bouton-md w-full gap-2.5 py-3"
+        className="flex w-full items-center justify-center gap-3 rounded-full border border-dashed border-trait bg-creux px-5 py-3 text-[15px] font-medium text-encre outline-none transition-[background-color,transform,opacity] duration-200 ease-[var(--ease-sortie)] hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        <LogoGoogle taille={16} />
+        <LogoGoogle taille={20} />
         {enCours ? "Redirection vers Google…" : "Se connecter avec Google"}
       </button>
     </div>

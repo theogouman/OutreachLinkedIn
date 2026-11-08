@@ -27,7 +27,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
             type="button"
             disabled={enCours}
             title="L'action est bien partie (vérifié sur LinkedIn)"
-            className={`${petit} bouton-plein`}
+            className={`${petit} bg-emerald-700 text-white hover:bg-emerald-800`}
             onClick={() => demarrer(async () => retourner(await actionTrancher(id, "faite")))}
           >
             C&apos;est parti

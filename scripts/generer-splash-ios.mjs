@@ -1,4 +1,4 @@
-// Génère les splash screens iOS (public/splash), couleur unie #161616.
+// Génère les splash screens iOS (public/splash), couleur unie #f5f2f2.
 // Adapté de Notion-Club/Infrastructure (scripts/generate-ios-splash.mjs). Pur Node (zlib).
 // Usage : node scripts/generer-splash-ios.mjs
 // La liste APPAREILS doit rester identique à src/lib/pwa-ios.ts (vérifié par un test).
@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SORTIE = join(dirname(fileURLToPath(import.meta.url)), "..", "public/splash");
-const COULEUR = [22, 22, 22]; // #161616
+const COULEUR = [245, 242, 242];
 const APPAREILS = [
   [375, 667, 2],
   [414, 736, 3],

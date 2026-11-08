@@ -1,7 +1,7 @@
 /*
  * Splash screens iOS (apple-touch-startup-image), repris de Notion-Club/Infrastructure.
  * iOS n'affiche un écran de lancement que si l'image a la résolution physique EXACTE de
- * l'appareil, sinon écran blanc. Une seule couleur (#161616, fond sombre), sans variante sombre : iOS
+ * l'appareil, sinon écran blanc. Une seule couleur (#f5f2f2), sans variante sombre : iOS
  * ne bascule pas le splash de façon fiable selon le thème.
  * Liste à garder synchronisée avec scripts/generer-splash-ios.mjs (test : pwa-ios.test.ts).
  */
@@ -27,4 +27,4 @@ export const SPLASH_IOS = APPAREILS_IOS.map(([l, h, d]) => ({
 }));
 
 /** Couleur de la surface : manifest, barre d'état, splash. */
-export const COULEUR_SURFACE = "#161616";
+export const COULEUR_SURFACE = "#f5f2f2";

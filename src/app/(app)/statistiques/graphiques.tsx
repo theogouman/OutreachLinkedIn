@@ -54,8 +54,8 @@ export function Graphiques({
   const somme = (cle: "total" | "invitations" | "messages" | "lectures") => activite.jours.reduce((n, j) => n + j[cle], 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="carte flex flex-col gap-5 p-5" aria-labelledby="titre-entonnoir">
+    <div className="flex flex-col gap-6">
+      <section className="carte flex flex-col gap-5 p-6" aria-labelledby="titre-entonnoir">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="titre-entonnoir" className="title-2 text-encre">Entonnoir par étape</h2>
@@ -94,7 +94,7 @@ export function Graphiques({
         )}
       </section>
 
-      <section className="carte flex flex-col gap-5 p-5" aria-labelledby="titre-activite">
+      <section className="carte flex flex-col gap-5 p-6" aria-labelledby="titre-activite">
         <div>
           <h2 id="titre-activite" className="title-2 text-encre">Activité de prospection</h2>
           <p className="mt-0.5 body-6 text-encre-3">Invitations, messages et lectures de profil réussis, jour par jour, sur six mois.</p>

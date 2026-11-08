@@ -24,7 +24,7 @@ export function JaugeQuotas({ etat }: { etat: EtatOutil }) {
           <p className="title-4 text-encre">{f.libelle}</p>
           <p className="caption-5 text-encre-3">
             {etat.enAttente} en attente
-            {etat.incertaines > 0 && <span className="text-[#fed7aa]"> · {etat.incertaines} à vérifier</span>}
+            {etat.incertaines > 0 && <span className="text-amber-700"> · {etat.incertaines} à vérifier</span>}
           </p>
         </div>
       </div>

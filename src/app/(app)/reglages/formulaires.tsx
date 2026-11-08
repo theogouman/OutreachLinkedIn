@@ -21,15 +21,15 @@ const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 export function Section({ icone, titre, description, children, pied }: { icone: ReactNode; titre: string; description?: string; children: ReactNode; pied?: ReactNode }) {
   return (
     <div className="carte overflow-hidden">
-      <div className="flex gap-3 px-5 pt-5">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-doux text-accent" aria-hidden>{icone}</span>
+      <div className="flex gap-3 px-6 pt-6">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-doux text-action" aria-hidden>{icone}</span>
         <div className="min-w-0">
           <h2 className="title-2 text-encre">{titre}</h2>
           {description && <p className="mt-0.5 body-6 text-encre-3">{description}</p>}
         </div>
       </div>
-      <div className="flex flex-col gap-6 px-5 py-5">{children}</div>
-      {pied && <div className="flex items-center justify-end gap-3 border-t border-trait bg-creux px-5 py-3">{pied}</div>}
+      <div className="flex flex-col gap-6 px-6 py-6">{children}</div>
+      {pied && <div className="flex items-center justify-end gap-3 border-t border-trait bg-creux px-6 py-3">{pied}</div>}
     </div>
   );
 }
@@ -61,7 +61,7 @@ export function FormPlafonds({ initial }: { initial: Plafonds }) {
         description="Compte gratuit. Jamais au-dessus de la recommandation Unipile, indiquée sous chaque valeur."
         pied={<button type="submit" disabled={enCours} className="bouton bouton-plein">{enCours ? "Enregistrement…" : "Enregistrer les plafonds"}</button>}
       >
-        <div className="-mx-5 overflow-x-auto px-5">
+        <div className="-mx-6 overflow-x-auto px-6">
           <table className="w-full min-w-[560px]">
             <thead>
               <tr className="text-left caption-4 text-encre-3">
@@ -126,7 +126,7 @@ export function FormReglages({ initial }: { initial: Reglages }) {
             return (
               <label
                 key={j}
-                className={`cursor-pointer select-none rounded-full px-3.5 py-1.5 caption-3 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${actif ? "bg-action text-white" : "bg-carte text-encre-2 shadow-[inset_0_0_0_1px_var(--color-trait-fort)] hover:bg-creux"}`}
+                className={`cursor-pointer select-none rounded-full px-3.5 py-1.5 caption-3 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${actif ? "bg-sombre text-white" : "bg-carte text-encre-2 shadow-[inset_0_0_0_1px_var(--color-trait-fort)] hover:bg-creux"}`}
               >
                 <input
                   type="checkbox"
@@ -164,7 +164,7 @@ export function FormReglages({ initial }: { initial: Reglages }) {
             {r.plages.creneaux.length < 6 && (
               <button
                 type="button"
-                className="bouton bouton-discret self-start px-2 py-1 caption-3 text-accent"
+                className="bouton bouton-discret self-start px-2 py-1 caption-3 text-action"
                 onClick={() => setR((s) => ({ ...s, plages: { ...s.plages, creneaux: [...s.plages.creneaux, { debut: "14:00", fin: "17:00" }] } }))}
               >
                 + Ajouter un créneau

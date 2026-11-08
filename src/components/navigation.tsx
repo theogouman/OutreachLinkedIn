@@ -2,86 +2,75 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType, SVGProps } from "react";
-import {
-  IconeFile,
-  IconeImport,
-  IconeInbox,
-  IconeProspects,
-  IconeReglages,
-  IconeStatistiques,
-} from "./icones";
+import { motion, useReducedMotion } from "motion/react";
+import { IconeFile, IconeImport, IconeInbox, IconeProspects, IconeReglages, IconeStatistiques } from "./icones";
 
-type Icone = ComponentType<SVGProps<SVGSVGElement> & { taille?: number }>;
+const LIENS = [
+  { href: "/", libelle: "Prospects", Icone: IconeProspects, compte: null },
+  { href: "/inbox", libelle: "Inbox", Icone: IconeInbox, compte: "nonLus" },
+  { href: "/file", libelle: "File", Icone: IconeFile, compte: "enAttente" },
+  { href: "/statistiques", libelle: "Stats", Icone: IconeStatistiques, compte: null },
+  { href: "/import", libelle: "Import", Icone: IconeImport, compte: null },
+  { href: "/reglages", libelle: "Réglages", Icone: IconeReglages, compte: null },
+] as const;
+
+/* Pilule glissante NC : 220 ms, courbe nc-ease. */
+const GLISSE = { duration: 0.22, ease: [0.22, 1, 0.36, 1] } as const;
+
 type Comptes = { nonLus: number; enAttente: number };
-type Lien = { href: string; libelle: string; Icone: Icone; compte?: keyof Comptes };
 
-const SECTIONS: { titre?: string; liens: Lien[] }[] = [
-  {
-    liens: [
-      { href: "/", libelle: "Prospects", Icone: IconeProspects },
-      { href: "/inbox", libelle: "Inbox", Icone: IconeInbox, compte: "nonLus" },
-      { href: "/file", libelle: "File d'attente", Icone: IconeFile, compte: "enAttente" },
-    ],
-  },
-  { titre: "Analyse", liens: [{ href: "/statistiques", libelle: "Statistiques", Icone: IconeStatistiques }] },
-  {
-    titre: "Données",
-    liens: [
-      { href: "/import", libelle: "Import", Icone: IconeImport },
-      { href: "/reglages", libelle: "Réglages", Icone: IconeReglages },
-    ],
-  },
-];
-
-export const TITRES: Record<string, string> = {
-  "/": "Prospects",
-  "/inbox": "Inbox",
-  "/file": "File d'attente",
-  "/statistiques": "Statistiques",
-  "/import": "Import",
-  "/reglages": "Réglages",
-};
-
-export function titreDe(chemin: string) {
-  const racine = "/" + (chemin.split("/")[1] ?? "");
-  return TITRES[racine] ?? "Prospection";
-}
-
-/** Navigation de la barre latérale (sales-crm : sections, élément actif en relief, compteurs). */
-export function Navigation({ comptes }: { comptes: Comptes }) {
+/**
+ * Navigation principale (DA Notion Club) : pilule glissante sous l'onglet actif.
+ * « haut » : barre flottante desktop ; « bas » : barre de pouce mobile.
+ */
+export function Navigation({ comptes, variante }: { comptes: Comptes; variante: "haut" | "bas" }) {
   const chemin = usePathname();
+  const reduit = useReducedMotion();
   const estActif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
+  const bas = variante === "bas";
 
   return (
     <nav aria-label="Navigation principale">
-      {SECTIONS.map((section, i) => (
-        <div key={i} className="flex flex-col gap-1 border-b border-trait p-3 last:border-b-0">
-          {section.titre && <span className="eyebrow block px-2 pb-1 pt-0.5 text-[#5a5a5a]">{section.titre}</span>}
-          <ul className="flex flex-col gap-px">
-            {section.liens.map(({ href, libelle, Icone, compte }) => {
-              const actif = estActif(href);
-              const n = compte ? comptes[compte] : 0;
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    aria-current={actif ? "page" : undefined}
-                    data-actif={actif}
-                    className="group flex h-[30px] items-center gap-1.5 rounded-lg px-2 text-[14px] leading-none text-encre-3 outline-none transition-[background-color,color,box-shadow] duration-150 ease-[var(--ease-sortie)] hover:text-encre focus-visible:ring-2 focus-visible:ring-accent/60 data-[actif=true]:h-8 data-[actif=true]:bg-muet data-[actif=true]:text-encre data-[actif=true]:shadow-[0_0_0_1px_rgba(0,0,0,0.4),inset_0_1px_0_0_rgba(255,255,255,0.1),inset_0_0_0_1px_rgba(255,255,255,0.06)]"
-                  >
-                    <Icone taille={15} className="shrink-0 text-pale transition-colors duration-150 group-hover:text-icone group-data-[actif=true]:text-icone" />
-                    <span className="min-w-0 flex-1 truncate">{libelle}</span>
-                    {n > 0 && (
-                      <span className={`compte ${compte === "nonLus" ? "border-accent/40 bg-accent-doux text-[#febfc6]" : ""}`}>{n}</span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+      <ul className={bas ? "flex items-stretch justify-between gap-1" : "flex items-center gap-0.5"}>
+        {LIENS.map(({ href, libelle, Icone, compte }) => {
+          const actif = estActif(href);
+          const n = compte ? comptes[compte] : 0;
+          return (
+            <li key={href} className={`relative ${bas ? "flex-1" : ""}`}>
+              {actif && (
+                <motion.span
+                  layoutId={`nav-actif-${variante}`}
+                  transition={reduit ? { duration: 0 } : GLISSE}
+                  className="absolute inset-0 rounded-full bg-black/[0.07]"
+                />
+              )}
+              <Link
+                href={href}
+                aria-current={actif ? "page" : undefined}
+                aria-label={n > 0 ? `${libelle} (${n})` : undefined}
+                className={`relative flex items-center rounded-full whitespace-nowrap text-encre outline-none transition-colors duration-150 focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] ${
+                  bas ? "flex-col gap-0.5 px-2 py-1.5 text-[11px]" : "gap-2 px-4 py-2 text-sm"
+                } ${actif ? "font-semibold" : "font-normal hover:bg-black/[0.04]"}`}
+              >
+                <span className="relative">
+                  <Icone taille={bas ? 20 : 17} />
+                  {n > 0 && bas && (
+                    <span className={`absolute -right-2 -top-1 min-w-4 rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums ${compte === "nonLus" ? "bg-action text-white" : "bg-sombre text-white"}`}>
+                      {n}
+                    </span>
+                  )}
+                </span>
+                <span>{libelle}</span>
+                {n > 0 && !bas && (
+                  <span className={`min-w-5 rounded-full px-1.5 text-center caption-3 tabular-nums ${compte === "nonLus" ? "bg-action text-white" : "bg-black/[0.06] text-encre-2"}`}>
+                    {n}
+                  </span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

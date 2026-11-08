@@ -72,13 +72,13 @@ export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof ty
         aria-label={`Statuts : ${p.libelle}${alerte ? ", à vérifier" : ""}`}
         title="Statuts"
         onClick={() => setOuvert((o) => !o)}
-        className="bouton bouton-icone relative"
+        className="bouton bouton-discret size-9 p-0"
       >
         <span className="relative flex size-2.5" aria-hidden>
           <span className={`absolute inline-flex size-full rounded-full ${p.halo} ${etatFile === "en_pause" ? "" : "animate-ping"}`} />
           <span className={`relative inline-flex size-2.5 rounded-full ${p.couleur} ${etatFile === "en_pause" ? "" : "animate-pulse"}`} />
         </span>
-        {alerte && <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-accent" aria-hidden />}
+        {alerte && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-action" aria-hidden />}
       </button>
       <AnimatePresence>
         {ouvert && (
@@ -91,7 +91,7 @@ export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof ty
             exit={reduit ? { opacity: 0 } : { opacity: 0, y: -2, scale: 0.99, transition: { duration: 0.15 } }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformOrigin: "top right" }}
-            className="flottant absolute right-0 top-[calc(100%+8px)] z-50 w-[min(320px,calc(100vw-24px))] rounded-xl p-4"
+            className="flottant absolute right-0 top-[calc(100%+10px)] z-50 w-[min(340px,calc(100vw-24px))] rounded-[20px] p-4"
           >
             {/* Pont invisible : le pointeur passe du bouton au panneau sans le fermer. */}
             <span className="absolute -top-3 left-0 h-3 w-full" aria-hidden />

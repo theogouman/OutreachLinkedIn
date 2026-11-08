@@ -35,7 +35,7 @@ export function TableTriable<T>({
   colonnes,
   idDe,
   libelle,
-  hauteurLigne = 43,
+  hauteurLigne = 60,
   surLigne,
 }: {
   lignes: T[];
@@ -86,25 +86,25 @@ export function TableTriable<T>({
   const annonce = !touche ? "" : tri && actif ? `Trié par ${actif}, ${tri.sens === "asc" ? "croissant" : "décroissant"}.` : "Ordre initial rétabli.";
 
   return (
-    <div className="border-y border-trait">
+    <div className="carte overflow-hidden">
       <div className="overflow-x-auto">
-        <div role="table" aria-label={libelle} aria-rowcount={lignes.length + 1} className="min-w-[860px]">
+        <div role="table" aria-label={libelle} aria-rowcount={lignes.length + 1} className="min-w-[760px]">
           <div role="rowgroup">
-            <div role="row" className="grid h-[38px] items-center gap-x-3 border-b border-trait px-4" style={{ gridTemplateColumns: gabarit }}>
+            <div role="row" className="grid h-10 items-center gap-x-3 border-b border-trait bg-creux px-4" style={{ gridTemplateColumns: gabarit }}>
               {colonnes.map((c) => {
                 const etat = tri?.colonne === c.id ? (tri.sens === "asc" ? "ascending" : "descending") : "none";
                 const estActif = etat !== "none";
                 return (
                   <div key={c.id} role="columnheader" aria-sort={c.triable === false ? undefined : etat} className="min-w-0">
                     {c.triable === false ? (
-                      <span className={`block truncate caption-4 text-encre-3 ${c.aDroite ? "text-right" : ""}`}>{c.entete}</span>
+                      <span className={`block truncate caption-3 uppercase tracking-wide text-encre-3 ${c.aDroite ? "text-right" : ""}`}>{c.entete}</span>
                     ) : (
                       <button
                         type="button"
                         onClick={() => basculer(c.id)}
                         className={`group flex h-7 w-full items-center gap-1.5 rounded-md outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] ${c.aDroite ? "flex-row-reverse" : ""}`}
                       >
-                        <span className={`truncate caption-4 ${estActif ? "text-encre" : "text-encre-3 group-hover:text-encre-2"}`}>
+                        <span className={`truncate caption-3 uppercase tracking-wide ${estActif ? "text-encre" : "text-encre-3 group-hover:text-encre"}`}>
                           {c.entete}
                         </span>
                         <motion.span
@@ -134,13 +134,13 @@ export function TableTriable<T>({
                 animate={{ y: index * hauteurLigne }}
                 transition={reduit ? { duration: 0 } : { ...CELLULE, delay: Math.min(index, PAS_MAX) * PAS }}
                 onClick={surLigne ? () => surLigne(l) : undefined}
-                className={`absolute inset-x-0 top-0 grid items-center gap-x-3 px-4 transition-colors duration-200 ${surLigne ? "cursor-pointer hover:bg-white/[0.025]" : ""}`}
+                className={`absolute inset-x-0 top-0 grid items-center gap-x-3 px-4 transition-colors duration-200 ${surLigne ? "cursor-pointer hover:bg-creux" : ""}`}
                 style={{ height: hauteurLigne, gridTemplateColumns: gabarit }}
               >
                 {colonnes.map((c) => {
                   const brut = c.valeur?.(l);
                   return (
-                    <div key={c.id} role="cell" className={`min-w-0 text-[14px] leading-none text-encre ${c.aDroite ? "text-right" : ""}`}>
+                    <div key={c.id} role="cell" className={`min-w-0 body-6 text-encre-2 ${c.aDroite ? "text-right" : ""}`}>
                       {c.cellule ? c.cellule(l) : brut === null || brut === undefined || brut === "" ? "—" : String(brut)}
                     </div>
                   );
@@ -149,7 +149,7 @@ export function TableTriable<T>({
             ))}
             <motion.div aria-hidden initial={false} animate={{ opacity: bouge ? 0 : 1 }} transition={bouge ? CACHER : MONTRER} className="pointer-events-none absolute inset-0">
               {Array.from({ length: Math.max(0, lignes.length - 1) }, (_, i) => (
-                <div key={i} className="absolute inset-x-0 border-t border-trait" style={{ top: (i + 1) * hauteurLigne }} />
+                <div key={i} className="absolute inset-x-4 border-t border-trait" style={{ top: (i + 1) * hauteurLigne }} />
               ))}
             </motion.div>
           </div>

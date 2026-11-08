@@ -34,7 +34,7 @@ export function Jauge({ libelle, valeur, max, unite, gele = false }: JaugeProps)
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span id={id} className="truncate caption-5 text-encre-3">{libelle}</span>
-        <span className={`shrink-0 caption-4 tabular-nums ${gele ? "text-[#fed7aa]" : atteint ? "text-accent" : "text-encre"}`}>
+        <span className={`shrink-0 caption-4 tabular-nums ${gele ? "text-amber-700" : atteint ? "text-action" : "text-encre"}`}>
           {gele ? "gelé" : `${valeur}/${max} ${unite}`}
         </span>
       </div>
@@ -45,7 +45,7 @@ export function Jauge({ libelle, valeur, max, unite, gele = false }: JaugeProps)
         aria-valuemax={max}
         aria-valuenow={valeur}
         aria-valuetext={`${valeur} sur ${max} ${unite}${etat ? `, ${etat}` : ""}`}
-        className="rounded-full bg-white/[0.08] p-px"
+        className="rounded-full bg-black/[0.06] p-px"
       >
         <div className="relative h-1.5 overflow-hidden rounded-full">
           <motion.span
