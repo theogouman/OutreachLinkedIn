@@ -17,7 +17,7 @@ export function BoutonArret({ arret }: { arret: boolean }) {
       type="button"
       disabled={enCours}
       onClick={() => demarrer(async () => retourner(await actionArret(!arret)))}
-      className={`bouton ${arret ? "bg-emerald-700 text-white hover:bg-emerald-800" : "bouton-contour text-action"}`}
+      className={`bouton ${arret ? "bouton-plein" : "bouton-contour text-accent"}`}
     >
       {arret ? <IconePlay taille={18} /> : <IconeStop taille={18} />}
       {arret ? "Reprendre la file" : "Arrêt d'urgence"}

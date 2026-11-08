@@ -6,14 +6,14 @@ import { actionImporterProspects, actionImporterRelations } from "@/app/actions"
 import { useRetour } from "@/components/interface/toasts";
 import { ZoneFichier } from "@/components/interface/zone-fichier";
 
-const carte = "carte flex flex-col gap-5 p-6";
+const carte = "carte flex flex-col gap-5 p-5";
 const champ = "champ";
 const bouton = "bouton bouton-plein self-start";
 
 function Etape({ numero, titre, children }: { numero: number; titre: string; children: ReactNode }) {
   return (
     <div className="flex gap-4">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-doux caption-3 text-action" aria-hidden>
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-doux caption-3 text-accent" aria-hidden>
         {numero}
       </span>
       <div className="min-w-0">
@@ -102,7 +102,7 @@ export function ImportProspects() {
             <label key={c.cle} className="flex flex-col gap-1.5">
               <span className="caption-4 text-encre-2">
                 {c.libelle}
-                {c.requis && <span className="text-action"> *</span>}
+                {c.requis && <span className="text-accent"> *</span>}
               </span>
               <select
                 className={champ}

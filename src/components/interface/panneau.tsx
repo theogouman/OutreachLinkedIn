@@ -74,7 +74,7 @@ export function Panneau({ ouvert, fermer, titre, description, largeur = 480, chi
         <div className="fixed inset-0 z-50">
           <motion.div
             aria-hidden
-            className="absolute inset-0 bg-encre/25 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/60"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: FERMETURE }}

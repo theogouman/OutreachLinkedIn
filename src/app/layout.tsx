@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Geist } from "next/font/google";
 import "./globals.css";
 import { Fournisseurs } from "@/components/interface/fournisseurs";
 import { EnregistrementServiceWorker } from "@/components/pwa/enregistrement-service-worker";
 import { COULEUR_SURFACE, SPLASH_IOS } from "@/lib/pwa-ios";
+
+// Police Geist (celle de sales-crm), servie par Next depuis le domaine de l'app.
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
 
 // Métadonnées PWA (modèle : Notion-Club/Infrastructure) : installation depuis l'écran
 // d'accueil iOS en mode plein écran, icône, nom, barre d'état.
@@ -42,7 +46,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" className="h-full antialiased">
+    <html lang="fr" className={`${geist.variable} h-full antialiased`}>
       <head>
         {/* Écrans de lancement iOS : sans image à la résolution exacte, iOS affiche du blanc. */}
         {SPLASH_IOS.map((s) => (

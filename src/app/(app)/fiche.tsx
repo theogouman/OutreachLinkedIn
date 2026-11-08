@@ -82,7 +82,7 @@ export function PanneauFiche({
           <div className="flex items-center justify-between">
             <h3 className="caption-3 uppercase tracking-wide text-encre-3">Conversation LinkedIn</h3>
             {conversation && (
-              <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret px-2 py-1 caption-3 text-action">
+              <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret px-2 py-1 caption-3 text-accent">
                 Ouvrir dans l&apos;Inbox
               </Link>
             )}

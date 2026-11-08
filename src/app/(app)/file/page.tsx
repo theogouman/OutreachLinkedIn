@@ -28,9 +28,8 @@ const fmt = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric",
 
 export default function PageFile() {
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col">
       <EnTetePage
-        titre="File d'attente"
         description="Chaque action LinkedIn part dans l'ordre de demande, sous les quotas et dans les plages horaires. Rien ne part deux fois."
       />
       <Suspense fallback={<SqueletteLignes lignes={6} />}>
@@ -56,7 +55,7 @@ async function Liste() {
   return (
     <div className="flex flex-col gap-4">
       {incertaines > 0 && (
-        <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+        <div role="status" className="mx-4 mb-4 flex items-start gap-3 encart ton-ambre px-4 py-3">
           <IconeAlerte taille={18} className="mt-0.5 shrink-0" />
           <p className="body-6">
             {incertaines === 1 ? "Une action a un envoi incertain" : `${incertaines} actions ont un envoi incertain`} : vérifie sur LinkedIn
@@ -64,14 +63,14 @@ async function Liste() {
           </p>
         </div>
       )}
-      <ol className="carte divide-y divide-trait overflow-hidden">
+      <ol className="divide-y divide-trait border-y border-trait">
         {taches.map((t) => {
           const type = TYPES[t.type] ?? { libelle: t.type, icone: <IconeFile taille={16} /> };
           const incertaine = t.statut === "incertaine";
           return (
             <li
               key={t.id}
-              className={`grid animate-apparition grid-cols-[2rem_1fr] items-center gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-[2rem_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] ${incertaine ? "bg-amber-50/50" : ""}`}
+              className={`grid animate-apparition grid-cols-[2rem_1fr] items-center gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-[2rem_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] ${incertaine ? "bg-[#31221b]/40" : ""}`}
             >
               <span className="caption-4 tabular-nums text-encre-3">{t.ordre}</span>
               <div className="flex min-w-0 items-center gap-3">
@@ -80,7 +79,7 @@ async function Liste() {
                   <p className="flex items-center gap-2 title-4 text-encre">
                     {type.libelle}
                     {t.statut === "en_cours" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 caption-4 text-emerald-800">
+                      <span className="tag ton-vert h-5 gap-1 px-1.5">
                         <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden />
                         En cours
                       </span>
@@ -90,7 +89,7 @@ async function Liste() {
                 </div>
               </div>
               <div className="col-start-2 min-w-0 sm:col-start-auto">
-                <p className={`caption-4 ${incertaine ? "text-amber-800" : "text-encre-2"}`}>
+                <p className={`caption-4 ${incertaine ? "text-[#fed7aa]" : "text-encre-2"}`}>
                   {t.motif ? (MOTIFS[t.motif] ?? t.motif) : t.statut === "en_attente" ? "Prochain passage" : "—"}
                 </p>
                 {t.derniereErreur && <p className="truncate caption-5 text-encre-3">{t.derniereErreur}</p>}

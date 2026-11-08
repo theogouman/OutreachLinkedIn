@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { BadgeEtape } from "@/components/badges";
 import { FilMessages } from "@/components/fil-messages";
-import { Avatar, EnTetePage, EtatVide } from "@/components/interface/elements";
+import { Avatar, EtatVide } from "@/components/interface/elements";
 import { IconeEnvoyer, IconeInbox, IconeMessage } from "@/components/icones";
 import { etatOutil, fil, filtreInboxSchema, inbox, referentiels, type FiltreInbox } from "@/server/donnees";
 import { MarquerLue } from "./marquer-lue";
@@ -25,8 +25,7 @@ function quand(iso: Date | string, aujourdhui: string) {
 
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
   return (
-    <section className="flex flex-col gap-6">
-      <EnTetePage titre="Inbox" description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent." />
+    <section className="flex flex-1 flex-col">
       <Suspense fallback={<SqueletteInbox />}>
         <Contenu searchParams={searchParams} />
       </Suspense>
@@ -36,8 +35,8 @@ export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
 
 function SqueletteInbox() {
   return (
-    <div className="grid gap-4 lg:grid-cols-[360px_1fr]" aria-busy="true" aria-label="Chargement">
-      <div className="carte flex flex-col">
+    <div className="grid lg:grid-cols-[340px_1fr]" aria-busy="true" aria-label="Chargement">
+      <div className="flex flex-col border-trait lg:border-r">
         <div className="h-12 border-b border-trait" />
         {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="flex gap-3 border-b border-trait px-4 py-3 last:border-0">
@@ -49,7 +48,7 @@ function SqueletteInbox() {
           </div>
         ))}
       </div>
-      <div className="carte hidden min-h-[60vh] lg:block" />
+      <div className="hidden min-h-[60vh] lg:block" />
     </div>
   );
 }
@@ -69,10 +68,10 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
   const resume = ouvert ? conversations.find((x) => x.id === ouvert.id) : undefined;
 
   return (
-    <div className="grid gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[520px] lg:grid-cols-[360px_1fr]">
-      <aside className="carte flex min-h-0 flex-col overflow-hidden">
-        <nav className="border-b border-trait p-2" aria-label="Filtres">
-          <div className="flex gap-1 rounded-xl bg-creux p-1">
+    <div className="grid flex-1 lg:h-[calc(100dvh-59px)] lg:grid-cols-[340px_1fr]">
+      <aside className="flex min-h-0 flex-col overflow-hidden border-b border-trait lg:border-b-0 lg:border-r">
+        <nav className="border-b border-trait px-4" aria-label="Filtres">
+          <div className="flex gap-4 overflow-x-auto">
             {FILTRES.map((f) => {
               const actif = f.cle === filtre;
               return (
@@ -80,7 +79,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                   key={f.cle}
                   href={`/inbox?filtre=${f.cle}`}
                   aria-current={actif ? "page" : undefined}
-                  className={`flex-1 rounded-lg px-2 py-1.5 text-center caption-3 outline-none transition-[background-color,color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-accent ${actif ? "bg-carte text-encre shadow-[0_1px_2px_rgb(28_25_23/0.08),0_0_0_1px_var(--color-trait)]" : "text-encre-3 hover:text-encre"}`}
+                  className={`-mb-px shrink-0 border-b py-4 caption-4 leading-none outline-none transition-[color,border-color] duration-150 focus-visible:text-encre ${actif ? "border-encre text-encre" : "border-transparent text-encre-3 hover:text-encre-2"}`}
                 >
                   {f.libelle}
                 </Link>
@@ -111,7 +110,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                       <span className="flex items-center justify-between gap-2">
                         <span className={`truncate ${c.nonLu ? "title-4 text-encre" : "body-6 text-encre"}`}>{c.nom}</span>
                         {c.dernierMessageAt && (
-                          <time className={`shrink-0 caption-5 tabular-nums ${c.nonLu ? "text-action" : "text-encre-3"}`}>{quand(c.dernierMessageAt, aujourdhui)}</time>
+                          <time className={`shrink-0 caption-5 tabular-nums ${c.nonLu ? "text-accent" : "text-encre-3"}`}>{quand(c.dernierMessageAt, aujourdhui)}</time>
                         )}
                       </span>
                       <span className="flex items-center gap-2">
@@ -121,7 +120,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                         </span>
                         {c.nonLu && <span className="ml-auto size-2 shrink-0 rounded-full bg-accent" aria-label="Non lue" />}
                       </span>
-                      {!c.prospectId && <span className="mt-0.5 self-start rounded-full bg-amber-50 px-1.5 caption-4 text-amber-800">Hors CRM</span>}
+                      {!c.prospectId && <span className="mt-1 self-start tag ton-ambre h-5 px-1.5">Hors CRM</span>}
                     </span>
                   </Link>
                 </li>
@@ -131,13 +130,13 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
         )}
       </aside>
 
-      <div className="carte flex min-h-[60vh] flex-col overflow-hidden lg:min-h-0">
+      <div className="flex min-h-[60vh] flex-col overflow-hidden lg:min-h-0">
         {ouvert ? (
           <>
             <MarquerLue id={ouvert.id} nonLu={ouvert.nonLu} />
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-trait px-5 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar nom={ouvert.nom} taille={40} />
+                <Avatar nom={ouvert.nom} taille={32} />
                 <div className="min-w-0">
                   <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
                   {ouvert.sousTitre && <p className="truncate caption-5 text-encre-3">{ouvert.sousTitre}</p>}
@@ -151,10 +150,10 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                   </Link>
                 </span>
               ) : (
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM · ajout au CRM en phase 2</span>
+                <span className="tag ton-ambre">Hors CRM · ajout au CRM en phase 2</span>
               )}
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto bg-creux/60 px-5 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
               <FilMessages messages={ouvert.messages} nom={ouvert.nom} />
             </div>
             <footer className="border-t border-trait px-4 py-3">

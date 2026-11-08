@@ -8,9 +8,10 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | `src/components/interface/panneau.tsx` | interior — `components/interior/drawer.tsx` | MIT, © 2026 ozzy |
 | `src/components/interface/toasts.tsx` | ui-components — `components/motion/animated-toast-stack.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/zone-fichier.tsx` | ui-components — `components/motion/file-upload.tsx` | MIT, © 2026 Saurabh Chauhan |
-| `src/components/interface/controle-segmente.tsx` | interior — `components/interior/segmented-control.tsx` | MIT, © 2026 ozzy |
 | `src/components/interface/table-triable.tsx` | interior — `components/interior/sortable-table.tsx` | MIT, © 2026 ozzy |
 | `src/components/icones.tsx` et icônes SVG en ligne | Phosphor Icons (`@phosphor-icons/core` 2.1.1) | MIT, © 2020 Phosphor Icons |
+| Thème sombre, boutons, tags, barre latérale, onglets, filtres, tableau (`globals.css`, `coque.tsx`, `navigation.tsx`, `elements.tsx`, `table-triable.tsx`, `badges.tsx`) | kargulstudio/sales-crm | MIT, © 2026 Kargul Studio. Styles réécrits sur nos composants, couleur principale passée au rouge brand |
+| Police Geist (`next/font/google`) | Vercel | SIL Open Font License 1.1 |
 | `src/components/charts/`, `src/components/shimmering-text.tsx`, `src/lib/utils.ts` | bklit-ui (registre shadcn @bklit : funnel-chart, heatmap-chart et dépendances) | MIT, © bklit. Modifications : libellés et formats de date en français (heatmap-utils, heatmap-x-axis, heatmap-legend, chart-formatters, libellés de chargement) |
 | `src/components/charts/patterns/` | visx (via bklit) | MIT, voir `LICENSE-visx-pattern` |
 | `public/logo-glow.svg`, `src/app/icon.svg`, icônes PWA | Logo fourni par l'utilisateur | Propriété de l'utilisateur |

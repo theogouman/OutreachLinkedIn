@@ -6,20 +6,22 @@ import { FormPlafonds, FormReglages } from "./formulaires";
 
 export default function PageReglages() {
   return (
-    <section className="flex max-w-[960px] flex-col gap-6">
-      <EnTetePage titre="Réglages" description="Les limites que la file d'attente respecte, sans exception." />
-      <Suspense fallback={<SqueletteReglages />}>
-        <Contenu />
-      </Suspense>
+    <section className="flex flex-col">
+      <EnTetePage description="Les limites que la file d'attente respecte, sans exception." />
+      <div className="flex max-w-[960px] flex-col gap-4 px-4 pb-8">
+        <Suspense fallback={<SqueletteReglages />}>
+          <Contenu />
+        </Suspense>
+      </div>
     </section>
   );
 }
 
 function SqueletteReglages() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Chargement">
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Chargement">
       {[0, 1].map((i) => (
-        <div key={i} className="carte flex flex-col gap-4 p-6">
+        <div key={i} className="carte flex flex-col gap-4 p-5">
           <span className="squelette h-4 w-48" />
           <span className="squelette h-3 w-80" />
           <span className="squelette h-24 w-full" />

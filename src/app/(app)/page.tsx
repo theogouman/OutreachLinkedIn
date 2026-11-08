@@ -11,30 +11,19 @@ import {
   TAILLE_PAGE,
 } from "@/server/donnees";
 import { BoutonDemo } from "@/components/bouton-demo";
-import { Chiffre, EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
-import { IconeCalendrier, IconeAttente, IconeImport, IconeInbox, IconeProspects, IconeRecherche } from "@/components/icones";
+import { Chiffre, EtatVide, FiltrePilule, Onglets, SqueletteLignes } from "@/components/interface/elements";
+import { FormulaireAuto } from "@/components/interface/formulaire-auto";
+import { IconeProspects, IconeRecherche } from "@/components/icones";
 import { PanneauFiche } from "./fiche";
-import { FiltreStatut, TableProspects } from "./liste-prospects";
+import { TableProspects } from "./liste-prospects";
 
 export default function PageProspects({ searchParams }: PageProps<"/">) {
   return (
-    <section className="flex flex-col gap-6">
-      <EnTetePage
-        titre="Prospects"
-        actions={
-          <Link href="/import" className="bouton bouton-plein">
-            <IconeImport taille={18} />
-            Importer
-          </Link>
-        }
-      />
-      <Suspense fallback={<SqueletteCartes />}>
-        <Indicateurs />
-      </Suspense>
+    <section className="flex flex-col">
       <Suspense
         fallback={
           <>
-            <span className="squelette block h-10 w-full max-w-xl rounded-xl" />
+            <span className="squelette mx-4 my-4 block h-[30px] w-full max-w-xl rounded-full" />
             <SqueletteLignes />
           </>
         }
@@ -45,31 +34,27 @@ export default function PageProspects({ searchParams }: PageProps<"/">) {
   );
 }
 
+/** Bande d'indicateurs (cellules du pied de tableau sales-crm). */
 async function Indicateurs() {
   const s = await statsProspects();
-  const cartes = [
-    { libelle: "En relation", valeur: s.parStatut.en_relation, aide: `sur ${s.total} prospects`, Icone: IconeProspects, href: "/?statut=en_relation" },
-    { libelle: "Invitations en attente", valeur: s.parStatut.en_attente, aide: "acceptation non reçue", Icone: IconeAttente, href: "/?statut=en_attente" },
-    { libelle: "Réponses à traiter", valeur: s.aTraiter, aide: "dernier message reçu", Icone: IconeInbox, href: "/inbox?filtre=a_traiter", accent: s.aTraiter > 0 },
-    { libelle: "Relances dues", valeur: s.relancesDues, aide: "aujourd'hui ou en retard", Icone: IconeCalendrier, href: `/?relance=${new Date().toISOString().slice(0, 10)}`, accent: s.relancesDues > 0 },
+  const cellules = [
+    { libelle: "En relation", valeur: s.parStatut.en_relation, href: "/?statut=en_relation" },
+    { libelle: "Invitations en attente", valeur: s.parStatut.en_attente, href: "/?statut=en_attente" },
+    { libelle: "Réponses à traiter", valeur: s.aTraiter, href: "/inbox?filtre=a_traiter", accent: s.aTraiter > 0 },
+    { libelle: "Relances dues", valeur: s.relancesDues, href: `/?relance=${new Date().toISOString().slice(0, 10)}`, accent: s.relancesDues > 0 },
   ];
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cartes.map((c) => (
+    <div className="grid grid-cols-2 border-b border-trait lg:grid-cols-4">
+      {cellules.map((c, i) => (
         <Link
           key={c.libelle}
           href={c.href}
-          className="carte group flex flex-col gap-3 p-4 outline-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)]"
+          className={`flex flex-col gap-2 border-trait px-4 py-3 outline-none transition-colors duration-150 hover:bg-white/[0.025] focus-visible:bg-white/[0.04] ${i % 2 === 0 ? "border-r" : ""} ${i < 2 ? "border-b lg:border-b-0" : ""} ${i === 1 ? "lg:border-r" : ""}`}
         >
-          <span className="flex items-center justify-between">
-            <span className="body-5 text-encre-2">{c.libelle}</span>
-            <span className={`grid size-8 place-items-center rounded-lg ${c.accent ? "bg-accent-doux text-action" : "bg-creux text-encre-3"}`}>
-              <c.Icone taille={18} />
-            </span>
-          </span>
-          <span className="flex items-baseline gap-2">
-            <Chiffre valeur={c.valeur} className="chiffre-cle text-encre" />
-            <span className="caption-5 text-encre-3">{c.aide}</span>
+          <span className="caption-4 text-encre-3">{c.libelle}</span>
+          <span className="flex items-center gap-2">
+            <Chiffre valeur={c.valeur} className="text-[20px] font-medium leading-none tracking-[-0.02em] text-encre" />
+            {c.accent && <span className="size-1.5 rounded-full bg-accent" aria-label="À traiter" />}
           </span>
         </Link>
       ))}
@@ -105,6 +90,22 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
   const etapes = Object.fromEntries(refs.etapes.map((e) => [e.code, e.libelle]));
   const pages = Math.max(1, Math.ceil(total / TAILLE_PAGE));
   const filtre = !!(filtres.recherche || filtres.etape || filtres.liste || filtres.relanceAvant || filtres.statut);
+  const lienStatut = (statut?: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      const val = premier(v);
+      if (val && !["page", "prospect", "statut"].includes(k)) q.set(k, val);
+    }
+    if (statut) q.set("statut", statut);
+    return q.size ? `/?${q}` : "/";
+  };
+  const onglets = [
+    { href: lienStatut(), libelle: "Tous", compte: stats.total, actif: !filtres.statut },
+    { href: lienStatut("en_relation"), libelle: "En relation", compte: stats.parStatut.en_relation, actif: filtres.statut === "en_relation" },
+    { href: lienStatut("en_attente"), libelle: "En attente", compte: stats.parStatut.en_attente, actif: filtres.statut === "en_attente" },
+    { href: lienStatut("invitation_recue"), libelle: "Reçues", compte: stats.parStatut.invitation_recue, actif: filtres.statut === "invitation_recue" },
+    { href: lienStatut("a_inviter"), libelle: "À inviter", compte: stats.parStatut.a_inviter, actif: filtres.statut === "a_inviter" },
+  ];
 
   const lienPage = (p: number) => {
     const q = new URLSearchParams();
@@ -118,44 +119,54 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
 
   return (
     <>
-      <div className="flex flex-col gap-3">
-        <FiltreStatut stats={stats} />
-        <form className="flex flex-wrap items-center gap-2" role="search">
+      <Onglets libelle="Filtrer par statut de relation" onglets={onglets} />
+      <Suspense fallback={<span className="block h-[63px] border-b border-trait" />}>
+        <Indicateurs />
+      </Suspense>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
+        <FormulaireAuto className="flex min-w-0 flex-wrap items-center gap-2" role="search">
           {filtres.statut && <input type="hidden" name="statut" value={filtres.statut} />}
-          <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
+          <label className="relative w-full sm:w-[220px]">
             <span className="sr-only">Rechercher</span>
-            <IconeRecherche taille={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-encre-3" />
-            <input name="q" defaultValue={filtres.recherche} maxLength={100} placeholder="Nom, entreprise, poste" className="champ pl-9" />
+            <IconeRecherche taille={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-encre-3" />
+            <input
+              name="q"
+              defaultValue={filtres.recherche}
+              maxLength={100}
+              placeholder="Rechercher"
+              className="h-[30px] w-full rounded-full bg-creux pl-7 pr-3 text-[12px] text-encre shadow-[0_0_0_1px_rgba(0,0,0,0.4),inset_0_1px_0_0_rgba(255,255,255,0.1),inset_0_0_0_1px_rgba(255,255,255,0.06)] outline-none placeholder:text-encre-3 focus-visible:outline-2 focus-visible:outline-accent/70"
+            />
           </label>
-          <label>
-            <span className="sr-only">Étape</span>
-            <select name="etape" defaultValue={filtres.etape ?? ""} className="champ w-auto">
-              <option value="">Toutes les étapes</option>
-              {refs.etapes.map((e) => (
-                <option key={e.code} value={e.code}>{e.libelle}</option>
-              ))}
-            </select>
+          <FiltrePilule libelle="Étape" name="etape" defaultValue={filtres.etape ?? ""}>
+            <option value="">Toutes</option>
+            {refs.etapes.map((e) => (
+              <option key={e.code} value={e.code}>{e.libelle}</option>
+            ))}
+          </FiltrePilule>
+          <FiltrePilule libelle="Liste" name="liste" defaultValue={filtres.liste ?? ""}>
+            <option value="">Toutes</option>
+            {refs.listes.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </FiltrePilule>
+          <label className="bouton h-[30px] gap-0 overflow-hidden p-0">
+            <span className="px-[9px] font-normal text-encre-3">Relance avant</span>
+            <span aria-hidden className="h-full w-px bg-white/[0.08]" />
+            <input type="date" name="relance" defaultValue={filtres.relanceAvant} className="h-full bg-transparent px-[9px] text-[12px] text-encre outline-none [color-scheme:dark]" />
           </label>
-          <label>
-            <span className="sr-only">Liste d&apos;origine</span>
-            <select name="liste" defaultValue={filtres.liste ?? ""} className="champ w-auto">
-              <option value="">Toutes les listes</option>
-              {refs.listes.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="caption-4 text-encre-3">Relance avant le</span>
-            <input type="date" name="relance" defaultValue={filtres.relanceAvant} className="champ w-auto" />
-          </label>
-          <button type="submit" className="bouton bouton-contour">Filtrer</button>
+          <button type="submit" className="sr-only">Filtrer</button>
           {filtre && (
             <Link href="/" className="bouton bouton-discret">
               Réinitialiser
             </Link>
           )}
-        </form>
+        </FormulaireAuto>
+        <Link href="/import" className="bouton bouton-plein">
+          <svg viewBox="0 0 256 256" className="size-3" fill="currentColor" aria-hidden>
+            <path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z" />
+          </svg>
+          Importer des prospects
+        </Link>
       </div>
 
       {lignes.length === 0 ? (
@@ -181,15 +192,15 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
       ) : (
         <>
           <TableProspects lignes={lignes} etapes={etapes} />
-          <div className="flex items-center justify-between caption-5 text-encre-3">
+          <div className="flex h-11 items-center justify-between gap-2 border-b border-trait px-4 caption-4 text-encre-3">
             <span>
-              {total} prospect{total > 1 ? "s" : ""}
+              <span className="tabular-nums text-encre">{total}</span> prospect{total > 1 ? "s" : ""} dans la vue
               {pages > 1 && ` · page ${filtres.page} sur ${pages}`}
             </span>
             {pages > 1 && (
-              <nav className="flex gap-2" aria-label="Pagination">
-                {filtres.page > 1 && <Link href={lienPage(filtres.page - 1)} className="bouton bouton-contour">Précédent</Link>}
-                {filtres.page < pages && <Link href={lienPage(filtres.page + 1)} className="bouton bouton-contour">Suivant</Link>}
+              <nav className="flex gap-1" aria-label="Pagination">
+                {filtres.page > 1 && <Link href={lienPage(filtres.page - 1)} className="bouton">Précédent</Link>}
+                {filtres.page < pages && <Link href={lienPage(filtres.page + 1)} className="bouton">Suivant</Link>}
               </nav>
             )}
           </div>
