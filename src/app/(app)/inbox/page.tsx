@@ -26,7 +26,7 @@ function quand(iso: Date | string, aujourdhui: string) {
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
   return (
     <section className="flex flex-col gap-6">
-      <EnTetePage titre="Inbox" description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent." />
+      <EnTetePage titre="Inbox" description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent" />
       <Suspense fallback={<SqueletteInbox />}>
         <Contenu searchParams={searchParams} />
       </Suspense>
@@ -90,7 +90,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
         </nav>
         {conversations.length === 0 ? (
           <div className="m-auto flex flex-col items-center gap-2 p-8 text-center">
-            <IconeInbox taille={22} className="text-encre-3" />
+            <IconeInbox taille={20} className="text-encre-3" />
             <p className="title-4 text-encre">Rien ici</p>
             <p className="caption-5 text-encre-3">Aucune conversation pour ce filtre.</p>
           </div>
@@ -176,7 +176,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
             </footer>
           </>
         ) : (
-          <EtatVide icone={<IconeMessage taille={22} />} titre="Aucune conversation ouverte" texte="Choisis une conversation dans la liste." />
+          <EtatVide icone={<IconeMessage taille={20} />} titre="Aucune conversation ouverte" texte="Choisis une conversation dans la liste" />
         )}
       </div>
     </div>

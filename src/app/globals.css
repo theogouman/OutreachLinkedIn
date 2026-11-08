@@ -35,7 +35,7 @@
   --ease-rebond: cubic-bezier(0.34, 1.36, 0.64, 1);
 
   --animate-apparition: apparition 250ms var(--ease-sortie);
-  --animate-chiffre: chiffre 500ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  --animate-chiffre: chiffre 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes apparition {
@@ -49,17 +49,15 @@
   }
 }
 
-/* Number pop-in (transitions.dev 02) */
+/* Changement de chiffre : fondu et montée de 6 px, sans rebond. */
 @keyframes chiffre {
   from {
     opacity: 0;
-    transform: translateY(8px);
-    filter: blur(2px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: blur(0);
   }
 }
 
@@ -68,14 +66,14 @@
 @utility heading-5 {
   font-size: var(--text-2xl);
   line-height: var(--text-2xl--line-height);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.015em;
   text-wrap: balance;
 }
 @utility heading-6 {
   font-size: var(--text-xl);
   line-height: var(--text-xl--line-height);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
@@ -113,7 +111,7 @@
 @utility caption-3 {
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);
-  font-weight: 600;
+  font-weight: 500;
 }
 @utility caption-4 {
   font-size: var(--text-xs);
@@ -127,8 +125,8 @@
 }
 @utility chiffre-cle {
   font-size: var(--text-3xl);
-  line-height: var(--text-3xl--line-height);
-  font-weight: 600;
+  line-height: 1;
+  font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -157,8 +155,7 @@
   border-radius: 9999px;
   font-size: var(--text-sm);
   line-height: var(--text-sm--line-height);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 500;
   white-space: nowrap;
   transition-property: background-color, color, box-shadow, transform, opacity;
   transition-duration: 200ms;
@@ -186,7 +183,6 @@
 @utility bouton-marque {
   background: var(--color-action);
   color: white;
-  box-shadow: 0 10px 24px -12px rgba(224, 98, 90, 0.7);
   &:hover:not(:disabled) {
     background: var(--color-action-fonce);
   }
@@ -242,16 +238,13 @@
   }
 }
 
-/* Fond d'application NC : surface unie et deux taches brand latérales, un seul élément fixe. */
+/* Fond d'application : surface unie (unslop : pas de lavis de couleur derrière le contenu). */
 .fond-app {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(56% 50% at -8% 50%, rgba(224, 99, 90, 0.28) 0%, transparent 72%),
-    radial-gradient(56% 50% at 108% 50%, rgba(224, 99, 90, 0.26) 0%, transparent 72%),
-    var(--color-surface);
+  background: var(--color-surface);
 }
 
 ::selection {
@@ -282,36 +275,6 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* Carte d'authentification NC : liseré brand en rotation lente (arrêté si mouvement réduit). */
-@property --angle-liseré {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes rotation-liseré {
-  to {
-    --angle-liseré: 360deg;
-  }
-}
-.carte-lisere {
-  position: relative;
-  border-radius: var(--radius-carte);
-  padding: 2px;
-  background: conic-gradient(
-    from var(--angle-liseré),
-    rgba(224, 98, 90, 0.08),
-    rgba(224, 98, 90, 0.85) 25%,
-    rgba(224, 98, 90, 0.08) 50%,
-    rgba(224, 98, 90, 0.08) 100%
-  );
-  animation: rotation-liseré 4s linear infinite;
-  box-shadow: rgba(0, 0, 0, 0.03) 0 -2px 16px -4px, rgba(0, 0, 0, 0.08) 0 16px 40px -8px, rgba(0, 0, 0, 0.04) 0 1px 3px 0;
-}
-.carte-lisere > * {
-  border-radius: 22px;
-  background: var(--color-carte);
 }
 
 /* ── PWA iOS (modèle Notion-Club/Infrastructure) ─────────────────────────── */

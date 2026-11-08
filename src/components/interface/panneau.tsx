@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
-const OUVERTURE = { type: "spring", stiffness: 150, damping: 27, mass: 1 } as const;
+const OUVERTURE = { duration: 0.32, ease: [0.22, 1, 0.36, 1] } as const;
 const FERMETURE = { duration: 0.15, ease: [0.22, 1, 0.36, 1] } as const;
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';

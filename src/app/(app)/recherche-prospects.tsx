@@ -93,7 +93,7 @@ export function ChampRecherche() {
         maxLength={100}
         autoComplete="off"
         spellCheck={false}
-        placeholder="Nom, entreprise, poste"
+        placeholder="Rechercher"
         className="champ pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
       />
       <span className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center">

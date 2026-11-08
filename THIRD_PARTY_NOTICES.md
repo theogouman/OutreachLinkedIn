@@ -17,6 +17,7 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | `src/components/logos.tsx` (logo Google) | selfhst/icons — `svg/google.svg` | CC BY 4.0, © selfh.st |
 | Jetons, fond, navigation en pilule, carte de connexion (`globals.css`, `navigation.tsx`, `login/`) | Notion-Club/Infrastructure (dépôt de l'utilisateur) | Usage interne |
 | Règles de typographie, d'espacement et d'états (`src/app/globals.css`) | ai-design-skills, anti-slop (© 2026 Miqdad Badjuber) | MIT |
+| Passes de finition (texte, graisses, couleur, icônes, mouvement) | unslop, Damir Sokolovsky (@heydamir) | CC BY 4.0 |
 
 Texte de la licence MIT :
 

@@ -22,7 +22,7 @@ export function Section({ icone, titre, description, children, pied }: { icone: 
   return (
     <div className="carte overflow-hidden">
       <div className="flex gap-3 px-6 pt-6">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-doux text-action" aria-hidden>{icone}</span>
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-creux text-encre-2 ring-1 ring-trait" aria-hidden>{icone}</span>
         <div className="min-w-0">
           <h2 className="title-2 text-encre">{titre}</h2>
           {description && <p className="mt-0.5 body-6 text-encre-3">{description}</p>}
@@ -58,7 +58,7 @@ export function FormPlafonds({ initial }: { initial: Plafonds }) {
       <Section
         icone={<IconeFiltre taille={18} />}
         titre="Plafonds du compte LinkedIn"
-        description="Compte gratuit. Jamais au-dessus de la recommandation Unipile, indiquée sous chaque valeur."
+        description="Compte gratuit. Jamais au-dessus de la recommandation Unipile, indiquée sous chaque valeur"
         pied={<button type="submit" disabled={enCours} className="bouton bouton-plein">{enCours ? "Enregistrement…" : "Enregistrer les plafonds"}</button>}
       >
         <div className="-mx-6 overflow-x-auto px-6">
@@ -116,7 +116,7 @@ export function FormReglages({ initial }: { initial: Reglages }) {
       <Section
         icone={<IconeCalendrier taille={18} />}
         titre="Rythme d'activité"
-        description="Quand l'outil a le droit d'agir, et à quelle allure. Heure de Paris."
+        description="Quand l'outil a le droit d'agir, et à quelle allure. Heure de Paris"
         pied={<button type="submit" disabled={enCours} className="bouton bouton-plein">{enCours ? "Enregistrement…" : "Enregistrer"}</button>}
       >
         <Groupe titre="Jours actifs" aide="Aucune action hors de ces jours.">

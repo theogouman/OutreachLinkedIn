@@ -13,7 +13,7 @@ const bouton = "bouton bouton-plein self-start";
 function Etape({ numero, titre, children }: { numero: number; titre: string; children: ReactNode }) {
   return (
     <div className="flex gap-4">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-doux caption-3 text-action" aria-hidden>
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-creux caption-3 text-encre-2 ring-1 ring-trait" aria-hidden>
         {numero}
       </span>
       <div className="min-w-0">
@@ -119,7 +119,7 @@ export function ImportProspects() {
           ))}
           <label className="flex flex-col gap-1.5 sm:col-span-2">
             <span className="caption-4 text-encre-2">Liste d&apos;origine (pour filtrer et mesurer)</span>
-            <input name="liste" maxLength={100} placeholder="ex. Salon Novembre 2026" className={champ} />
+            <input name="liste" maxLength={100} placeholder="Salon novembre 2026" className={champ} />
           </label>
         </fieldset>
       )}

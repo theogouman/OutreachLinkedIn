@@ -52,7 +52,7 @@ export function EnTetePage({ titre, description, actions }: { titre: string; des
 export function EtatVide({ icone, titre, texte, action }: { icone: ReactNode; titre: string; texte: string; action?: ReactNode }) {
   return (
     <div className="carte flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-accent-doux text-action">{icone}</span>
+      <span className="grid size-12 place-items-center rounded-2xl bg-creux text-encre-2 ring-1 ring-trait">{icone}</span>
       <h2 className="title-3 text-encre">{titre}</h2>
       <p className="max-w-[420px] body-6 text-encre-3">{texte}</p>
       {action && <div className="mt-2">{action}</div>}

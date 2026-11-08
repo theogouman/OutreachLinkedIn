@@ -45,9 +45,9 @@ async function Liste() {
   if (taches.length === 0) {
     return (
       <EtatVide
-        icone={<IconeFile taille={22} />}
+        icone={<IconeFile taille={20} />}
         titre="La file est vide"
-        texte="Les invitations, messages et synchronisations demandés apparaîtront ici avec leur heure de départ estimée."
+        texte="Les invitations, messages et synchronisations demandés apparaîtront ici avec leur heure de départ estimée"
       />
     );
   }
@@ -96,7 +96,7 @@ async function Liste() {
                 {t.derniereErreur && <p className="truncate caption-5 text-encre-3">{t.derniereErreur}</p>}
               </div>
               <p className="col-start-2 flex items-center gap-1.5 caption-4 text-encre-2 sm:col-start-auto">
-                <IconeHorloge taille={14} className="text-encre-3" />
+                <IconeHorloge taille={16} className="text-encre-3" />
                 {incertaine ? "En attente de ta décision" : fmt.format(t.departEstime ?? t.executerApres)}
               </p>
               <div className="col-start-2 sm:col-start-auto">

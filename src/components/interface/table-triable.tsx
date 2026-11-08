@@ -10,8 +10,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
-const CELLULE = { type: "spring", stiffness: 520, damping: 34, mass: 0.45 } as const;
-const PETIT = { type: "spring", stiffness: 700, damping: 46, mass: 0.5 } as const;
+const CELLULE = { duration: 0.3, ease: [0.22, 1, 0.36, 1] } as const;
+const PETIT = { duration: 0.18, ease: [0.22, 1, 0.36, 1] } as const;
 const CACHER = { duration: 0.12, ease: [0.4, 0, 1, 1] } as const;
 const MONTRER = { duration: 0.25, ease: [0.23, 1, 0.32, 1] } as const;
 const PAS = 0.018;
@@ -102,14 +102,14 @@ export function TableTriable<T>({
                 return (
                   <div key={c.id} role="columnheader" aria-sort={c.triable === false ? undefined : etat} className="min-w-0">
                     {c.triable === false ? (
-                      <span className={`block truncate caption-3 uppercase tracking-wide text-encre-3 ${c.aDroite ? "text-right" : ""}`}>{c.entete}</span>
+                      <span className={`block truncate caption-4 text-encre-3 ${c.aDroite ? "text-right" : ""}`}>{c.entete}</span>
                     ) : (
                       <button
                         type="button"
                         onClick={() => basculer(c.id)}
                         className={`group flex h-7 w-full items-center gap-1.5 rounded-md outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] ${c.aDroite ? "flex-row-reverse" : ""}`}
                       >
-                        <span className={`truncate caption-3 uppercase tracking-wide ${estActif ? "text-encre" : "text-encre-3 group-hover:text-encre"}`}>
+                        <span className={`truncate caption-4 ${estActif ? "text-encre" : "text-encre-3 group-hover:text-encre"}`}>
                           {c.entete}
                         </span>
                         <motion.span

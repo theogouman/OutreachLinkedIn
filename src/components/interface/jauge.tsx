@@ -10,7 +10,7 @@
 import { useId } from "react";
 import { motion, useReducedMotion } from "motion/react";
 
-const REMPLISSAGE = { type: "spring", stiffness: 210, damping: 34, mass: 0.9 } as const;
+const REMPLISSAGE = { duration: 0.5, ease: [0.22, 1, 0.36, 1] } as const;
 const IMMEDIAT = { duration: 0 } as const;
 
 export interface JaugeProps {

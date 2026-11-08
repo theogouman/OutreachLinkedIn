@@ -7,7 +7,7 @@ import { FormPlafonds, FormReglages } from "./formulaires";
 export default function PageReglages() {
   return (
     <section className="flex max-w-[960px] flex-col gap-6">
-      <EnTetePage titre="Réglages" description="Les limites que la file d'attente respecte, sans exception." />
+      <EnTetePage titre="Réglages" description="Les limites que la file d'attente respecte, sans exception" />
       <Suspense fallback={<SqueletteReglages />}>
         <Contenu />
       </Suspense>

@@ -59,7 +59,7 @@ export function Graphiques({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="titre-entonnoir" className="title-2 text-encre">Entonnoir par étape</h2>
-            <p className="mt-0.5 body-6 text-encre-3">Prospects ayant atteint chaque étape, du premier contact au gain.</p>
+            <p className="mt-0.5 body-6 text-encre-3">Prospects ayant atteint chaque étape, du premier contact au gain</p>
           </div>
           {total > 0 && (
             <p className="caption-4 text-encre-2">
@@ -97,7 +97,7 @@ export function Graphiques({
       <section className="carte flex flex-col gap-5 p-6" aria-labelledby="titre-activite">
         <div>
           <h2 id="titre-activite" className="title-2 text-encre">Activité de prospection</h2>
-          <p className="mt-0.5 body-6 text-encre-3">Invitations, messages et lectures de profil réussis, jour par jour, sur six mois.</p>
+          <p className="mt-0.5 body-6 text-encre-3">Invitations, messages et lectures de profil réussis, jour par jour, sur six mois</p>
         </div>
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-4">
           {[
@@ -108,7 +108,7 @@ export function Graphiques({
           ].map((x) => (
             <div key={x.t} className="flex flex-col gap-1 bg-carte px-4 py-3">
               <dt className="caption-4 text-encre-3">{x.t}</dt>
-              <dd className="text-2xl font-semibold tracking-[-0.02em] text-encre">
+              <dd className="text-[28px] font-medium leading-none tabular-nums tracking-[-0.02em] text-encre">
                 <Chiffre valeur={x.v} />
               </dd>
             </div>

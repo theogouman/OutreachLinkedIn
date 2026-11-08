@@ -12,7 +12,7 @@ import {
 } from "@/server/donnees";
 import { BoutonDemo } from "@/components/bouton-demo";
 import { Chiffre, EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
-import { IconeCalendrier, IconeAttente, IconeImport, IconeInbox, IconeProspects, IconeRecherche } from "@/components/icones";
+import { IconeImport, IconeProspects, IconeRecherche } from "@/components/icones";
 import { PanneauFiche } from "./fiche";
 import { TableProspects } from "./liste-prospects";
 import { ChampRecherche, FournisseurRecherche } from "./recherche-prospects";
@@ -49,10 +49,10 @@ export default function PageProspects({ searchParams }: PageProps<"/">) {
 async function Indicateurs() {
   const s = await statsProspects();
   const cartes = [
-    { libelle: "En relation", valeur: s.parStatut.en_relation, aide: `sur ${s.total} prospects`, Icone: IconeProspects, href: "/?statut=en_relation" },
-    { libelle: "Invitations en attente", valeur: s.parStatut.en_attente, aide: "acceptation non reçue", Icone: IconeAttente, href: "/?statut=en_attente" },
-    { libelle: "Réponses à traiter", valeur: s.aTraiter, aide: "dernier message reçu", Icone: IconeInbox, href: "/inbox?filtre=a_traiter", accent: s.aTraiter > 0 },
-    { libelle: "Relances dues", valeur: s.relancesDues, aide: "aujourd'hui ou en retard", Icone: IconeCalendrier, href: `/?relance=${new Date().toISOString().slice(0, 10)}`, accent: s.relancesDues > 0 },
+    { libelle: "En relation", valeur: s.parStatut.en_relation, aide: `sur ${s.total} prospects`, href: "/?statut=en_relation" },
+    { libelle: "Invitations en attente", valeur: s.parStatut.en_attente, aide: "acceptation non reçue", href: "/?statut=en_attente" },
+    { libelle: "Réponses à traiter", valeur: s.aTraiter, aide: "dernier message reçu", href: "/inbox?filtre=a_traiter", accent: s.aTraiter > 0 },
+    { libelle: "Relances dues", valeur: s.relancesDues, aide: "aujourd'hui ou en retard", href: `/?relance=${new Date().toISOString().slice(0, 10)}`, accent: s.relancesDues > 0 },
   ];
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -60,16 +60,11 @@ async function Indicateurs() {
         <Link
           key={c.libelle}
           href={c.href}
-          className="carte group flex flex-col gap-3 p-4 outline-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)]"
+          className="carte flex flex-col gap-3 p-5 outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-creux focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)]"
         >
-          <span className="flex items-center justify-between">
-            <span className="body-5 text-encre-2">{c.libelle}</span>
-            <span className={`grid size-8 place-items-center rounded-lg ${c.accent ? "bg-accent-doux text-action" : "bg-creux text-encre-3"}`}>
-              <c.Icone taille={18} />
-            </span>
-          </span>
+          <span className="body-6 text-encre-2">{c.libelle}</span>
           <span className="flex items-baseline gap-2">
-            <Chiffre valeur={c.valeur} className="chiffre-cle text-encre" />
+            <Chiffre valeur={c.valeur} className={`chiffre-cle ${c.accent ? "text-action" : "text-encre"}`} />
             <span className="caption-5 text-encre-3">{c.aide}</span>
           </span>
         </Link>
@@ -156,10 +151,10 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
 
       {lignes.length === 0 && !filtres.recherche ? (
         filtre ? (
-          <EtatVide icone={<IconeRecherche taille={22} />} titre="Aucun prospect ne correspond" texte="Élargis la recherche ou réinitialise les filtres." action={<Link href="/" className="bouton bouton-contour">Réinitialiser les filtres</Link>} />
+          <EtatVide icone={<IconeRecherche taille={20} />} titre="Aucun prospect ne correspond" texte="Élargis la recherche ou réinitialise les filtres" action={<Link href="/" className="bouton bouton-contour">Réinitialiser les filtres</Link>} />
         ) : (
           <EtatVide
-            icone={<IconeProspects taille={22} />}
+            icone={<IconeProspects taille={20} />}
             titre="Aucun prospect pour l'instant"
             texte={
               etat.modeSimule

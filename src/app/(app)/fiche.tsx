@@ -74,13 +74,13 @@ export function PanneauFiche({
         </dl>
         {fiche.notes && (
           <section className="flex flex-col gap-2">
-            <h3 className="caption-3 uppercase tracking-wide text-encre-3">Notes</h3>
+            <h3 className="caption-4 text-encre-3">Notes</h3>
             <p className="selectionnable whitespace-pre-wrap rounded-xl bg-creux px-3 py-2.5 body-6 text-encre-2">{fiche.notes}</p>
           </section>
         )}
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h3 className="caption-3 uppercase tracking-wide text-encre-3">Conversation LinkedIn</h3>
+            <h3 className="caption-4 text-encre-3">Conversation LinkedIn</h3>
             {conversation && (
               <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret px-2 py-1 caption-3 text-action">
                 Ouvrir dans l&apos;Inbox
@@ -96,7 +96,7 @@ export function PanneauFiche({
           )}
         </section>
         <section className="flex flex-col gap-3">
-          <h3 className="caption-3 uppercase tracking-wide text-encre-3">Historique</h3>
+          <h3 className="caption-4 text-encre-3">Historique</h3>
           {fiche.historique.length === 0 ? (
             <p className="caption-5 text-encre-3">Aucun événement.</p>
           ) : (

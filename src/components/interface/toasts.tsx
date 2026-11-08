@@ -24,7 +24,7 @@ type Entree = Omit<Toast, "id" | "duree" | "statut"> & { statut?: StatutToast; d
 
 const ToastsContexte = createContext<((t: Entree) => void) | null>(null);
 
-const RESSORT: Transition = { type: "spring", stiffness: 420, damping: 34, mass: 0.75 };
+const RESSORT: Transition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] };
 const SORTIE = { duration: 0.15, ease: [0.22, 1, 0.36, 1] } as const;
 
 const ICONES: Record<StatutToast, ReactNode> = {

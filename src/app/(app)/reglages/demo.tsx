@@ -14,7 +14,7 @@ export function PanneauDemo({ modeSimule, prospectsDemo }: { modeSimule: boolean
     <Section
       icone={<IconeDemo taille={18} />}
       titre="Données de démonstration"
-      description="Prospects, entreprises et conversations fictifs avec trois semaines d'historique, pour essayer l'outil sans Unipile."
+      description="Prospects, entreprises et conversations fictifs avec trois semaines d'historique, pour essayer l'outil sans Unipile"
       pied={
         <>
           <button
