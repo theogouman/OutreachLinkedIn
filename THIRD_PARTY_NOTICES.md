@@ -5,7 +5,7 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | Fichier | Source | Licence |
 |---|---|---|
 | `src/components/interface/jauge.tsx` | interior — `components/interior/progress-bar.tsx` | MIT, © 2026 ozzy |
-| `src/components/interface/panneau.tsx` | interior — `components/interior/drawer.tsx` | MIT, © 2026 ozzy |
+| `src/components/interface/modale.tsx`, `sections-glissantes.tsx`, classes `.t-*` de `globals.css` | Transitions.dev — Modal open/close, Tabs sliding, Page side-by-side, Card resize | Licence Transitions.dev (usage en produit autorisé), © 2026 Jakub Antalik |
 | `src/components/interface/toasts.tsx` | ui-components — `components/motion/animated-toast-stack.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/zone-fichier.tsx` | ui-components — `components/motion/file-upload.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/table-triable.tsx` | interior — `components/interior/sortable-table.tsx` | MIT, © 2026 ozzy |
@@ -34,4 +34,4 @@ Texte de la licence MIT :
 > COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 > OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Aucun code de rare-ui (licence avec Commons Clause et attribution) ni de transitions.dev n'est copié : le compteur −/+ (`compteur.tsx`), l'apparition des chiffres et les squelettes de chargement en reprennent seulement l'idée, réécrite.
+Aucun code de rare-ui (licence avec Commons Clause et attribution) n'est copié : le compteur −/+ (`compteur.tsx`), l'apparition des chiffres et les squelettes de chargement en reprennent seulement l'idée, réécrite.

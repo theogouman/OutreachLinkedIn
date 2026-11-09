@@ -1,7 +1,9 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Panneau } from "@/components/interface/panneau";
+import { Modale, useModale } from "@/components/interface/modale";
+import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
+import { IconeFermer } from "@/components/icones";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
@@ -22,8 +24,16 @@ const EVENEMENTS: Record<string, string> = {
 const RESULTATS: Record<string, string> = { succes: "", echec: " · échec", incertain: " · à vérifier", en_cours: " · en cours" };
 const fmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" });
 
-/** Fiche en panneau latéral, ouverte par ?prospect=<id> (lien direct possible). */
-export function PanneauFiche({
+const fmtJour = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" });
+
+function jourRelance(date: string | null) {
+  if (!date) return "Non planifiée";
+  const j = fmtJour.format(new Date(`${date}T12:00:00Z`));
+  return j.charAt(0).toUpperCase() + j.slice(1);
+}
+
+/** Fiche prospect en modale centrée, ouverte par ?prospect=<id> (lien direct possible). */
+export function ModaleFiche({
   fiche,
   libelleEtape,
   conversation,
@@ -41,86 +51,122 @@ export function PanneauFiche({
     router.replace(q.size ? `${chemin}?${q}` : chemin, { scroll: false });
   };
   const nom = [fiche.prenom, fiche.nom].filter(Boolean).join(" ") || "Prospect";
-  const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
 
   return (
-    <Panneau ouvert fermer={fermer} titre={nom} description={[fiche.poste, fiche.entreprise].filter(Boolean).join(" · ") || undefined}>
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <Avatar nom={nom} taille={48} />
-          <div className="flex flex-wrap gap-2">
-            <BadgeStatut statut={fiche.statutRelation} />
-            <BadgeEtape libelle={libelleEtape} />
-          </div>
-        </div>
-        {lienProfil && (
-          <a href={lienProfil} target="_blank" rel="noopener noreferrer" className="bouton bouton-contour self-start">
-            <LogoLinkedIn taille={18} />
-            Ouvrir son LinkedIn
-            <span className="sr-only"> (nouvel onglet)</span>
-          </a>
-        )}
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-trait ring-1 ring-trait">
+    <Modale fermer={fermer} enTete={<EnTeteFiche fiche={fiche} nom={nom} />}>
+      <div className="flex flex-col gap-8 px-6 pb-6 pt-2 sm:px-8 sm:pb-8">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-3">
           {[
+            { t: "Relation", d: <BadgeStatut statut={fiche.statutRelation} /> },
+            { t: "Étape", d: <BadgeEtape libelle={libelleEtape} /> },
+            { t: "Prochaine relance", d: jourRelance(fiche.prochaineRelance) },
             { t: "Liste d'origine", d: fiche.listeOrigine ?? "Aucune" },
-            { t: "Prochaine relance", d: fiche.prochaineRelance ?? "Non planifiée" },
-            { t: "Identifiant LinkedIn", d: fiche.identifie ? "Lu" : "Lecture en file", large: true },
-          ].map((x) => (
-            <div key={x.t} className={`flex min-w-0 flex-col gap-0.5 bg-carte px-3 py-2.5 ${x.large ? "col-span-2" : ""}`}>
+            { t: "Entreprise", d: fiche.entreprise ?? "Inconnue" },
+            { t: "Identifiant LinkedIn", d: fiche.identifie ? "Lu" : "Lecture en file" },
+          ].map((x, i) => (
+            <div key={x.t} className={`flex min-w-0 flex-col gap-1.5 bg-carte px-4 py-3 ${i === 0 || i === 5 ? "col-span-2 sm:col-span-1" : ""}`}>
               <dt className="caption-4 text-encre-3">{x.t}</dt>
-              <dd className="truncate body-6 text-encre">{x.d}</dd>
+              <dd className="flex min-h-6 items-center body-6 text-encre">{x.d}</dd>
             </div>
           ))}
         </dl>
+
         {fiche.notes && (
-          <section className="flex flex-col gap-2">
+          <section className="flex flex-col gap-2" aria-label="Notes">
             <h3 className="caption-4 text-encre-3">Notes</h3>
-            <p className="selectionnable whitespace-pre-wrap rounded-xl bg-creux px-3 py-2.5 body-6 text-encre-2">{fiche.notes}</p>
+            <p className="selectionnable whitespace-pre-wrap rounded-2xl bg-creux px-4 py-3 body-6 text-encre-2">{fiche.notes}</p>
           </section>
         )}
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h3 className="caption-4 text-encre-3">Conversation LinkedIn</h3>
-            {conversation && (
-              <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret px-2 py-1 caption-3 text-action">
-                Ouvrir dans l&apos;Inbox
-              </Link>
-            )}
-          </div>
-          {conversation ? (
-            <div className="rounded-xl bg-creux p-3">
-              <FilMessages messages={conversation.messages} nom={nom} />
-            </div>
-          ) : (
-            <p className="caption-5 text-encre-3">Aucune conversation pour l&apos;instant.</p>
-          )}
-        </section>
-        <section className="flex flex-col gap-3">
-          <h3 className="caption-4 text-encre-3">Historique</h3>
-          {fiche.historique.length === 0 ? (
-            <p className="caption-5 text-encre-3">Aucun événement.</p>
-          ) : (
-            <ol className="relative ml-1 flex flex-col gap-4 border-l border-trait pl-5">
-              {fiche.historique.map((e, i) => (
-                <li key={i} className="relative">
-                  <span
-                    aria-hidden
-                    className={`absolute -left-[25.5px] top-1 size-2.5 rounded-full ring-4 ring-carte ${e.enFile ? "bg-trait-fort" : e.resultat === "succes" ? "bg-accent" : "bg-amber-400"}`}
-                  />
-                  <p className="title-4 text-encre">
-                    {EVENEMENTS[e.type] ?? e.type}
-                    <span className="font-normal text-encre-3">{e.enFile ? " · en file" : (RESULTATS[e.resultat ?? ""] ?? "")}</span>
-                  </p>
-                  <time dateTime={new Date(e.date).toISOString()} className="caption-5 text-encre-3">
-                    {e.enFile ? "Départ estimé " : ""}
-                    {fmt.format(new Date(e.date))}
-                  </time>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
+
+        <SectionsGlissantes
+          libelle="Conversation et historique"
+          sections={[
+            {
+              id: "conversation",
+              libelle: "Conversation",
+              compte: conversation?.messages.length ?? 0,
+              contenu: (
+                <div className="flex flex-col gap-3">
+                  {conversation ? (
+                    <>
+                      <div className="rounded-2xl bg-creux p-4">
+                        <FilMessages messages={conversation.messages} nom={nom} />
+                      </div>
+                      <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret self-start px-3 py-1.5 caption-3 text-action">
+                        Ouvrir dans l&apos;Inbox
+                      </Link>
+                    </>
+                  ) : (
+                    <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">Aucune conversation pour l&apos;instant</p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: "historique",
+              libelle: "Historique",
+              compte: fiche.historique.length,
+              contenu:
+                fiche.historique.length === 0 ? (
+                  <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">Aucun événement</p>
+                ) : (
+                  <ol className="relative ml-1 flex flex-col gap-4 border-l border-trait py-1 pl-5">
+                    {fiche.historique.map((e, i) => (
+                      <li key={i} className="relative">
+                        <span
+                          aria-hidden
+                          className={`absolute -left-[25.5px] top-1 size-2.5 rounded-full ring-4 ring-carte ${e.enFile ? "bg-trait-fort" : e.resultat === "succes" ? "bg-accent" : "bg-amber-400"}`}
+                        />
+                        <p className="title-4 text-encre">
+                          {EVENEMENTS[e.type] ?? e.type}
+                          <span className="font-normal text-encre-3">{e.enFile ? " · en file" : (RESULTATS[e.resultat ?? ""] ?? "")}</span>
+                        </p>
+                        <time dateTime={new Date(e.date).toISOString()} className="caption-5 text-encre-3">
+                          {e.enFile ? "Départ estimé " : ""}
+                          {fmt.format(new Date(e.date))}
+                        </time>
+                      </li>
+                    ))}
+                  </ol>
+                ),
+            },
+          ]}
+        />
       </div>
-    </Panneau>
+    </Modale>
+  );
+}
+
+function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
+  const { fermer, titreId } = useModale();
+  const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
+  const sousTitre = [fiche.poste, fiche.entreprise].filter(Boolean).join(" · ");
+  return (
+    <header className="flex shrink-0 flex-col gap-5 px-6 pb-6 pt-6 sm:px-8 sm:pt-8">
+      <div className="flex items-start justify-between gap-4">
+        <Avatar nom={nom} taille={56} />
+        <button
+          type="button"
+          onClick={fermer}
+          aria-label="Fermer la fiche"
+          className="grid size-9 shrink-0 place-items-center rounded-full text-encre-3 outline-none transition-colors duration-150 hover:bg-creux hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <IconeFermer taille={16} />
+        </button>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <h2 id={titreId} className="text-[28px] font-medium leading-tight tracking-[-0.02em] text-encre sm:text-[32px]">
+          {nom}
+        </h2>
+        {sousTitre && <p className="body-6 text-encre-2">{sousTitre}</p>}
+      </div>
+      {lienProfil && (
+        <a href={lienProfil} target="_blank" rel="noopener noreferrer" className="bouton bouton-contour self-start">
+          <LogoLinkedIn taille={18} />
+          Ouvrir son LinkedIn
+          <span className="sr-only"> (nouvel onglet)</span>
+        </a>
+      )}
+    </header>
   );
 }

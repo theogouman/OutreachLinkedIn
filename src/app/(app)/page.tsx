@@ -13,7 +13,7 @@ import {
 import { BoutonDemo } from "@/components/bouton-demo";
 import { Chiffre, EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
 import { IconeImport, IconeProspects, IconeRecherche } from "@/components/icones";
-import { PanneauFiche } from "./fiche";
+import { ModaleFiche } from "./fiche";
 import { TableProspects } from "./liste-prospects";
 import { ChampRecherche, FournisseurRecherche } from "./recherche-prospects";
 
@@ -187,7 +187,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
         </>
       )}
 
-      {fiche && <PanneauFiche fiche={fiche} libelleEtape={etapes[fiche.etape] ?? fiche.etape} conversation={conversation} />}
+      {fiche && <ModaleFiche fiche={fiche} libelleEtape={etapes[fiche.etape] ?? fiche.etape} conversation={conversation} />}
     </FournisseurRecherche>
   );
 }
