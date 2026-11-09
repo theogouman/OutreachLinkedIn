@@ -50,7 +50,7 @@ export async function actionImporterRelations(formData: FormData): Promise<Retou
   return executer("importer-relations", async () => {
     const lecture = lireConnectionsCsv(await lireFichier(formData));
     const r = await importerRelations(poolServeur(), lecture.relations);
-    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes ignorées` : ""}.`;
+    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour, ${r.etapesAvancees} passés à « Connecté »${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL ignorées` : ""}.`;
   });
 }
 
@@ -79,7 +79,7 @@ export async function actionImporterNotion(formData: FormData): Promise<Retour> 
     const r = await importerNotion(poolServeur(), prep);
     const i = prep.ignores;
     const ignores = i.aVerifier + i.exclus + i.sansSignal + i.sansLinkedIn + i.statutInconnu + i.doublons;
-    return `${r.crees} prospects créés, ${r.dejaPresents} déjà présents, ${r.actions} invitations et messages repris dans l'historique${ignores ? `, ${ignores} contacts ignorés` : ""}.`;
+    return `${r.crees} prospects créés, ${r.dejaPresents} déjà présents, ${r.actions} invitations et messages repris dans l'historique, ${r.etapesAvancees} déjà en relation passés à « Connecté »${ignores ? `, ${ignores} contacts ignorés` : ""}.`;
   });
 }
 

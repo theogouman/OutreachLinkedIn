@@ -48,7 +48,7 @@ describe.skipIf(!TEST_DATABASE_URL)("import du CRM Notion", () => {
 
   it("crée les prospects avec étape, liste, informations de liste, liens et actions datées", async () => {
     const r = await importerNotion(db.pool, preparerImportNotion(EXPORT));
-    expect(r).toEqual({ crees: 3, dejaPresents: 0, actions: 3 });
+    expect(r).toEqual({ crees: 3, dejaPresents: 0, actions: 3, etapesAvancees: 0 });
 
     const p = await db.pool.query(
       "select url_normalisee, etape, statut_relation, liste_origine, details from public.prospects order by url_normalisee",
@@ -89,19 +89,67 @@ describe.skipIf(!TEST_DATABASE_URL)("import du CRM Notion", () => {
     await importerNotion(db.pool, preparerImportNotion(EXPORT));
     await db.pool.query("update public.prospects set etape = 'rdv_fixe' where url_normalisee = 'linkedin.com/in/alice'");
     const r = await importerNotion(db.pool, preparerImportNotion(EXPORT));
-    expect(r).toEqual({ crees: 0, dejaPresents: 3, actions: 0 });
+    expect(r).toEqual({ crees: 0, dejaPresents: 3, actions: 0, etapesAvancees: 0 });
     const n = await db.pool.query("select (select count(*) from public.actions)::int as a, (select count(*) from public.taches)::int as t");
     expect(n.rows[0]).toEqual({ a: 3, t: 3 });
     const alice = await db.pool.query("select etape from public.prospects where url_normalisee = 'linkedin.com/in/alice'");
     expect(alice.rows[0].etape).toBe("rdv_fixe");
   });
 
-  it("le fichier de relations LinkedIn importé ensuite fait passer une invitation acceptée en relation", async () => {
+  const etatDe = async (id: string) =>
+    (
+      await db.pool.query(
+        `select p.statut_relation, p.etape,
+                (select array_agg(a.type || '@' || to_char(a.created_at at time zone 'UTC', 'YYYY-MM-DD') order by a.type)
+                   from public.actions a where a.prospect_id = p.id and not a.sortante) as journal
+           from public.prospects p where p.url_normalisee = $1`,
+        [`linkedin.com/in/${id}`],
+      )
+    ).rows[0];
+
+  const RELATIONS = [
+    { urlNormalisee: "linkedin.com/in/bruno", date: new Date("2026-11-05T00:00:00Z") }, // invitation acceptée
+    { urlNormalisee: "linkedin.com/in/alice", date: new Date("2024-03-01T00:00:00Z") }, // déjà en relation, jamais invitée
+  ];
+
+  it("relations importées après Notion : invitation acceptée → Connecté, datée de la connexion", async () => {
     await importerNotion(db.pool, preparerImportNotion(EXPORT));
-    const r = await importerRelations(db.pool, [{ urlNormalisee: "linkedin.com/in/bruno", date: new Date("2026-11-06T00:00:00Z") }]);
-    expect(r.prospectsMisAJour).toBe(1);
-    const b = await db.pool.query("select statut_relation from public.prospects where url_normalisee = 'linkedin.com/in/bruno'");
-    expect(b.rows[0].statut_relation).toBe("en_relation");
+    const r = await importerRelations(db.pool, RELATIONS);
+    expect(r).toMatchObject({ prospectsMisAJour: 2, etapesAvancees: 2 });
+    expect(await etatDe("bruno")).toEqual({
+      statut_relation: "en_relation",
+      etape: "connecte",
+      journal: ["acceptation@2026-11-05", "changement_etape@2026-11-05"],
+    });
+    expect(await etatDe("alice")).toEqual({ statut_relation: "en_relation", etape: "connecte", journal: ["changement_etape@2024-03-01"] });
+    // Plus loin dans le pipeline : l'étape n'est pas reculée.
+    expect(await etatDe("chloe")).toMatchObject({ etape: "premier_message", journal: null });
+  });
+
+  it("relations importées avant Notion : même résultat dès l'import", async () => {
+    await importerRelations(db.pool, RELATIONS);
+    const r = await importerNotion(db.pool, preparerImportNotion(EXPORT));
+    expect(r.etapesAvancees).toBe(2);
+    expect(await etatDe("bruno")).toEqual({
+      statut_relation: "en_relation",
+      etape: "connecte",
+      journal: ["acceptation@2026-11-05", "changement_etape@2026-11-05"],
+    });
+    expect(await etatDe("alice")).toMatchObject({ statut_relation: "en_relation", etape: "connecte" });
+  });
+
+  it("réimporter les relations ne duplique ni l'acceptation ni le changement d'étape", async () => {
+    await importerNotion(db.pool, preparerImportNotion(EXPORT));
+    await importerRelations(db.pool, RELATIONS);
+    const r = await importerRelations(db.pool, RELATIONS);
+    expect(r.etapesAvancees).toBe(0);
+    expect((await etatDe("bruno")).journal).toEqual(["acceptation@2026-11-05", "changement_etape@2026-11-05"]);
+  });
+
+  it("une invitation toujours en attente reste à « Invitation envoyée »", async () => {
+    await importerNotion(db.pool, preparerImportNotion(EXPORT));
+    await importerRelations(db.pool, [RELATIONS[1]!]);
+    expect(await etatDe("bruno")).toMatchObject({ statut_relation: "en_attente", etape: "invitation_envoyee" });
   });
 
   it("refuse en base des informations de liste qui ne sont pas un objet", async () => {
