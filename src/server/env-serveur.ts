@@ -49,7 +49,8 @@ export function envUnipile():
 
 export function envWebhook() {
   return lire(
-    z.object({ UNIPILE_WEBHOOK_SECRET: z.string().min(16), UNIPILE_ACCOUNT_ID: z.string().min(3).optional() }),
-    { UNIPILE_WEBHOOK_SECRET: process.env.UNIPILE_WEBHOOK_SECRET, UNIPILE_ACCOUNT_ID: process.env.UNIPILE_ACCOUNT_ID },
+    // Facultatif : à défaut (ou s'il ne correspond pas), le secret est lu chez Unipile (webhooks/secret.ts).
+    z.object({ UNIPILE_WEBHOOK_SECRET: z.string().min(16).optional(), UNIPILE_ACCOUNT_ID: z.string().min(3).optional() }),
+    { UNIPILE_WEBHOOK_SECRET: process.env.UNIPILE_WEBHOOK_SECRET || undefined, UNIPILE_ACCOUNT_ID: process.env.UNIPILE_ACCOUNT_ID },
   );
 }

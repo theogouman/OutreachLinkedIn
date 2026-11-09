@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useTransition, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Modale, useModale } from "@/components/interface/modale";
 import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
@@ -16,7 +16,9 @@ import { LogoLinkedIn } from "@/components/logos";
 import { lienProfilLinkedIn } from "@/lib/linkedin-url";
 import { NotesProspect } from "./notes-prospect";
 import { useOrdreFiches } from "@/components/ordre-fiches";
-import { IconeFlecheDroite } from "@/components/icones-pages";
+import { IconeCorbeille, IconeFlecheDroite } from "@/components/icones-pages";
+import { actionSupprimerProspect } from "@/app/actions";
+import { useRetour } from "@/components/interface/toasts";
 
 const EVENEMENTS: Record<string, string> = {
   invitation: "Invitation",
@@ -268,6 +270,71 @@ function BoutonFleche({ sens, action, desactive }: { sens: "precedent" | "suivan
   );
 }
 
+/** Corbeille : suppression définitive après confirmation (fiche et toutes ses données). */
+function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom: string }) {
+  const { fermer } = useModale();
+  const [confirmer, setConfirmer] = useState(false);
+  const [enCours, demarrer] = useTransition();
+  const retourner = useRetour();
+  const annuler = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmer) annuler.current?.focus();
+  }, [confirmer]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setConfirmer((v) => !v)}
+        aria-expanded={confirmer}
+        aria-label="Supprimer ce prospect"
+        title="Supprimer ce prospect"
+        className="grid size-9 place-items-center rounded-full text-encre-3 outline-none transition-colors duration-150 hover:bg-accent-doux hover:text-action focus-visible:ring-2 focus-visible:ring-accent aria-expanded:bg-accent-doux aria-expanded:text-action"
+      >
+        <IconeCorbeille taille={16} />
+      </button>
+      {confirmer && (
+        <div
+          role="alertdialog"
+          aria-label="Confirmer la suppression"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              setConfirmer(false);
+            }
+          }}
+          className="flottant absolute right-0 top-11 z-10 flex w-[280px] animate-apparition flex-col gap-3 rounded-[18px] p-4"
+        >
+          <p className="body-6 text-encre">Supprimer {prenom} définitivement ?</p>
+          <p className="caption-5 text-encre-3">
+            Fiche, notes, photo, conversations et messages, historique et file d&apos;attente : tout est effacé. Irréversible
+          </p>
+          <div className="flex justify-end gap-2">
+            <button ref={annuler} type="button" onClick={() => setConfirmer(false)} className="bouton bouton-discret px-3 py-1.5 caption-3">
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={enCours}
+              onClick={() =>
+                demarrer(async () => {
+                  const r = await actionSupprimerProspect(prospectId);
+                  retourner(r);
+                  if (r.ok) fermer();
+                  else setConfirmer(false);
+                })
+              }
+              className="bouton bouton-plein px-3 py-1.5 caption-3"
+            >
+              {enCours ? "Suppression…" : "Supprimer"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EnTeteFiche({ fiche, nom, nav }: { fiche: FicheProspect; nom: string; nav: Navigation }) {
   const { fermer, titreId } = useModale();
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
@@ -277,6 +344,8 @@ function EnTeteFiche({ fiche, nom, nav }: { fiche: FicheProspect; nom: string; n
       <div className="flex items-start justify-between gap-4">
         <Avatar nom={nom} taille={56} photo={fiche.photo} />
         <div className="flex items-center gap-1">
+          <SupprimerProspect key={fiche.id} prospectId={fiche.id} prenom={fiche.prenom ?? nom} />
+          <span aria-hidden className="mx-1 h-5 w-px bg-trait" />
           {nav.position && (
             <span className="mr-1 caption-5 tabular-nums text-encre-3" aria-live="polite">
               {nav.position}

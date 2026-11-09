@@ -204,3 +204,36 @@ export async function majNotes(pool: Pool, entree: unknown) {
   const r = await pool.query("update public.prospects set notes = $2, updated_at = now() where id = $1", [n.prospectId, n.notes || null]);
   if (!r.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
 }
+
+// ─── Suppression d'un prospect ────────────────────────────────────────────────
+
+/**
+ * Supprime un prospect et ses données : fiche, notes, informations de liste, photo, conversations
+ * et messages, file d'attente, journal (étapes, acceptations, réponses), liens LinkedIn connus.
+ * Seules les actions envoyées à LinkedIn restent, anonymisées (sans prospect) : elles comptent
+ * dans les quotas, que LinkedIn applique quoi qu'il arrive. Refusé si une action est en cours.
+ */
+export async function supprimerProspect(pool: Pool, id: unknown) {
+  const prospectId = idSchema.parse(id);
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    const p = await c.query("select url_normalisee, provider_id from public.prospects where id = $1 for update", [prospectId]);
+    if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+    const enCours = await c.query("select 1 from public.taches where prospect_id = $1 and statut = 'en_cours' limit 1", [prospectId]);
+    if (enCours.rowCount) throw new EnvoiRefuse("Une action LinkedIn est en cours pour ce prospect : réessaie dans une minute.");
+    const { url_normalisee: url, provider_id: providerId } = p.rows[0];
+
+    await c.query("delete from public.actions where prospect_id = $1 and not sortante", [prospectId]);
+    await c.query("delete from public.conversations where prospect_id = $1", [prospectId]); // messages : en cascade
+    await c.query("delete from public.liens_linkedin where url_normalisee = $1 or ($2::text is not null and provider_id = $2)", [url, providerId]);
+    // Fiche, photo et file d'attente partent en cascade ; actions envoyées détachées (prospect_id → null).
+    await c.query("delete from public.prospects where id = $1", [prospectId]);
+    await c.query("commit");
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}

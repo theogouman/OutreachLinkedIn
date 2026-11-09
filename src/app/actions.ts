@@ -7,7 +7,7 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
 import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
@@ -136,6 +136,13 @@ export async function actionModifierNotes(entree: unknown): Promise<Retour> {
     console.error("[action:%s]", "notes", e);
     return { ok: false, message: ERREUR };
   }
+}
+
+export async function actionSupprimerProspect(id: unknown): Promise<Retour> {
+  return executer("supprimer-prospect", async () => {
+    await supprimerProspect(poolServeur(), id);
+    return "Prospect supprimé, avec toutes ses données.";
+  });
 }
 
 // ─── Notifications et Push ────────────────────────────────────────────────────

@@ -51,10 +51,27 @@ export async function traiterWebhookUnipile(
   pool: Pool,
   corpsBrut: string,
   signature: string | null,
-  opts: { secret: string; accountId?: string; maintenantMs?: number; deps?: DependancesWebhook },
+  opts: {
+    /** Secret configuré (variable d'environnement), s'il existe. */
+    secret?: string;
+    /** Secrets lus chez Unipile, essayés si le premier manque ou ne correspond pas. */
+    secretsSecours?: () => Promise<string[]>;
+    accountId?: string;
+    maintenantMs?: number;
+    deps?: DependancesWebhook;
+  },
 ): Promise<ReponseWebhook> {
   if (Buffer.byteLength(corpsBrut) > TAILLE_MAX_WEBHOOK) return { status: 413, corps: { ok: false } };
-  if (!verifierSignatureUnipile(signature, corpsBrut, opts.secret, opts.maintenantMs)) return { status: 401, corps: { ok: false } };
+  let signe = !!opts.secret && verifierSignatureUnipile(signature, corpsBrut, opts.secret, opts.maintenantMs);
+  if (!signe && signature && opts.secretsSecours) {
+    for (const s of await opts.secretsSecours()) {
+      if (verifierSignatureUnipile(signature, corpsBrut, s, opts.maintenantMs)) {
+        signe = true;
+        break;
+      }
+    }
+  }
+  if (!signe) return { status: 401, corps: { ok: false } };
 
   let json: unknown;
   try {
