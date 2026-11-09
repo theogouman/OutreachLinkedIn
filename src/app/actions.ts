@@ -10,8 +10,9 @@ import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospect
 import { annulerTache, basculerArret, EnvoiRefuse, majPlafonds, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
-import { prospectsDepuis, type LigneProspect } from "@/server/donnees";
+import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
 import { filtresProspectsSchema } from "@/lib/filtres/prospects";
+import { filtresInboxSchema } from "@/lib/filtres/inbox";
 
 /**
  * Server Actions de l'interface. Chacune vérifie l'utilisateur, valide l'entrée
@@ -136,6 +137,18 @@ export async function actionListerProspects(entree: unknown): Promise<ResultatLi
     return { ok: true, ...(await prospectsDepuis(poolServeur(), filtres.data)) };
   } catch (e) {
     console.error("[action:listerProspects]", e);
+    return { ok: false, message: ERREUR };
+  }
+}
+
+export async function actionListerConversations(entree: unknown): Promise<ResultatListe<LigneConversation>> {
+  await exigerUtilisateur();
+  const filtres = filtresInboxSchema.safeParse(entree);
+  if (!filtres.success) return { ok: false, message: "Filtres invalides." };
+  try {
+    return { ok: true, ...(await inboxDepuis(poolServeur(), filtres.data)) };
+  } catch (e) {
+    console.error("[action:listerConversations]", e);
     return { ok: false, message: ERREUR };
   }
 }

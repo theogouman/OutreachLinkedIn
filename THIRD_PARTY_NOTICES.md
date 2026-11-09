@@ -5,7 +5,7 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | Fichier | Source | Licence |
 |---|---|---|
 | `src/components/interface/jauge.tsx` | interior — `components/interior/progress-bar.tsx` | MIT, © 2026 ozzy |
-| `src/components/interface/modale.tsx`, `sections-glissantes.tsx`, classes `.t-*` de `globals.css` | Transitions.dev — Modal open/close, Tabs sliding, Page side-by-side, Card resize | Licence Transitions.dev (usage en produit autorisé), © 2026 Jakub Antalik |
+| `src/components/interface/modale.tsx`, `sections-glissantes.tsx`, classes `.t-*` de `globals.css` | Transitions.dev — Modal open/close, Tabs sliding, Page side-by-side, Card resize, Dropdown menu morph (`menu-filtres.tsx`) | Licence Transitions.dev (usage en produit autorisé), © 2026 Jakub Antalik |
 | `src/components/interface/toasts.tsx` | ui-components — `components/motion/animated-toast-stack.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/zone-fichier.tsx` | ui-components — `components/motion/file-upload.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/table-triable.tsx` | interior — `components/interior/sortable-table.tsx` | MIT, © 2026 ozzy |

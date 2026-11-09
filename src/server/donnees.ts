@@ -283,8 +283,8 @@ export async function reglages() {
 
 // ─── Inbox ────────────────────────────────────────────────────────────────────
 
-export const filtreInboxSchema = z.enum(["tous", "non_lus", "a_traiter", "hors_crm"]).catch("tous");
-export type FiltreInbox = z.infer<typeof filtreInboxSchema>;
+export { filtresInboxSchema, type FiltresInbox } from "@/lib/filtres/inbox";
+import { filtresInboxSchema, type FiltresInbox } from "@/lib/filtres/inbox";
 
 export interface LigneConversation {
   id: string;
@@ -298,43 +298,61 @@ export interface LigneConversation {
   nonLu: boolean;
 }
 
-export async function inboxDepuis(pool: Pool, filtre: FiltreInbox): Promise<LigneConversation[]> {
+export const TAILLE_PAGE_INBOX = 100;
+
+/** Conversations de l'Inbox selon les filtres (standard src/lib/filtres : mêmes règles qu'en local). */
+export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ lignes: LigneConversation[]; total: number }> {
   const r = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu, c.demo, c.dernier_message_at,
-            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
-            nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape,
-            m.texte as apercu, m.sens as dernier_sens
-       from public.conversations c
-       left join public.prospects p on p.id = c.prospect_id
-       left join lateral (
-         select texte, sens from public.messages where conversation_id = c.id order by envoye_at desc limit 1
-       ) m on true
-      where case $1::text
-              when 'non_lus' then c.non_lu
-              when 'a_traiter' then m.sens = 'entrant'
-              when 'hors_crm' then c.prospect_id is null
-              else true
-            end
-      order by c.dernier_message_at desc nulls last
-      limit 200`,
-    [filtre],
+    `with conv as (
+       select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
+              coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
+              nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape,
+              coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens
+         from public.conversations c
+         left join public.prospects p on p.id = c.prospect_id
+         left join lateral (
+           select texte, sens from public.messages where conversation_id = c.id order by envoye_at desc limit 1
+         ) m on true
+     )
+     select *, count(*) over ()::int as total
+       from conv
+      where (not $1::boolean or non_lu)
+        and (not $2::boolean or dernier_sens = 'entrant')
+        and (not $3::boolean or prospect_id is null)
+        and not exists (
+              select 1 from unnest($4::text[]) as terme
+               where position(terme in translate(lower(concat_ws(' ', nom, sous_titre, apercu)), $5, $6)) = 0
+            )
+      order by dernier_message_at desc nulls last, id
+      limit $7 offset $8`,
+    [
+      filtres.nonLus === "oui",
+      filtres.aTraiter === "oui",
+      filtres.horsCrm === "oui",
+      termesRecherche(filtres.recherche ?? ""),
+      TRANSLATE_DE,
+      TRANSLATE_VERS,
+      TAILLE_PAGE_INBOX,
+      (filtres.page - 1) * TAILLE_PAGE_INBOX,
+    ],
   );
-  return r.rows.map((x) => ({
+  const lignes = r.rows.map((x) => ({
     id: x.id,
     prospectId: x.prospect_id,
     nom: x.nom,
     sousTitre: x.sous_titre,
     etape: x.etape,
-    apercu: (x.apercu ?? "").slice(0, 160),
-    dernierSens: x.dernier_sens ?? "sortant",
+    apercu: x.apercu,
+    dernierSens: x.dernier_sens,
     dernierMessageAt: x.dernier_message_at,
     nonLu: x.non_lu,
   }));
+  return { lignes, total: r.rows[0]?.total ?? 0 };
 }
 
-export async function inbox(filtre: unknown) {
+export async function inbox(filtres: unknown) {
   await exigerUtilisateur();
-  return inboxDepuis(poolServeur(), filtreInboxSchema.parse(filtre));
+  return inboxDepuis(poolServeur(), filtresInboxSchema.parse(filtres));
 }
 
 export interface MessageFil {

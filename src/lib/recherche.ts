@@ -17,11 +17,16 @@ export function termesRecherche(saisie: string): string[] {
 
 type Cherchable = { prenom: string | null; nom: string | null; entreprise: string | null; poste: string | null };
 
-export function correspond(p: Cherchable, saisie: string): boolean {
+/** Tous les mots saisis apparaissent dans l'un des champs (sans casse ni accents). */
+export function correspondTexte(champs: (string | null | undefined)[], saisie: string): boolean {
   const termes = termesRecherche(saisie);
   if (termes.length === 0) return true;
-  const texte = normaliser([p.prenom, p.nom, p.entreprise, p.poste].filter(Boolean).join(" "));
+  const texte = normaliser(champs.filter(Boolean).join(" "));
   return termes.every((t) => texte.includes(t));
+}
+
+export function correspond(p: Cherchable, saisie: string): boolean {
+  return correspondTexte([p.prenom, p.nom, p.entreprise, p.poste], saisie);
 }
 
 /*

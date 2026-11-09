@@ -17,29 +17,29 @@ describe.skipIf(!TEST_DATABASE_URL)("Inbox (lecture) et conversations de démo",
   afterAll(async () => db?.drop());
 
   it("la démo crée les conversations, rattachées ou hors CRM", async () => {
-    expect(await inboxDepuis(db.pool, "tous")).toHaveLength(TOTAL);
-    const hors = await inboxDepuis(db.pool, "hors_crm");
+    expect((await inboxDepuis(db.pool, { page: 1 })).lignes).toHaveLength(TOTAL);
+    const hors = (await inboxDepuis(db.pool, { page: 1, horsCrm: "oui" })).lignes;
     expect(hors.map((c) => c.nom).sort()).toEqual(CONVERSATIONS_HORS_CRM_DEMO.map((h) => h.nom).sort());
     expect(hors.every((c) => c.prospectId === null)).toBe(true);
   });
 
   it("filtres : non lus, réponses à traiter (dernier message entrant)", async () => {
-    const nonLus = await inboxDepuis(db.pool, "non_lus");
+    const nonLus = (await inboxDepuis(db.pool, { page: 1, nonLus: "oui" })).lignes;
     expect(nonLus.map((c) => c.nom).sort()).toEqual(["Margaux Perrin", "Sophie Dubois"]);
-    const aTraiter = await inboxDepuis(db.pool, "a_traiter");
+    const aTraiter = (await inboxDepuis(db.pool, { page: 1, aTraiter: "oui" })).lignes;
     expect(aTraiter.every((c) => c.dernierSens === "entrant")).toBe(true);
     expect(aTraiter.map((c) => c.nom)).toContain("Sophie Dubois");
   });
 
   it("fil d'une conversation, par conversation ou par prospect", async () => {
-    const [sophie] = (await inboxDepuis(db.pool, "non_lus")).filter((c) => c.nom === "Sophie Dubois");
+    const [sophie] = ((await inboxDepuis(db.pool, { page: 1, nonLus: "oui" })).lignes).filter((c) => c.nom === "Sophie Dubois");
     const fil = await filDepuis(db.pool, { conversationId: sophie!.id });
     expect(fil?.messages.map((m) => m.sens)).toEqual(["sortant", "sortant", "entrant"]);
     const parProspect = await filDepuis(db.pool, { prospectId: sophie!.prospectId });
     expect(parProspect?.id).toBe(sophie!.id);
     expect(await filDepuis(db.pool, { conversationId: "pas-un-uuid" })).toBeNull();
     expect(await marquerLue(db.pool, sophie!.id)).toBe(true);
-    expect((await inboxDepuis(db.pool, "non_lus")).map((c) => c.nom)).toEqual(["Margaux Perrin"]);
+    expect(((await inboxDepuis(db.pool, { page: 1, nonLus: "oui" })).lignes).map((c) => c.nom)).toEqual(["Margaux Perrin"]);
   });
 
   it("accès : un intrus ne voit rien, l'interface ne peut pas écrire de message", async () => {

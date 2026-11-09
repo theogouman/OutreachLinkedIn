@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
-import { prospectsDepuis } from "@/server/donnees";
+import { inboxDepuis, prospectsDepuis } from "@/server/donnees";
+import { semerDemo } from "@/server/demo";
+import { FILTRES_INBOX, type FiltresInbox } from "@/lib/filtres/inbox";
 import { appliquerLocalement } from "@/lib/filtres/definition";
 import { FILTRES_PROSPECTS, type FiltresProspects } from "@/lib/filtres/prospects";
 
@@ -49,5 +51,34 @@ describe.skipIf(!TEST_DATABASE_URL)("filtres des prospects : navigateur et serve
     const serveur = (await prospectsDepuis(db.pool, filtres)).lignes.map((l) => l.id).sort();
     const local = appliquerLocalement(tous, filtres, FILTRES_PROSPECTS).map((l) => l.id).sort();
     expect(local).toEqual(serveur);
+  });
+});
+
+describe.skipIf(!TEST_DATABASE_URL)("filtres de l'Inbox : navigateur et serveur d'accord", () => {
+  let db: TestDb;
+  beforeAll(async () => {
+    db = await createTestDb();
+    await semerDemo(db.pool, new Date("2026-11-05T09:00:00Z"));
+  });
+  afterAll(async () => db?.drop());
+
+  const cas: Partial<FiltresInbox>[] = [
+    {},
+    { nonLus: "oui" },
+    { aTraiter: "oui" },
+    { horsCrm: "oui" },
+    { nonLus: "oui", aTraiter: "oui" },
+    { recherche: "sophie" },
+    { recherche: "merci" },
+    { recherche: "e", horsCrm: "oui" },
+  ];
+
+  it.each(cas)("mêmes conversations pour %o", async (f) => {
+    const filtres = { page: 1, ...f } as FiltresInbox;
+    const toutes = (await inboxDepuis(db.pool, { page: 1 })).lignes;
+    const serveur = (await inboxDepuis(db.pool, filtres)).lignes.map((l) => l.id).sort();
+    const local = appliquerLocalement(toutes, filtres, FILTRES_INBOX).map((l) => l.id).sort();
+    expect(local).toEqual(serveur);
+    if (Object.keys(f).length === 0) expect(serveur.length).toBeGreaterThan(5);
   });
 });

@@ -72,13 +72,13 @@ export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof ty
         aria-label={`Statuts : ${p.libelle}${alerte ? ", à vérifier" : ""}`}
         title="Statuts"
         onClick={() => setOuvert((o) => !o)}
-        className="bouton bouton-discret size-9 p-0"
+        className="relative grid h-9 w-11 place-items-center rounded-xl bg-black/[0.05] outline-none transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-black/[0.08] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent aria-expanded:bg-black/[0.08]"
       >
         <span className="relative flex size-2.5" aria-hidden>
           <span className={`absolute inline-flex size-full rounded-full ${p.halo} ${etatFile === "en_pause" ? "" : "animate-ping"}`} />
           <span className={`relative inline-flex size-2.5 rounded-full ${p.couleur} ${etatFile === "en_pause" ? "" : "animate-pulse"}`} />
         </span>
-        {alerte && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-action" aria-hidden />}
+        {alerte && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-action ring-2 ring-carte" aria-hidden />}
       </button>
       <AnimatePresence>
         {ouvert && (
