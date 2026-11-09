@@ -1,9 +1,10 @@
 "use client";
 
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Modale, useModale } from "@/components/interface/modale";
 import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
-import { IconeFermer } from "@/components/icones";
+import { IconeFermer, IconeLienExterne } from "@/components/icones";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
@@ -73,14 +74,16 @@ export function ModaleFiche({
   const nom = [fiche.prenom, fiche.nom].filter(Boolean).join(" ") || "Prospect";
 
   return (
-    <Modale fermer={fermer} enTete={<EnTeteFiche fiche={fiche} nom={nom} />}>
-      <div className="px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
+    // Taille fixe : une longue conversation défile dans son encadré, la modale ne bouge pas.
+    <Modale fermer={fermer} hauteurFixe enTete={<EnTeteFiche fiche={fiche} nom={nom} />}>
+      <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
+          remplir
           libelle="Fiche du prospect"
           sections={[
             {
-              id: "proprietes",
-              libelle: "Propriétés",
+              id: "informations",
+              libelle: "Informations",
               contenu: (
                 <div className="flex flex-col gap-6">
                   <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-3">
@@ -132,15 +135,15 @@ export function ModaleFiche({
               libelle: "Conversation",
               compte: conversation?.messages.length ?? 0,
               contenu: (
-                <div className="flex flex-col gap-3">
+                <div className="flex h-full min-h-0 flex-col gap-3">
                   {conversation ? (
                     <>
-                      <div className="rounded-2xl bg-creux p-4">
+                      <FilDefilant nombre={conversation.messages.length}>
                         <FilMessages
                           messages={conversation.messages}
                           nom={nom}
                         />
-                      </div>
+                      </FilDefilant>
                       <RedactionMessage
                         conversationId={conversation.id}
                         destinataire={fiche.prenom ?? nom}
@@ -149,7 +152,7 @@ export function ModaleFiche({
                       />
                       <Link
                         href={`/inbox?conversation=${conversation.id}`}
-                        className="bouton bouton-discret self-start px-3 py-1.5 caption-3 text-action"
+                        className="bouton bouton-discret shrink-0 self-start px-3 py-1.5 caption-3 text-action"
                       >
                         Ouvrir dans l&apos;Inbox
                       </Link>
@@ -212,7 +215,7 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
   const sousTitre = [fiche.poste, fiche.entreprise].filter(Boolean).join(" · ");
   return (
-    <header className="flex shrink-0 flex-col gap-5 px-6 pb-6 pt-6 sm:px-8 sm:pt-8">
+    <header className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-5 sm:px-8 sm:pt-7">
       <div className="flex items-start justify-between gap-4">
         <Avatar nom={nom} taille={56} />
         <button
@@ -231,20 +234,49 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
         >
           {nom}
         </h2>
-        {sousTitre && <p className="body-6 text-encre-2">{sousTitre}</p>}
+        {(sousTitre || lienProfil) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {sousTitre && <p className="body-6 text-encre-2">{sousTitre}</p>}
+            {lienProfil && (
+              <a
+                href={lienProfil}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-1.5 rounded-md caption-3 text-encre-3 outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-encre focus-visible:text-encre focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <LogoLinkedIn taille={14} className="opacity-70 grayscale transition-[filter,opacity] duration-150 group-hover:opacity-100 group-hover:grayscale-0 group-focus-visible:opacity-100 group-focus-visible:grayscale-0" />
+                <span className="bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-px transition-[background-size] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:bg-[length:100%_1px]">
+                  Ouvrir son LinkedIn
+                </span>
+                <IconeLienExterne
+                  taille={11}
+                  className="transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                />
+                <span className="sr-only"> (nouvel onglet)</span>
+              </a>
+            )}
+          </div>
+        )}
       </div>
-      {lienProfil && (
-        <a
-          href={lienProfil}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bouton bouton-contour self-start"
-        >
-          <LogoLinkedIn taille={18} />
-          Ouvrir son LinkedIn
-          <span className="sr-only"> (nouvel onglet)</span>
-        </a>
-      )}
     </header>
+  );
+}
+
+/** Encadré du fil : défile seul (la modale garde sa taille) et s'ouvre sur le dernier message. */
+function FilDefilant({ nombre, children }: { nombre: number; children: ReactNode }) {
+  const zone = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const z = zone.current;
+    if (z) z.scrollTop = z.scrollHeight;
+  }, [nombre]);
+  return (
+    <div
+      ref={zone}
+      tabIndex={0}
+      aria-label="Messages"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-carte p-4 ring-1 ring-inset ring-trait outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {children}
+    </div>
   );
 }

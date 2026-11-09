@@ -27,7 +27,7 @@ export function FilMessages({ messages, nom }: { messages: MessageFil[]; nom: st
                     ? attente
                       ? "rounded-br-md border border-dashed border-action/50 bg-accent-doux text-encre"
                       : "rounded-br-md bg-action text-white"
-                    : "rounded-bl-md bg-creux text-encre ring-1 ring-inset ring-trait"
+                    : "rounded-bl-md bg-bulle text-encre"
                 }`}
               >
                 {m.texte}

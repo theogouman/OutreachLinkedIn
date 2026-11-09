@@ -7,13 +7,23 @@
  *   vers son côté, l'entrante arrive de l'autre ;
  * - « Card resize » : le conteneur prend la hauteur de la section active, en transition.
  * Clavier : flèches gauche / droite, Début, Fin (motif ARIA « tabs »).
+ * `remplir` : pour un parent à hauteur fixe (modale). Les sections prennent toute la hauteur
+ * restante et défilent à l'intérieur ; pas de « Card resize ».
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export type Section = { id: string; libelle: string; compte?: number; contenu: ReactNode };
 
-export function SectionsGlissantes({ sections, libelle }: { sections: Section[]; libelle: string }) {
+export function SectionsGlissantes({
+  sections,
+  libelle,
+  remplir = false,
+}: {
+  sections: Section[];
+  libelle: string;
+  remplir?: boolean;
+}) {
   const [actif, setActif] = useState(0);
   const base = useId();
   const barre = useRef<HTMLDivElement>(null);
@@ -48,13 +58,13 @@ export function SectionsGlissantes({ sections, libelle }: { sections: Section[];
   // Hauteur du conteneur = hauteur de la section active (suivie si son contenu change).
   useLayoutEffect(() => {
     const page = pages.current[actif];
-    if (!page) return;
+    if (!page || remplir) return;
     const mesurer = () => setHauteur(page.offsetHeight);
     mesurer();
     const obs = new ResizeObserver(mesurer);
     obs.observe(page);
     return () => obs.disconnect();
-  }, [actif]);
+  }, [actif, remplir]);
 
   useEffect(() => {
     const b = barre.current;
@@ -78,8 +88,8 @@ export function SectionsGlissantes({ sections, libelle }: { sections: Section[];
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div ref={barre} className="t-tabs self-start" role="tablist" aria-label={libelle} onKeyDown={clavier}>
+    <div className={`flex flex-col gap-4 ${remplir ? "min-h-0 flex-1" : ""}`}>
+      <div ref={barre} className="t-tabs t-tabs-plein" role="tablist" aria-label={libelle} onKeyDown={clavier}>
         <span ref={pilule} className="t-tabs-pill" aria-hidden />
         {sections.map((s, i) => (
           <button
@@ -102,7 +112,10 @@ export function SectionsGlissantes({ sections, libelle }: { sections: Section[];
         ))}
       </div>
 
-      <div className="t-page-slide t-resize overflow-hidden" style={{ height: hauteur }}>
+      <div
+        className={remplir ? "t-page-slide t-remplir min-h-0 flex-1 overflow-hidden" : "t-page-slide t-resize overflow-hidden"}
+        style={remplir ? undefined : { height: hauteur }}
+      >
         {sections.map((s, i) => (
           <section
             key={s.id}

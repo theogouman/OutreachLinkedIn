@@ -106,7 +106,11 @@ export function MenuFiltres<C extends string>({
             <button
               type="button"
               disabled={actifs === 0}
-              onClick={reinitialiser}
+              onClick={() => {
+                reinitialiser();
+                setOuvert(false);
+                bouton.current?.focus();
+              }}
               className="caption-3 text-action outline-none hover:underline focus-visible:underline disabled:text-encre-3 disabled:no-underline"
             >
               Tout afficher

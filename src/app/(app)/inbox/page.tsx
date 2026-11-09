@@ -96,7 +96,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                 <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM · ajout au CRM en phase 2</span>
               )}
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto bg-creux/60 px-5 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-carte px-5 py-5">
               <FilMessages messages={ouvert.messages} nom={ouvert.nom} />
             </div>
             <footer className="border-t border-trait px-4 py-3">
