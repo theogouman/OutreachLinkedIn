@@ -13,6 +13,7 @@ import { envUnipile } from "@/server/env-serveur";
 import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
 import { filtresProspectsSchema } from "@/lib/filtres/prospects";
 import { filtresInboxSchema } from "@/lib/filtres/inbox";
+import { clesPush, enregistrerAbonnement, marquerNotificationsLues, supprimerAbonnement } from "@/server/notifications";
 
 /**
  * Server Actions de l'interface. Chacune vérifie l'utilisateur, valide l'entrée
@@ -120,6 +121,35 @@ export async function actionEnvoyerMessage(entree: unknown): Promise<Retour> {
   return executer("envoyerMessage", async () => {
     const r = await mettreMessageEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
     return r.nouveau ? "Message mis en file d'attente." : "Ce message est déjà en file d'attente.";
+  });
+}
+
+// ─── Notifications et Push ────────────────────────────────────────────────────
+
+export async function actionNotificationsLues(): Promise<Retour> {
+  return executer("notifications-lues", async () => {
+    await marquerNotificationsLues(poolServeur());
+    return "Notifications lues.";
+  });
+}
+
+/** Clé publique VAPID (publique par nature) pour abonner cet appareil. */
+export async function actionClePush(): Promise<string> {
+  await exigerUtilisateur();
+  return (await clesPush(poolServeur())).publique;
+}
+
+export async function actionAbonnerPush(abonnement: unknown): Promise<Retour> {
+  return executer("abonner-push", async () => {
+    await enregistrerAbonnement(poolServeur(), abonnement);
+    return "Notifications activées sur cet appareil.";
+  });
+}
+
+export async function actionDesabonnerPush(endpoint: unknown): Promise<Retour> {
+  return executer("desabonner-push", async () => {
+    await supprimerAbonnement(poolServeur(), endpoint);
+    return "Notifications désactivées sur cet appareil.";
   });
 }
 

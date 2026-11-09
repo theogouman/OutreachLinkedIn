@@ -35,6 +35,8 @@ export interface ClientLinkedIn {
    */
   demarrerConversation(providerId: string, texte: string): Promise<Resultat<{ chatId: string; messageId: string | null }>>;
   lireProfil(identifiant: string): Promise<Resultat<ProfilLu>>;
+  /** Interlocuteur d'une conversation à deux (identifiant LinkedIn interne), lu chez Unipile. */
+  lireConversation(chatId: string): Promise<Resultat<{ interlocuteurId: string | null }>>;
   /** Première page uniquement (recommandation Unipile : pas de parcours complet répété). */
   lireListe(liste: Liste, limite: number): Promise<Resultat<PersonneListee[]>>;
 }

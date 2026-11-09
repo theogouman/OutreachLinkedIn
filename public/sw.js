@@ -3,8 +3,9 @@
 // Ne met en cache QUE les fichiers statiques sans donnée (bundles Next versionnés, icônes,
 // écrans de lancement, polices). Les pages HTML, les Server Actions, l'API et Supabase
 // passent toujours par le réseau : aucune donnée de prospect n'est gardée sur l'appareil,
-// même après déconnexion. Pas de notifications push (aucun backend pour l'instant).
-const VERSION = "v1";
+// même après déconnexion. Notifications Push : affichées telles quelles, le clic ouvre un chemin
+// interne de l'outil (jamais une autre origine).
+const VERSION = "v2";
 const CACHE_STATIQUE = `statique-${VERSION}`;
 const PRECACHE = ["/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
@@ -48,4 +49,40 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (estStatique(url)) event.respondWith(cacheDabord(request));
+});
+
+self.addEventListener("push", (event) => {
+  let n = { titre: "Prospection", corps: "", lien: "/" };
+  try {
+    n = { ...n, ...(event.data ? event.data.json() : {}) };
+  } catch {
+    // charge illisible : notification générique
+  }
+  event.waitUntil(
+    self.registration.showNotification(String(n.titre).slice(0, 200), {
+      body: String(n.corps || "").slice(0, 1000),
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { lien: n.lien },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const brut = event.notification.data && event.notification.data.lien;
+  // Chemin interne uniquement (« /x », jamais « //hôte » ni une adresse complète).
+  const lien = typeof brut === "string" && /^\/(?!\/)/.test(brut) ? brut : "/";
+  const cible = new URL(lien, self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const fenetres = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const existante = fenetres.find((f) => new URL(f.url).origin === self.location.origin);
+      if (existante) {
+        await existante.focus();
+        return existante.navigate(cible);
+      }
+      return self.clients.openWindow(cible);
+    })(),
+  );
 });

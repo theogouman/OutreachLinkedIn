@@ -2,6 +2,7 @@ import "server-only";
 import type { Pool } from "pg";
 import { z } from "zod";
 import { detailsAffichables } from "@/lib/listes";
+import { notificationsDepuis } from "./notifications";
 import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
@@ -591,4 +592,11 @@ export async function photoProspect(id: string): Promise<{ contenu: Buffer; type
   await exigerUtilisateur();
   const r = await poolServeur().query("select contenu, type_mime from public.photos_prospects where prospect_id = $1", [id]);
   return r.rowCount ? { contenu: r.rows[0].contenu, type: r.rows[0].type_mime } : null;
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export async function notifications() {
+  await exigerUtilisateur();
+  return notificationsDepuis(poolServeur());
 }

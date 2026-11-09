@@ -6,6 +6,7 @@ import type { AppliquerEffets, ExecuteurLinkedIn, ResultatAppel } from "@/server
 import { enregistrerLiens, recalculerStatuts, traiterAcceptations, type LienLinkedIn } from "@/server/relations";
 import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu } from "./types";
 import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "./photo";
+import { rattacherConversations } from "@/server/conversations";
 
 const listeSchema = z.enum(["relations", "invitations_envoyees", "invitations_recues"]);
 const payloadLectureProfil = z.object({ public_identifier: z.string().min(3).max(100) });
@@ -159,6 +160,8 @@ async function effetsProfil(c: PoolClient, prospectId: string | null, tacheId: s
       "update public.prospects set provider_id = $2, public_identifier = coalesce($3, public_identifier), updated_at = now() where id = $1",
       [prospectId, profil.providerId, profil.publicIdentifier],
     );
+    // Conversations reçues avant que le prospect soit identifié : rattachées maintenant.
+    await rattacherConversations(c, prospectId, profil.providerId);
   }
 
   const liens: LienLinkedIn[] = [];

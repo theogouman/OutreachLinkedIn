@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Logo } from "@/components/logo";
 import { IconeDeconnexion } from "@/components/icones";
-import { etatOutil } from "@/server/donnees";
+import { etatOutil, notifications } from "@/server/donnees";
+import { CentreNotifications } from "@/components/centre-notifications";
 import { exigerUtilisateur } from "@/server/auth";
 import { seDeconnecter } from "../actions-auth";
 
@@ -90,9 +91,10 @@ async function NavigationAvecComptes({ variante }: { variante: "haut" | "bas" })
 
 /** Droite de la barre : menu Statuts (point clignotant, ouvert au survol) puis déconnexion. */
 async function Actions() {
-  const [etat] = await Promise.all([etatOutil(), exigerUtilisateur()]);
+  const [etat, notifs] = await Promise.all([etatOutil(), notifications(), exigerUtilisateur()]);
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
+      <CentreNotifications liste={notifs.liste} nonLues={notifs.nonLues} />
       <MenuStatuts etatFile={etat.etatFile} alerte={etat.incertaines > 0 || etat.arretDurgence}>
         <div className="flex flex-col gap-4">
           <JaugeQuotas etat={etat} />

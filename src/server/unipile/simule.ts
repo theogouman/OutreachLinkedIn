@@ -38,6 +38,9 @@ export function creerClientSimule(
       if (!providerId.startsWith("ACoDEMO")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
       return { ok: true, donnees: { chatId: `demo-chat-${randomUUID()}`, messageId: `demo-msg-${randomUUID()}` } };
     },
+    async lireConversation() {
+      return { ok: true, donnees: { interlocuteurId: null } };
+    },
     async lireProfil(identifiant) {
       const demo = PROSPECTS_DEMO.find((p) => p.id === identifiant);
       const profil: ProfilLu = {
