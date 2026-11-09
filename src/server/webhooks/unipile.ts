@@ -95,9 +95,21 @@ export async function traiterWebhookUnipile(
     return { status: 400, corps: { ok: false } };
   }
   const env = enveloppeSchema.safeParse(json);
-  if (!env.success) return { status: 400, corps: { ok: false } };
+  if (!env.success) {
+    console.error("[webhook] format d'événement inattendu : %s", env.error.issues.map((i) => i.path.join(".") || "racine").join(", ").slice(0, 200));
+    return { status: 400, corps: { ok: false } };
+  }
   // Événement d'un autre compte Unipile : ignoré (mais accusé, pour éviter les relances).
-  if (opts.accountId && env.data.account_id !== opts.accountId) return { status: 200, corps: { ok: true } };
+  if (opts.accountId && env.data.account_id !== opts.accountId) {
+    const forme = (v: string | undefined) => (v ? `${v.slice(0, 4)}… (${v.length} car.)` : "absent");
+    console.error(
+      "[webhook] %s ignoré : compte de l'événement %s, compte configuré %s",
+      env.data.type.slice(0, 60),
+      forme(env.data.account_id),
+      forme(opts.accountId),
+    );
+    return { status: 200, corps: { ok: true } };
+  }
 
   // message.new d'un chat inconnu, envoyé depuis le compte (téléphone…) : qui est l'interlocuteur ?
   let messageRecu: ReturnType<typeof messageUnipileSchema.safeParse> | null = null;
@@ -171,5 +183,6 @@ export async function traiterWebhookUnipile(
   }
   // Après validation : le Push ne doit jamais faire échouer l'enregistrement.
   if (alerte) await envoyerPush(pool, alerte, opts.deps?.envoyerPush).catch((e) => console.error("[push]", (e as Error).message));
+  console.info("[webhook] %s enregistré", env.data.type.slice(0, 60));
   return { status: 200, corps: { ok: true } };
 }
