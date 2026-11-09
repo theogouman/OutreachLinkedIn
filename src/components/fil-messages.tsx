@@ -17,7 +17,7 @@ export function FilMessages({
 }: {
   messages: MessageFil[];
   nom: string;
-  /** Posé sur le fond à motif (.fond-conversation) : bulles reçues blanches, légendes plus foncées. */
+  /** Posé sur le fond pointillé (.fond-conversation) : bulles reçues blanches, légendes plus foncées. */
   surMotif?: boolean;
 }) {
   const legende = surMotif ? "text-encre-2" : "text-encre-3";
@@ -38,7 +38,7 @@ export function FilMessages({
                       ? "rounded-br-md border border-dashed border-action/50 bg-accent-doux text-encre"
                       : "rounded-br-md bg-action text-white"
                     : surMotif
-                      ? "rounded-bl-md bg-carte text-encre shadow-[0_1px_1px_rgba(0,0,0,0.12)]"
+                      ? "rounded-bl-md bg-carte text-encre shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.05)]"
                       : "rounded-bl-md bg-bulle text-encre"
                 }`}
               >

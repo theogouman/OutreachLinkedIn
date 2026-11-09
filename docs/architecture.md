@@ -17,7 +17,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - `src/lib/supabase/` : clients navigateur et serveur (`@supabase/ssr`).
 - Fiche prospect : modale à hauteur fixe (`hauteurFixe`, min(760 px, écran)) et `SectionsGlissantes remplir` : chaque onglet défile à l'intérieur, le fil de conversation défile seul et s'ouvre sur le dernier message ; la modale ne grandit jamais avec le contenu.
 - Champs de saisie : placeholder animé « Blur Out Up » (`src/components/interface/texte-saisie-anime.tsx`, WAAPI, paramètres d'animate-text de pixel-point) sur toute saisie (recherches Prospects et Inbox, rédaction de message, nom de liste à l'import). Le champ n'a plus d'attribut `placeholder` ; le composant se place juste à côté, dans un parent `relative`.
-- Fil de la fiche sur fond à motif (`.fond-conversation`, `public/motif-conversation.svg`, dessin original), bulles reçues blanches (`FilMessages surMotif`).
+- Fil de la fiche sur fond gris à grille de points (`.fond-conversation`, CSS seul), bulles reçues blanches (`FilMessages surMotif`).
 - `src/components/interface/` : composants adaptés des dépôts de design (jauge, modale centrée à fond flouté, panneau du bas qu'on glisse pour fermer sur téléphone, et sections à onglets glissants avec les transitions Transitions.dev, notifications, zone de dépôt, table triable, compteur), éléments communs (`elements.tsx` : en-tête de page, avatar, état vide, squelettes), notices dans `THIRD_PARTY_NOTICES.md`.
 - **Standard des listes filtrées** (à suivre pour tout nouveau filtre ou toute nouvelle liste) :
   - `src/lib/filtres/definition.ts` : une définition par filtre (clé, libellé, type texte / choix / date, règle `correspond` identique au SQL) et `appliquerLocalement`.
