@@ -549,6 +549,101 @@ html {
     filter var(--page-slide-dur) var(--page-slide-ease);
   will-change: opacity, transform, filter;
 }
+/* Inbox : liste et conversation dans un seul composant sur petit écran (inbox-glissante.tsx),
+   transition « Page side-by-side » (mêmes durées, courbes et flou ; déplacement un peu plus
+   ample pour un vrai glissé). Grand écran : grille côte à côte, sans animation. */
+.inbox-glisse {
+  --inbox-glisse-distance: 28px;
+  display: grid;
+  gap: 16px;
+}
+.inbox-volet {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.inbox-volet > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+@media (min-width: 1024px) {
+  .inbox-glisse {
+    grid-template-columns: 360px 1fr;
+    height: calc(100dvh - 220px);
+    min-height: 520px;
+  }
+}
+@media (max-width: 1023px) {
+  .inbox-glisse {
+    position: relative;
+    display: block;
+    height: calc(100dvh - 300px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 420px;
+  }
+  .inbox-volet {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    transform: translateX(var(--inbox-volet-x, 0px));
+    filter: blur(var(--page-blur));
+    transition:
+      opacity var(--page-fade-dur) var(--page-fade-ease),
+      transform var(--page-slide-dur) var(--page-slide-ease),
+      filter var(--page-slide-dur) var(--page-slide-ease),
+      visibility 0s linear var(--page-slide-dur);
+    will-change: opacity, transform, filter;
+  }
+  .inbox-volet[data-position="avant"] {
+    --inbox-volet-x: calc(var(--inbox-glisse-distance) * -1);
+  }
+  .inbox-volet[data-position="apres"] {
+    --inbox-volet-x: var(--inbox-glisse-distance);
+  }
+  .inbox-volet[data-position="actif"] {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transform: translateX(0);
+    filter: blur(0);
+    transition-delay: 0s;
+  }
+  /* L'encoche recherche + filtres se dissout comme du verre dépoli à l'ouverture d'une conversation. */
+  .inbox-encoche {
+    transition:
+      opacity 200ms var(--page-fade-ease),
+      filter 260ms var(--page-fade-ease),
+      transform 260ms var(--page-slide-ease);
+  }
+  .inbox-glisse[data-vue="conversation"] .inbox-encoche {
+    opacity: 0;
+    filter: blur(10px) saturate(1.4);
+    transform: translateY(-8px) scale(0.97);
+  }
+  /* En-tête de la conversation : bandeau translucide flouté (glassmorphism) qui se pose en arrivant. */
+  .inbox-entete-conversation {
+    background: color-mix(in srgb, var(--color-carte) 72%, transparent);
+    backdrop-filter: blur(14px) saturate(1.6);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    transition:
+      opacity 260ms var(--page-fade-ease) 60ms,
+      transform 260ms var(--page-slide-ease) 60ms;
+  }
+  .inbox-glisse[data-vue="liste"] .inbox-entete-conversation {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inbox-volet,
+  .inbox-encoche,
+  .inbox-entete-conversation {
+    transition: none !important;
+  }
+}
+
 /* Fil de conversation de la fiche : gris clair et grille de petits points, pour détacher les bulles. */
 .fond-conversation {
   background-color: var(--color-conversation);

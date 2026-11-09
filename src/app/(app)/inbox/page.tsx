@@ -10,6 +10,7 @@ import { ModaleFiche } from "../fiche";
 import { ListeConversations } from "./liste-conversations";
 import { MarquerLue } from "./marquer-lue";
 import { BoutonNouveauMessage } from "./nouveau-message";
+import { InboxGlissante, RetourListe } from "./inbox-glissante";
 import { RedactionMessage } from "@/components/redaction-message";
 
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
@@ -60,7 +61,9 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
     etatOutil(),
     idFiche ? ficheProspect(idFiche) : null,
   ]);
-  const idOuvert = premier(sp.conversation) ?? initial.lignes[0]?.id;
+  const idDemande = premier(sp.conversation);
+  // Grand écran : la plus récente est ouverte par défaut. Téléphone : la liste d'abord.
+  const idOuvert = idDemande ?? initial.lignes[0]?.id;
   const [filOuvert, conversationFiche] = await Promise.all([
     idOuvert ? fil({ conversationId: idOuvert }) : null,
     fiche ? fil({ prospectId: fiche.id }) : null,
@@ -72,15 +75,19 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
   const etapeOuvert = ouvert?.prospectId ? (initial.lignes.find((x) => x.id === ouvert.id)?.etape ?? null) : null;
 
   return (
-    <div className="grid gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[520px] lg:grid-cols-[360px_1fr]">
-      <ListeConversations initial={initial} filtresInitiaux={filtresInitiaux} ouverte={ouvert?.id ?? null} />
-
-      <div className="carte flex min-h-[60vh] flex-col overflow-hidden lg:min-h-0">
+    <>
+      <InboxGlissante
+        idOuverte={ouvert?.id ?? null}
+        ouverteExplicitement={!!idDemande && !!ouvert}
+        liste={<ListeConversations initial={initial} filtresInitiaux={filtresInitiaux} ouverte={ouvert?.id ?? null} />}
+        conversation={
+      <div className="carte flex flex-col overflow-hidden">
         {ouvert ? (
           <>
             <MarquerLue id={ouvert.id} nonLu={ouvert.nonLu} />
-            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-trait px-5 py-3">
+            <header className="inbox-entete-conversation flex flex-wrap items-center justify-between gap-3 border-b border-trait px-4 py-3 sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
+                <RetourListe />
                 <Avatar nom={ouvert.nom} taille={40} />
                 <div className="min-w-0">
                   <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
@@ -120,6 +127,8 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
           <EtatVide icone={<IconeMessage taille={20} />} titre="Aucune conversation ouverte" texte="Choisis une conversation dans la liste" />
         )}
       </div>
+        }
+      />
 
       {fiche && (
         <ModaleFiche
@@ -130,6 +139,6 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
           modeSimule={etat.modeSimule}
         />
       )}
-    </div>
+    </>
   );
 }

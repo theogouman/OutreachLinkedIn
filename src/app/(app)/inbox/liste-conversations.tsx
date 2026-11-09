@@ -45,7 +45,7 @@ export function ListeConversations({
     <aside className="carte flex min-h-0 flex-col overflow-hidden">
       {/* Encoche : filtres et recherche */}
       <div className="border-b border-trait p-2">
-        <div className="flex items-center gap-1.5 rounded-[18px] bg-creux p-1" role="search" aria-label="Filtrer les conversations">
+        <div className="inbox-encoche flex items-center gap-1.5 rounded-[18px] bg-creux p-1" role="search" aria-label="Filtrer les conversations">
           <MenuFiltres
             cases={CASES_INBOX as { cle: "nonLus" | "aTraiter" | "horsCrm"; libelle: string }[]}
             valeurs={f}
@@ -115,6 +115,7 @@ export function ListeConversations({
               <li key={c.id} className="animate-apparition border-b border-trait last:border-0">
                 <Link
                   href={`/inbox?conversation=${c.id}`}
+                  data-conversation={c.id}
                   scroll={false}
                   aria-current={actif ? "true" : undefined}
                   className={`relative flex gap-3 px-4 py-3 outline-none transition-colors duration-150 focus-visible:bg-accent-doux ${actif ? "bg-accent-doux" : "hover:bg-creux"}`}
