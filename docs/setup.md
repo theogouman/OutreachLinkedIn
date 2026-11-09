@@ -54,6 +54,7 @@ Projet Supabase : `qmweywmldehnsjhqexbl` (région eu-central-1). Seules les adre
   | `WORKER_SECRET` | Supabase → Project Settings → Vault → `worker_secret` (afficher la valeur) |
   | `UNIPILE_API_KEY` | Dashboard Unipile → API Keys (v2) |
   | `UNIPILE_ACCOUNT_ID` | Dashboard Unipile → Accounts → compte LinkedIn (`acc_…`) |
+  | `UNIPILE_SERVICE_KEY` | Dashboard Unipile → application → API Keys → onglet Service Keys (rôle `service`, créée par un Owner/Admin). Sert uniquement à lire le secret de signature des webhooks, que le tableau de bord n'affiche pas |
   | `UNIPILE_WEBHOOK_SECRET` | Dashboard Unipile → Webhooks → endpoint `https://outreach.gouman.fr/api/webhooks/unipile` |
 
   Passer `UNIPILE_MODE` à `reel` seulement quand les trois `UNIPILE_*` sont remplis. Redéployer après chaque modification.

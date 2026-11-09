@@ -54,3 +54,12 @@ export function envWebhook() {
   const e = lire(z.object({ UNIPILE_ACCOUNT_ID: z.string().min(3).optional() }), { UNIPILE_ACCOUNT_ID: process.env.UNIPILE_ACCOUNT_ID });
   return { UNIPILE_WEBHOOK_SECRET: brut && brut.length >= 16 ? brut : undefined, UNIPILE_ACCOUNT_ID: e.UNIPILE_ACCOUNT_ID };
 }
+
+/**
+ * Clé « Service Key » Unipile (rôle service), utilisée UNIQUEMENT pour lire le secret de signature
+ * des webhooks (les clés de compte ne peuvent pas lire les webhooks). Facultative.
+ */
+export function cleServiceUnipile(): string | undefined {
+  const v = process.env.UNIPILE_SERVICE_KEY?.trim();
+  return v && v.length >= 10 ? v : undefined;
+}

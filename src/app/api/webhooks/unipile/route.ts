@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { poolServeur } from "@/server/db";
-import { envUnipile, envWebhook } from "@/server/env-serveur";
+import { cleServiceUnipile, envUnipile, envWebhook } from "@/server/env-serveur";
 import { TAILLE_MAX_WEBHOOK, traiterWebhookUnipile } from "@/server/webhooks/unipile";
 import { clientLinkedIn } from "@/server/unipile/fabrique";
 import { secretsWebhookUnipile } from "@/server/webhooks/secret";
@@ -23,7 +23,9 @@ export async function POST(request: Request) {
       secret: env.UNIPILE_WEBHOOK_SECRET,
       secretsSecours: async () => {
         const u = envUnipile();
-        return u.mode === "reel" ? secretsWebhookUnipile({ apiKey: u.apiKey, baseUrl: u.baseUrl, chemin: "/api/webhooks/unipile" }) : [];
+        if (u.mode !== "reel") return [];
+        // Lecture des webhooks : réservée aux Service Keys chez Unipile (clé de compte : 403).
+        return secretsWebhookUnipile({ apiKey: cleServiceUnipile() ?? u.apiKey, baseUrl: u.baseUrl, chemin: "/api/webhooks/unipile" });
       },
       accountId: env.UNIPILE_ACCOUNT_ID,
       deps: {

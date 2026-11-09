@@ -47,7 +47,10 @@ export async function secretsWebhookUnipile(
       cache: "no-store",
     });
     if (!rep.ok) {
-      console.error("[webhook] lecture du secret impossible", rep.status);
+      // Type d'erreur Unipile (ex. api/insufficient_permissions) : diagnostic sans donnée sensible.
+      const erreur = await rep.json().catch(() => null);
+      const type = erreur && typeof erreur === "object" && "type" in erreur ? String((erreur as { type: unknown }).type).slice(0, 80) : "";
+      console.error("[webhook] lecture du secret impossible", rep.status, type);
       return echec();
     }
     corps = await rep.json();
