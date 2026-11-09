@@ -2,7 +2,7 @@
 /*
  * Adapté de ui-components (components/motion/file-upload.tsx, zone de dépôt)
  * MIT License — Copyright (c) 2026 Saurabh Chauhan — https://github.com/starc007/ui-components
- * Modifications : un seul fichier (CSV par défaut, type réglable), le fichier déposé alimente le vrai <input name>
+ * Modifications : un seul fichier CSV, le fichier déposé alimente le vrai <input name>
  * du formulaire (envoi et validation côté serveur inchangés), icône SVG en ligne,
  * libellés français, charte de l'outil. File d'envoi et progression retirées.
  */
@@ -16,12 +16,9 @@ export function ZoneFichier({
   name,
   titre,
   onFichier,
-  accept = ".csv,text/csv",
 }: {
   name: string;
   titre: string;
-  /** Types acceptés par le sélecteur (le serveur revérifie). */
-  accept?: string;
   onFichier?: (f: File | undefined) => void;
 }) {
   const reduit = useReducedMotion();
@@ -42,7 +39,7 @@ export function ZoneFichier({
         ref={entreeRef}
         type="file"
         name={name}
-        accept={accept}
+        accept=".csv,text/csv"
         required
         tabIndex={-1}
         className="sr-only"
@@ -93,7 +90,7 @@ export function ZoneFichier({
         <span className="min-w-0 flex-1">
           <span className="block title-4 text-encre">{fichier ? fichier.name : titre}</span>
           <span id={aideId} className="mt-0.5 block caption-5 text-encre-3">
-            {fichier ? `${Math.max(1, Math.round(fichier.size / 1024))} Ko · cliquer pour changer` : `Glisser-déposer ou cliquer · ${accept.split(",")[0]}, 5 Mo maximum`}
+            {fichier ? `${Math.max(1, Math.round(fichier.size / 1024))} Ko · cliquer pour changer` : "Glisser-déposer ou cliquer · .csv, 5 Mo maximum"}
           </span>
         </span>
       </button>

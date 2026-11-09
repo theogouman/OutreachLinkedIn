@@ -4,8 +4,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
-import { importerNotion, importerProspects, importerRelations } from "@/server/import/appliquer";
-import { exportNotionSchema, preparerImportNotion } from "@/server/import/notion";
+import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
 import { annulerTache, basculerArret, EnvoiRefuse, majPlafonds, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
@@ -38,11 +37,11 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
   }
 }
 
-async function lireFichier(formData: FormData, extension: "csv" | "json" = "csv"): Promise<string> {
+async function lireFichier(formData: FormData): Promise<string> {
   const f = formData.get("fichier");
   if (!(f instanceof File) || f.size === 0) throw new ErreurImport("Aucun fichier reçu.");
   if (f.size > TAILLE_MAX_OCTETS) throw new ErreurImport("Fichier trop volumineux (5 Mo maximum).");
-  if (!f.name.toLowerCase().endsWith(`.${extension}`)) throw new ErreurImport(`Le fichier doit être un .${extension}.`);
+  if (!/\.csv$/i.test(f.name)) throw new ErreurImport("Le fichier doit être un .csv.");
   return f.text();
 }
 
@@ -61,25 +60,6 @@ export async function actionImporterProspects(formData: FormData): Promise<Retou
     const lecture = lireProspectsCsv(await lireFichier(formData), correspondance);
     const r = await importerProspects(poolServeur(), lecture.prospects, liste);
     return `${r.crees} prospects créés, ${r.dejaPresents} déjà présents, ${r.lecturesEnFile} lectures de profil mises en file${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL LinkedIn valide` : ""}.`;
-  });
-}
-
-export async function actionImporterNotion(formData: FormData): Promise<Retour> {
-  return executer("importer-notion", async () => {
-    let brut: unknown;
-    try {
-      brut = JSON.parse(await lireFichier(formData, "json"));
-    } catch (e) {
-      if (e instanceof ErreurImport) throw e;
-      throw new ErreurImport("Fichier JSON illisible.");
-    }
-    const lu = exportNotionSchema.safeParse(brut);
-    if (!lu.success) throw new ErreurImport("Ce fichier n'est pas un export Notion reconnu.");
-    const prep = preparerImportNotion(lu.data);
-    const r = await importerNotion(poolServeur(), prep);
-    const i = prep.ignores;
-    const ignores = i.aVerifier + i.exclus + i.sansSignal + i.sansLinkedIn + i.statutInconnu + i.doublons;
-    return `${r.crees} prospects créés, ${r.dejaPresents} déjà présents, ${r.actions} invitations et messages repris dans l'historique, ${r.etapesAvancees} déjà en relation passés à « Connecté »${ignores ? `, ${ignores} contacts ignorés` : ""}.`;
   });
 }
 

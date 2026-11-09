@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import Papa from "papaparse";
-import { actionImporterNotion, actionImporterProspects, actionImporterRelations } from "@/app/actions";
+import { actionImporterProspects, actionImporterRelations } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { ZoneFichier } from "@/components/interface/zone-fichier";
 import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
@@ -133,22 +133,3 @@ export function ImportProspects() {
   );
 }
 
-export function ImportNotion() {
-  const [enCours, demarrer] = useTransition();
-  const retourner = useRetour();
-  return (
-    <form className={carte} action={(fd) => demarrer(async () => retourner(await actionImporterNotion(fd)))}>
-      <Etape numero={3} titre="CRM Notion (export JSON)">
-        <p>
-          Fichier <code className="rounded bg-creux px-1 py-0.5 caption-4 text-encre-2">export-notion.json</code> produit depuis les bases
-          Contacts, Logs et Entreprises. Reprend l&apos;étape, la liste (Signal), les informations propres à chaque liste et l&apos;historique
-          des invitations et messages. Les prospects déjà présents ne sont pas modifiés ; on peut le rejouer sans doublon.
-        </p>
-      </Etape>
-      <ZoneFichier name="fichier" titre="Choisir export-notion.json" accept=".json,application/json" />
-      <button type="submit" disabled={enCours} className={bouton}>
-        {enCours ? "Import en cours…" : "Importer depuis Notion"}
-      </button>
-    </form>
-  );
-}
