@@ -1,6 +1,7 @@
 import "server-only";
 import type { Pool } from "pg";
 import { z } from "zod";
+import { detailsAffichables } from "@/lib/listes";
 import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
@@ -169,6 +170,8 @@ export interface EvenementHistorique {
 
 export interface FicheProspect extends LigneProspect {
   notes: string | null;
+  /** Informations propres à la liste d'origine, déjà filtrées et revalidées (src/lib/listes.ts). */
+  informationsListe: ReturnType<typeof detailsAffichables>;
   historique: EvenementHistorique[];
 }
 
@@ -176,7 +179,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
   const parse = z.uuid().safeParse(id);
   if (!parse.success) return null;
   const p = await pool.query(
-    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes,
+    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie
        from public.prospects where id = $1`,
     [parse.data],
@@ -204,6 +207,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
     prochaineRelance: x.prochaine_relance,
     identifie: x.identifie,
     notes: x.notes,
+    informationsListe: detailsAffichables(x.liste_origine, x.details),
     historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file })),
   };
 }

@@ -8,7 +8,7 @@ export interface LienLinkedIn {
   date?: Date | null;
 }
 
-export type SourceLien = "csv" | "sync" | "webhook";
+export type SourceLien = "csv" | "sync" | "webhook" | "notion";
 
 /** Enregistre (ou rafraîchit) des liens connus. Par lots, requêtes paramétrées. */
 export async function enregistrerLiens(c: PoolClient, liens: LienLinkedIn[], source: SourceLien, maintenant = new Date()) {

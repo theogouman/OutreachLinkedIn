@@ -119,6 +119,35 @@ export function ModaleFiche({
                     ))}
                   </dl>
 
+                  {fiche.informationsListe.length > 0 && (
+                    <section className="flex flex-col gap-2" aria-label={`Informations de la liste ${fiche.listeOrigine ?? ""}`}>
+                      <h3 className="caption-4 text-encre-3">{fiche.listeOrigine}</h3>
+                      <dl className="flex flex-col divide-y divide-trait overflow-hidden rounded-2xl ring-1 ring-trait">
+                        {fiche.informationsListe.map((info) => (
+                          <div key={info.cle} className="flex flex-col gap-1 bg-carte px-4 py-3 sm:flex-row sm:gap-4">
+                            <dt className="caption-4 text-encre-3 sm:w-36 sm:shrink-0 sm:pt-0.5">{info.libelle}</dt>
+                            <dd className="selectionnable min-w-0 whitespace-pre-wrap break-words body-6 text-encre">
+                              {info.type === "lien" ? (
+                                <a
+                                  href={info.valeur}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-action underline-offset-2 outline-none hover:underline focus-visible:underline"
+                                >
+                                  <span className="break-all">{new URL(info.valeur).hostname}</span>
+                                  <IconeLienExterne taille={11} />
+                                  <span className="sr-only"> (nouvel onglet)</span>
+                                </a>
+                              ) : (
+                                info.valeur
+                              )}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  )}
+
                   {fiche.notes && (
                     <section className="flex flex-col gap-2" aria-label="Notes">
                       <h3 className="caption-4 text-encre-3">Notes</h3>
