@@ -10,8 +10,18 @@ const ETAT: Record<Exclude<MessageFil["statut"], "envoye">, string> = {
 };
 
 /** Fil de messages LinkedIn. Contenu tiers : rendu en texte brut uniquement. */
-export function FilMessages({ messages, nom }: { messages: MessageFil[]; nom: string }) {
-  if (messages.length === 0) return <p className="body-6 text-encre-3">Aucun message.</p>;
+export function FilMessages({
+  messages,
+  nom,
+  surMotif = false,
+}: {
+  messages: MessageFil[];
+  nom: string;
+  /** Posé sur le fond à motif (.fond-conversation) : bulles reçues blanches, légendes plus foncées. */
+  surMotif?: boolean;
+}) {
+  const legende = surMotif ? "text-encre-2" : "text-encre-3";
+  if (messages.length === 0) return <p className={`body-6 ${legende}`}>Aucun message.</p>;
   return (
     <ol className="flex flex-col gap-4" aria-label={`Conversation avec ${nom}`}>
       {messages.map((m) => {
@@ -27,12 +37,14 @@ export function FilMessages({ messages, nom }: { messages: MessageFil[]; nom: st
                     ? attente
                       ? "rounded-br-md border border-dashed border-action/50 bg-accent-doux text-encre"
                       : "rounded-br-md bg-action text-white"
-                    : "rounded-bl-md bg-bulle text-encre"
+                    : surMotif
+                      ? "rounded-bl-md bg-carte text-encre shadow-[0_1px_1px_rgba(0,0,0,0.12)]"
+                      : "rounded-bl-md bg-bulle text-encre"
                 }`}
               >
                 {m.texte}
               </p>
-              <time dateTime={new Date(m.envoyeAt).toISOString()} className="px-1 caption-5 text-encre-3">
+              <time dateTime={new Date(m.envoyeAt).toISOString()} className={`px-1 caption-5 ${legende}`}>
                 {m.statut === "envoye"
                   ? `${moi ? "Vous" : nom.split(" ")[0]} · ${fmt.format(new Date(m.envoyeAt))}`
                   : m.statut === "en_file"

@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
+import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 import { MenuFiltres } from "@/components/filtres/menu-filtres";
 import { Avatar } from "@/components/interface/elements";
 import { IconeFermer, IconeInbox } from "@/components/icones";
@@ -71,9 +72,9 @@ export function ListeConversations({
               maxLength={100}
               autoComplete="off"
               spellCheck={false}
-              placeholder="Rechercher"
               className="h-10 w-full rounded-full bg-carte pl-9 pr-9 body-6 text-encre shadow-[0_0_0_1px_var(--color-trait)] outline-none transition-shadow duration-150 placeholder:text-encre-3 focus-visible:shadow-[0_0_0_1px_var(--color-accent),0_0_0_3px_rgba(224,98,90,0.12)] [&::-webkit-search-cancel-button]:appearance-none"
             />
+            <TexteSaisieAnime valeur={f.recherche ?? ""} placeholder="Rechercher" />
             <span className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center">
               {l.enCours ? (
                 <span className="size-3.5 animate-spin rounded-full border-2 border-trait border-t-accent" role="status" aria-label="Chargement des conversations" />

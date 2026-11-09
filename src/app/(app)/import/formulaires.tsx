@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { actionImporterProspects, actionImporterRelations } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { ZoneFichier } from "@/components/interface/zone-fichier";
+import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 
 const carte = "carte flex flex-col gap-5 p-6";
 const champ = "champ";
@@ -62,6 +63,7 @@ export function ImportProspects() {
   const retourner = useRetour();
   const [colonnes, setColonnes] = useState<string[]>([]);
   const [choix, setChoix] = useState<Partial<Record<Champ, string>>>({});
+  const [liste, setListe] = useState("");
 
   async function lireEnTetes(fichier: File | undefined) {
     setColonnes([]);
@@ -117,9 +119,10 @@ export function ImportProspects() {
               </select>
             </label>
           ))}
-          <label className="flex flex-col gap-1.5 sm:col-span-2">
+          <label className="relative flex flex-col gap-1.5 sm:col-span-2">
             <span className="caption-4 text-encre-2">Liste d&apos;origine (pour filtrer et mesurer)</span>
-            <input name="liste" maxLength={100} placeholder="Salon novembre 2026" className={champ} />
+            <input name="liste" maxLength={100} value={liste} onChange={(e) => setListe(e.target.value)} className={champ} />
+            <TexteSaisieAnime valeur={liste} placeholder="Salon novembre 2026" />
           </label>
         </fieldset>
       )}

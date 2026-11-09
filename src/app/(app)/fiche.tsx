@@ -142,6 +142,7 @@ export function ModaleFiche({
                         <FilMessages
                           messages={conversation.messages}
                           nom={nom}
+                          surMotif
                         />
                       </FilDefilant>
                       <RedactionMessage
@@ -237,6 +238,7 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
         {(sousTitre || lienProfil) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {sousTitre && <p className="body-6 text-encre-2">{sousTitre}</p>}
+            {sousTitre && lienProfil && <span aria-hidden className="h-3.5 w-px bg-trait-fort" />}
             {lienProfil && (
               <a
                 href={lienProfil}
@@ -274,7 +276,7 @@ function FilDefilant({ nombre, children }: { nombre: number; children: ReactNode
       ref={zone}
       tabIndex={0}
       aria-label="Messages"
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-carte p-4 ring-1 ring-inset ring-trait outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain fond-conversation rounded-2xl p-4 ring-1 ring-inset ring-trait outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {children}
     </div>

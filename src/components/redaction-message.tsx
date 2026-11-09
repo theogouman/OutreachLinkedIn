@@ -10,6 +10,7 @@ import { useId, useRef, useState, useTransition } from "react";
 import { actionEnvoyerMessage } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { IconeEnvoyer } from "@/components/icones";
+import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 
 const MAX = 8000;
 
@@ -69,7 +70,7 @@ export function RedactionMessage({
       }}
       className="flex flex-col gap-2"
     >
-      <div className="flex items-end gap-2 rounded-2xl bg-carte p-2 ring-1 ring-trait transition-shadow duration-150 focus-within:ring-accent/60">
+      <div className="relative flex items-end gap-2 rounded-2xl bg-carte p-2 ring-1 ring-trait transition-shadow duration-150 focus-within:ring-accent/60">
         <textarea
           ref={champ}
           value={texte}
@@ -89,9 +90,9 @@ export function RedactionMessage({
           disabled={!!bloque}
           aria-label={`Message à ${destinataire}`}
           aria-describedby={aideId}
-          placeholder={bloque ? "Envoi indisponible" : `Écrire à ${destinataire}`}
           className="selectionnable min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 body-6 text-encre outline-none placeholder:text-encre-3 disabled:cursor-not-allowed"
         />
+        <TexteSaisieAnime valeur={texte} placeholder={bloque ? "Envoi indisponible" : `Écrire à ${destinataire}`} />
         <button type="submit" disabled={vide || desactive} className="bouton bouton-plein size-9 shrink-0 p-0" aria-label="Mettre le message en file">
           {enCours ? (
             <span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />

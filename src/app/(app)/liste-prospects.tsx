@@ -12,6 +12,7 @@ import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES } from "@/lib/filtres/prospe
 import { LIBELLES_STATUT } from "@/lib/statut-relation";
 import { actionListerProspects } from "@/app/actions";
 import type { LigneProspect, StatsProspects } from "@/server/donnees";
+import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 
 const fmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" });
 
@@ -111,9 +112,9 @@ export function ListeProspects({
             maxLength={100}
             autoComplete="off"
             spellCheck={false}
-            placeholder="Rechercher"
             className="champ pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
           />
+          <TexteSaisieAnime valeur={f.recherche ?? ""} placeholder="Rechercher" />
           <span className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center">
             {l.enCours ? (
               <span className="size-3.5 animate-spin rounded-full border-2 border-trait border-t-accent" role="status" aria-label="Chargement des résultats" />
