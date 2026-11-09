@@ -10,6 +10,8 @@ import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospect
 import { annulerTache, basculerArret, majPlafonds, majReglages, marquerLue, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
+import { prospectsDepuis, type LigneProspect } from "@/server/donnees";
+import { filtresProspectsSchema } from "@/lib/filtres/prospects";
 
 /**
  * Server Actions de l'interface. Chacune vérifie l'utilisateur, valide l'entrée
@@ -29,7 +31,7 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
   } catch (e) {
     if (e instanceof ErreurImport || e instanceof DemoDejaChargee) return { ok: false, message: e.message };
     if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
-    console.error(`[action:${nom}]`, e);
+    console.error("[action:%s]", nom, e);
     return { ok: false, message: ERREUR };
   }
 }
@@ -110,4 +112,22 @@ export async function actionPurgerDemo(): Promise<Retour> {
 
 export async function actionMarquerLue(id: string): Promise<Retour> {
   return executer("marquer-lue", async () => ((await marquerLue(poolServeur(), id)) ? "Conversation marquée comme lue." : ""));
+}
+
+// ─── Listes filtrées (standard : src/lib/filtres) ─────────────────────────────
+// Lecture seule, sans refresh() ni changement d'URL : le client garde ses filtres en état
+// et remplace la liste par la réponse.
+
+export type ResultatListe<L> = { ok: true; lignes: L[]; total: number } | { ok: false; message: string };
+
+export async function actionListerProspects(entree: unknown): Promise<ResultatListe<LigneProspect>> {
+  await exigerUtilisateur();
+  const filtres = filtresProspectsSchema.safeParse(entree);
+  if (!filtres.success) return { ok: false, message: "Filtres invalides." };
+  try {
+    return { ok: true, ...(await prospectsDepuis(poolServeur(), filtres.data)) };
+  } catch (e) {
+    console.error("[action:listerProspects]", e);
+    return { ok: false, message: ERREUR };
+  }
 }

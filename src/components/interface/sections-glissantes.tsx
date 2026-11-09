@@ -3,8 +3,8 @@
  * Sections à onglets, trois transitions Transitions.dev (CSS dans globals.css) :
  * - « Tabs sliding » : la pastille suit l'onglet actif (offsetLeft / offsetWidth écrits en ligne,
  *   placement sans animation au premier rendu et au redimensionnement) ;
- * - « Page side-by-side » : la section sortante glisse et s'estompe vers son côté, l'entrante
- *   arrive de l'autre ;
+ * - « Page side-by-side » (généralisé à N sections) : la section sortante glisse et s'estompe
+ *   vers son côté, l'entrante arrive de l'autre ;
  * - « Card resize » : le conteneur prend la hauteur de la section active, en transition.
  * Clavier : flèches gauche / droite, Début, Fin (motif ARIA « tabs »).
  */
@@ -13,7 +13,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 
 export type Section = { id: string; libelle: string; compte?: number; contenu: ReactNode };
 
-export function SectionsGlissantes({ sections, libelle }: { sections: [Section, Section]; libelle: string }) {
+export function SectionsGlissantes({ sections, libelle }: { sections: Section[]; libelle: string }) {
   const [actif, setActif] = useState(0);
   const base = useId();
   const barre = useRef<HTMLDivElement>(null);
@@ -102,7 +102,7 @@ export function SectionsGlissantes({ sections, libelle }: { sections: [Section, 
         ))}
       </div>
 
-      <div className="t-page-slide t-resize overflow-hidden" data-page={actif + 1} style={{ height: hauteur }}>
+      <div className="t-page-slide t-resize overflow-hidden" style={{ height: hauteur }}>
         {sections.map((s, i) => (
           <section
             key={s.id}
@@ -110,7 +110,7 @@ export function SectionsGlissantes({ sections, libelle }: { sections: [Section, 
               pages.current[i] = el;
             }}
             className="t-page"
-            data-page-id={i + 1}
+            data-position={i < actif ? "avant" : i > actif ? "apres" : "actif"}
             role="tabpanel"
             id={`${base}-section-${s.id}`}
             aria-labelledby={`${base}-onglet-${s.id}`}

@@ -74,15 +74,8 @@ export async function etatOutil() {
 
 // ─── Prospects ────────────────────────────────────────────────────────────────
 
-export const filtresProspectsSchema = z.object({
-  statut: z.enum(["en_relation", "en_attente", "invitation_recue", "a_inviter"]).optional(),
-  etape: z.string().max(50).optional(),
-  liste: z.string().max(100).optional(),
-  relanceAvant: z.iso.date().optional(),
-  recherche: z.string().max(100).optional(),
-  page: z.coerce.number().int().min(1).max(10_000).default(1),
-});
-export type FiltresProspects = z.infer<typeof filtresProspectsSchema>;
+export { filtresProspectsSchema, type FiltresProspects } from "@/lib/filtres/prospects";
+import type { FiltresProspects } from "@/lib/filtres/prospects";
 
 export interface LigneProspect {
   id: string;

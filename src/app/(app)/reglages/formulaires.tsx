@@ -126,7 +126,7 @@ export function FormReglages({ initial }: { initial: Reglages }) {
             return (
               <label
                 key={j}
-                className={`cursor-pointer select-none rounded-full px-3.5 py-1.5 caption-3 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${actif ? "bg-sombre text-white" : "bg-carte text-encre-2 shadow-[inset_0_0_0_1px_var(--color-trait-fort)] hover:bg-creux"}`}
+                className={`cursor-pointer select-none rounded-[10px] px-3.5 py-1.5 caption-3 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${actif ? "relief-marque" : "bg-carte text-encre-2 shadow-[inset_0_0_0_1px_var(--color-trait-fort)] hover:bg-creux"}`}
               >
                 <input
                   type="checkbox"

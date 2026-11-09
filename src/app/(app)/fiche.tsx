@@ -21,10 +21,24 @@ const EVENEMENTS: Record<string, string> = {
   reponse: "Réponse reçue",
   changement_etape: "Changement d'étape",
 };
-const RESULTATS: Record<string, string> = { succes: "", echec: " · échec", incertain: " · à vérifier", en_cours: " · en cours" };
-const fmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" });
+const RESULTATS: Record<string, string> = {
+  succes: "",
+  echec: " · échec",
+  incertain: " · à vérifier",
+  en_cours: " · en cours",
+};
+const fmt = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Europe/Paris",
+});
 
-const fmtJour = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" });
+const fmtJour = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  timeZone: "Europe/Paris",
+});
 
 function jourRelance(date: string | null) {
   if (!date) return "Non planifiée";
@@ -54,33 +68,59 @@ export function ModaleFiche({
 
   return (
     <Modale fermer={fermer} enTete={<EnTeteFiche fiche={fiche} nom={nom} />}>
-      <div className="flex flex-col gap-8 px-6 pb-6 pt-2 sm:px-8 sm:pb-8">
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-3">
-          {[
-            { t: "Relation", d: <BadgeStatut statut={fiche.statutRelation} /> },
-            { t: "Étape", d: <BadgeEtape libelle={libelleEtape} /> },
-            { t: "Prochaine relance", d: jourRelance(fiche.prochaineRelance) },
-            { t: "Liste d'origine", d: fiche.listeOrigine ?? "Aucune" },
-            { t: "Entreprise", d: fiche.entreprise ?? "Inconnue" },
-            { t: "Identifiant LinkedIn", d: fiche.identifie ? "Lu" : "Lecture en file" },
-          ].map((x, i) => (
-            <div key={x.t} className={`flex min-w-0 flex-col gap-1.5 bg-carte px-4 py-3 ${i === 0 || i === 5 ? "col-span-2 sm:col-span-1" : ""}`}>
-              <dt className="caption-4 text-encre-3">{x.t}</dt>
-              <dd className="flex min-h-6 items-center body-6 text-encre">{x.d}</dd>
-            </div>
-          ))}
-        </dl>
-
-        {fiche.notes && (
-          <section className="flex flex-col gap-2" aria-label="Notes">
-            <h3 className="caption-4 text-encre-3">Notes</h3>
-            <p className="selectionnable whitespace-pre-wrap rounded-2xl bg-creux px-4 py-3 body-6 text-encre-2">{fiche.notes}</p>
-          </section>
-        )}
-
+      <div className="px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
-          libelle="Conversation et historique"
+          libelle="Fiche du prospect"
           sections={[
+            {
+              id: "proprietes",
+              libelle: "Propriétés",
+              contenu: (
+                <div className="flex flex-col gap-6">
+                  <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-3">
+                    {[
+                      {
+                        t: "Relation",
+                        d: <BadgeStatut statut={fiche.statutRelation} />,
+                      },
+                      { t: "Étape", d: <BadgeEtape libelle={libelleEtape} /> },
+                      {
+                        t: "Prochaine relance",
+                        d: jourRelance(fiche.prochaineRelance),
+                      },
+                      {
+                        t: "Liste d'origine",
+                        d: fiche.listeOrigine ?? "Aucune",
+                      },
+                      { t: "Entreprise", d: fiche.entreprise ?? "Inconnue" },
+                      {
+                        t: "Identifiant LinkedIn",
+                        d: fiche.identifie ? "Lu" : "Lecture en file",
+                      },
+                    ].map((x, i) => (
+                      <div
+                        key={x.t}
+                        className={`flex min-w-0 flex-col gap-1.5 bg-carte px-4 py-3 ${i === 0 || i === 5 ? "col-span-2 sm:col-span-1" : ""}`}
+                      >
+                        <dt className="caption-4 text-encre-3">{x.t}</dt>
+                        <dd className="flex min-h-6 items-center body-6 text-encre">
+                          {x.d}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {fiche.notes && (
+                    <section className="flex flex-col gap-2" aria-label="Notes">
+                      <h3 className="caption-4 text-encre-3">Notes</h3>
+                      <p className="selectionnable whitespace-pre-wrap rounded-2xl bg-creux px-4 py-3 body-6 text-encre-2">
+                        {fiche.notes}
+                      </p>
+                    </section>
+                  )}
+                </div>
+              ),
+            },
             {
               id: "conversation",
               libelle: "Conversation",
@@ -90,14 +130,22 @@ export function ModaleFiche({
                   {conversation ? (
                     <>
                       <div className="rounded-2xl bg-creux p-4">
-                        <FilMessages messages={conversation.messages} nom={nom} />
+                        <FilMessages
+                          messages={conversation.messages}
+                          nom={nom}
+                        />
                       </div>
-                      <Link href={`/inbox?conversation=${conversation.id}`} className="bouton bouton-discret self-start px-3 py-1.5 caption-3 text-action">
+                      <Link
+                        href={`/inbox?conversation=${conversation.id}`}
+                        className="bouton bouton-discret self-start px-3 py-1.5 caption-3 text-action"
+                      >
                         Ouvrir dans l&apos;Inbox
                       </Link>
                     </>
                   ) : (
-                    <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">Aucune conversation pour l&apos;instant</p>
+                    <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">
+                      Aucune conversation pour l&apos;instant
+                    </p>
                   )}
                 </div>
               ),
@@ -108,7 +156,9 @@ export function ModaleFiche({
               compte: fiche.historique.length,
               contenu:
                 fiche.historique.length === 0 ? (
-                  <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">Aucun événement</p>
+                  <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">
+                    Aucun événement
+                  </p>
                 ) : (
                   <ol className="relative ml-1 flex flex-col gap-4 border-l border-trait py-1 pl-5">
                     {fiche.historique.map((e, i) => (
@@ -119,9 +169,16 @@ export function ModaleFiche({
                         />
                         <p className="title-4 text-encre">
                           {EVENEMENTS[e.type] ?? e.type}
-                          <span className="font-normal text-encre-3">{e.enFile ? " · en file" : (RESULTATS[e.resultat ?? ""] ?? "")}</span>
+                          <span className="font-normal text-encre-3">
+                            {e.enFile
+                              ? " · en file"
+                              : (RESULTATS[e.resultat ?? ""] ?? "")}
+                          </span>
                         </p>
-                        <time dateTime={new Date(e.date).toISOString()} className="caption-5 text-encre-3">
+                        <time
+                          dateTime={new Date(e.date).toISOString()}
+                          className="caption-5 text-encre-3"
+                        >
                           {e.enFile ? "Départ estimé " : ""}
                           {fmt.format(new Date(e.date))}
                         </time>
@@ -155,13 +212,21 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
         </button>
       </div>
       <div className="flex flex-col gap-1.5">
-        <h2 id={titreId} className="text-[28px] font-medium leading-tight tracking-[-0.02em] text-encre sm:text-[32px]">
+        <h2
+          id={titreId}
+          className="text-[28px] font-medium leading-tight tracking-[-0.02em] text-encre sm:text-[32px]"
+        >
           {nom}
         </h2>
         {sousTitre && <p className="body-6 text-encre-2">{sousTitre}</p>}
       </div>
       {lienProfil && (
-        <a href={lienProfil} target="_blank" rel="noopener noreferrer" className="bouton bouton-contour self-start">
+        <a
+          href={lienProfil}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bouton bouton-contour self-start"
+        >
           <LogoLinkedIn taille={18} />
           Ouvrir son LinkedIn
           <span className="sr-only"> (nouvel onglet)</span>
