@@ -4,7 +4,7 @@ import { envUnipile, envWorker } from "@/server/env-serveur";
 import { planifierSynchronisations } from "@/server/queue/planification";
 import { executerUnTour } from "@/server/queue/worker";
 import { jetonBearer, secretsEgaux } from "@/server/secrets";
-import { appliquerEffetsUnipile, creerExecuteur } from "@/server/unipile/executeur";
+import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
 import { clientLinkedIn } from "@/server/unipile/fabrique";
 
 export const maxDuration = 60;
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     await planifierSynchronisations(pool, maintenant);
     const bilan = await executerUnTour({
       pool,
-      executeur: creerExecuteur(clientLinkedIn()),
+      executeur: creerExecuteur(clientLinkedIn(), { lireDestinataire: lireDestinataireDepuis(pool) }),
       appliquerEffets: appliquerEffetsUnipile,
       // Unipile simulé : seules les données de démonstration sont traitées.
       seulementDemo: envUnipile().mode === "simule",

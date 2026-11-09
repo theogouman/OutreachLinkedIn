@@ -58,7 +58,8 @@ export function ModaleFiche({
 }: {
   fiche: FicheProspect;
   libelleEtape: string;
-  conversation: { id: string; demo: boolean; messages: MessageFil[] } | null;
+  /** Fil du prospect : conversation existante (id), ou premiers messages encore en file (id null). */
+  conversation: { id: string | null; demo: boolean; messages: MessageFil[] } | null;
   /** Messages encore possibles aujourd'hui (quota du jour). */
   restants: number;
   modeSimule: boolean;
@@ -69,6 +70,7 @@ export function ModaleFiche({
   const fermer = () => {
     const q = new URLSearchParams(params);
     q.delete("prospect");
+    q.delete("onglet");
     router.replace(q.size ? `${chemin}?${q}` : chemin, { scroll: false });
   };
   const nom = [fiche.prenom, fiche.nom].filter(Boolean).join(" ") || "Prospect";
@@ -79,6 +81,7 @@ export function ModaleFiche({
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
           remplir
+          initial={params.get("onglet") === "conversation" ? "conversation" : undefined}
           libelle="Fiche du prospect"
           sections={[
             {
@@ -164,36 +167,13 @@ export function ModaleFiche({
               libelle: "Conversation",
               compte: conversation?.messages.length ?? 0,
               contenu: (
-                <div className="flex h-full min-h-0 flex-col gap-3">
-                  {conversation ? (
-                    <>
-                      <FilDefilant nombre={conversation.messages.length}>
-                        <FilMessages
-                          messages={conversation.messages}
-                          nom={nom}
-                          surMotif
-                        />
-                      </FilDefilant>
-                      <RedactionMessage
-                        conversationId={conversation.id}
-                        destinataire={fiche.prenom ?? nom}
-                        restants={restants}
-                        bloque={modeSimule && !conversation.demo ? "Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message" : undefined}
-                      />
-                      <Link
-                        href={`/inbox?conversation=${conversation.id}`}
-                        className="bouton bouton-discret shrink-0 self-start px-3 py-1.5 caption-3 text-action"
-                      >
-                        Ouvrir dans l&apos;Inbox
-                      </Link>
-                    </>
-                  ) : (
-                    <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">
-                      Pas encore de conversation LinkedIn avec ce prospect : l&apos;écriture s&apos;ouvre dès
-                      qu&apos;un premier échange existe
-                    </p>
-                  )}
-                </div>
+                <OngletConversation
+                  fiche={fiche}
+                  nom={nom}
+                  conversation={conversation}
+                  restants={restants}
+                  modeSimule={modeSimule}
+                />
               ),
             },
             {
@@ -308,6 +288,70 @@ function FilDefilant({ nombre, children }: { nombre: number; children: ReactNode
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain fond-conversation rounded-2xl p-4 ring-1 ring-inset ring-trait outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {children}
+    </div>
+  );
+}
+
+/** Pourquoi on ne peut pas encore écrire : LinkedIn n'accepte un message normal qu'entre relations de 1er degré. */
+function raisonPasEnRelation(statut: string, prenom: string): string {
+  if (statut === "en_attente")
+    return `Invitation envoyée, pas encore acceptée : LinkedIn bloquerait un message. L'écriture s'ouvrira dès que ${prenom} l'aura acceptée`;
+  if (statut === "invitation_recue")
+    return `${prenom} t'a envoyé une invitation : accepte-la sur LinkedIn, l'écriture s'ouvrira ensuite`;
+  return `${prenom} n'est pas dans tes relations de 1er degré : LinkedIn bloquerait un message. Il faut d'abord une invitation acceptée`;
+}
+
+function OngletConversation({
+  fiche,
+  nom,
+  conversation,
+  restants,
+  modeSimule,
+}: {
+  fiche: FicheProspect;
+  nom: string;
+  conversation: { id: string | null; demo: boolean; messages: MessageFil[] } | null;
+  restants: number;
+  modeSimule: boolean;
+}) {
+  const prenom = fiche.prenom ?? nom;
+  const existante = conversation?.id ?? null;
+  const messages = conversation?.messages ?? [];
+  // Écrire est possible dans une conversation existante, ou pour démarrer avec une relation de 1er degré.
+  const peutEcrire = !!existante || fiche.statutRelation === "en_relation";
+  const bloque =
+    modeSimule && !conversation?.demo ? "Unipile n'est pas encore branché : aucun message ne peut partir vers un vrai prospect" : undefined;
+
+  if (!peutEcrire) {
+    return (
+      <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">{raisonPasEnRelation(fiche.statutRelation, prenom)}</p>
+    );
+  }
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <FilDefilant nombre={messages.length}>
+        {messages.length > 0 ? (
+          <FilMessages messages={messages} nom={nom} surMotif />
+        ) : (
+          <p className="grid h-full place-items-center text-center body-6 text-encre-2">
+            Aucun message avec {prenom} pour l&apos;instant : écris le premier
+          </p>
+        )}
+      </FilDefilant>
+      <RedactionMessage
+        cible={existante ? { conversationId: existante } : { prospectId: fiche.id }}
+        destinataire={prenom}
+        restants={restants}
+        bloque={bloque}
+      />
+      {existante && (
+        <Link
+          href={`/inbox?conversation=${existante}`}
+          className="bouton bouton-discret shrink-0 self-start px-3 py-1.5 caption-3 text-action"
+        >
+          Ouvrir dans l&apos;Inbox
+        </Link>
+      )}
     </div>
   );
 }

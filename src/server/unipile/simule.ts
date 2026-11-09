@@ -33,6 +33,11 @@ export function creerClientSimule(
       if (!chatId.startsWith("demo-chat-")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
       return { ok: true, donnees: { messageId: `demo-msg-${randomUUID()}` } };
     },
+    async demarrerConversation(providerId) {
+      // Garde-fou : la simulation ne « démarre » de conversation qu'avec un prospect de démonstration.
+      if (!providerId.startsWith("ACoDEMO")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
+      return { ok: true, donnees: { chatId: `demo-chat-${randomUUID()}`, messageId: `demo-msg-${randomUUID()}` } };
+    },
     async lireProfil(identifiant) {
       const demo = PROSPECTS_DEMO.find((p) => p.id === identifiant);
       const profil: ProfilLu = {

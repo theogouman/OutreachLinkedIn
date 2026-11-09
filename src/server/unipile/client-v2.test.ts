@@ -118,4 +118,31 @@ describe("client Unipile v2", () => {
       erreur: { status: 422, type: "provider/unprocessable_entity" },
     });
   });
+
+  it("premier message : démarre une conversation depuis la boîte LinkedIn classique, sans InMail", async () => {
+    const f = fetchFactice(200, { object: "ChatStarted", chat_id: "chat_9", message_id: "msg_1" });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).demarrerConversation("ACoAAB12cd", "Bonjour Camille");
+    expect(r).toEqual({ ok: true, donnees: { chatId: "chat_9", messageId: "msg_1" } });
+    const [url, init] = f.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.example.test/v2/acc_test/inboxes/CLASSIC_PRIMARY/chats/send");
+    expect(init?.method).toBe("POST");
+    // Corps strict : aucune option `specifics` (donc jamais d'InMail).
+    expect(JSON.parse(String(init?.body))).toEqual({ text: "Bonjour Camille", users_ids: "ACoAAB12cd" });
+  });
+
+  it("premier message : identifiant invalide refusé sans appel, réponse inattendue rejetée", async () => {
+    const f = fetchFactice(200, {});
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).demarrerConversation("../accounts", "t");
+    expect(r).toMatchObject({ ok: false, erreur: { type: "identifiant_invalide" } });
+    expect(f).not.toHaveBeenCalled();
+    const c = (status: number, corps: unknown) => creerClientUnipileV2({ ...OPTS, fetch: fetchFactice(status, corps) as unknown as typeof fetch });
+    expect(await c(200, { object: "MessageSent", message_id: "x" }).demarrerConversation("ACoAAB12cd", "t")).toMatchObject({
+      ok: false,
+      erreur: { type: "reponse_inattendue" },
+    });
+    expect(await c(200, { object: "ChatStarted", chat_id: "c", message_id: ["m1", "m2"] }).demarrerConversation("ACoAAB12cd", "t")).toEqual({
+      ok: true,
+      donnees: { chatId: "c", messageId: "m1" },
+    });
+  });
 });

@@ -9,12 +9,17 @@ import { filtresInboxDepuisUrl } from "@/lib/filtres/inbox";
 import { ModaleFiche } from "../fiche";
 import { ListeConversations } from "./liste-conversations";
 import { MarquerLue } from "./marquer-lue";
+import { BoutonNouveauMessage } from "./nouveau-message";
 import { RedactionMessage } from "@/components/redaction-message";
 
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
   return (
     <section className="flex flex-col gap-6">
-      <EnTetePage titre="Inbox" description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent" />
+      <EnTetePage
+        titre="Inbox"
+        description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent"
+        actions={<BoutonNouveauMessage />}
+      />
       <Suspense fallback={<SqueletteInbox />}>
         <Contenu searchParams={searchParams} />
       </Suspense>
@@ -56,10 +61,12 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
     idFiche ? ficheProspect(idFiche) : null,
   ]);
   const idOuvert = premier(sp.conversation) ?? initial.lignes[0]?.id;
-  const [ouvert, conversationFiche] = await Promise.all([
+  const [filOuvert, conversationFiche] = await Promise.all([
     idOuvert ? fil({ conversationId: idOuvert }) : null,
     fiche ? fil({ prospectId: fiche.id }) : null,
   ]);
+  // Conversation ouverte : toujours une vraie conversation (id connu).
+  const ouvert = filOuvert?.id ? { ...filOuvert, id: filOuvert.id } : null;
   const libelleEtape = new Map(refs.etapes.map((e) => [e.code, e.libelle]));
   const restants = Math.max(0, (etat.quotas.message.plafond.jour ?? 0) - etat.quotas.message.compteur.jour);
   const etapeOuvert = ouvert?.prospectId ? (initial.lignes.find((x) => x.id === ouvert.id)?.etape ?? null) : null;
@@ -102,7 +109,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
             <footer className="border-t border-trait px-4 py-3">
               <RedactionMessage
                 key={ouvert.id}
-                conversationId={ouvert.id}
+                cible={{ conversationId: ouvert.id }}
                 destinataire={ouvert.nom}
                 restants={restants}
                 bloque={etat.modeSimule && !ouvert.demo ? "Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message" : undefined}

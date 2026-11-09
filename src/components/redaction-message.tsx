@@ -4,6 +4,7 @@
  * Rédaction d'un message LinkedIn : composant UNIQUE, utilisé par l'Inbox et par la fiche
  * prospect. Un seul chemin d'envoi : l'action serveur met le message dans la file d'attente,
  * qui l'envoie sous les quotas, dans les plages horaires et après le délai entre actions.
+ * Cible : une conversation existante, ou un prospect (premier message, relation de 1er degré).
  */
 
 import { useId, useRef, useState, useTransition } from "react";
@@ -15,12 +16,12 @@ import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 const MAX = 8000;
 
 export function RedactionMessage({
-  conversationId,
+  cible,
   destinataire,
   restants,
   bloque,
 }: {
-  conversationId: string;
+  cible: { conversationId: string } | { prospectId: string };
   /** Prénom ou nom, pour le libellé du champ. */
   destinataire: string;
   /** Messages encore possibles aujourd'hui (quota du jour). */
@@ -47,7 +48,7 @@ export function RedactionMessage({
   const envoyer = () => {
     if (vide || desactive) return;
     cle.current ??= crypto.randomUUID();
-    const entree = { conversationId, texte, cle: cle.current };
+    const entree = { ...cible, texte, cle: cle.current };
     demarrer(async () => {
       const r = await actionEnvoyerMessage(entree);
       retourner(r);

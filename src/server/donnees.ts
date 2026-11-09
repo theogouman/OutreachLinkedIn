@@ -368,12 +368,16 @@ export interface MessageFil {
   statut: "envoye" | "en_file" | "en_cours" | "incertain";
 }
 
+/**
+ * Fil d'une conversation (par son id, ou la plus récente d'un prospect). Pour un prospect sans
+ * conversation, renvoie un fil vide (id null) avec ses premiers messages encore en file.
+ */
 export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; prospectId?: unknown }) {
   const conv = z.uuid().safeParse(cle.conversationId);
   const prospect = z.uuid().safeParse(cle.prospectId);
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu,
+    `select c.id, c.prospect_id, c.non_lu, c.demo,
             coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
             nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
@@ -381,32 +385,43 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
       order by c.dernier_message_at desc nulls last limit 1`,
     [conv.success ? conv.data : null, prospect.success ? prospect.data : null],
   );
-  if (!c.rowCount) return null;
-  const m = await pool.query(
-    "select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500",
-    [c.rows[0].id],
-  );
-  // Messages rédigés dans l'outil, encore dans la file : affichés à la suite, avec leur état.
+  const x = c.rows[0];
+  let entete: { id: string | null; prospectId: string | null; nom: string; sousTitre: string | null; nonLu: boolean; demo: boolean };
+  if (x) {
+    entete = { id: x.id, prospectId: x.prospect_id, nom: x.nom, sousTitre: x.sous_titre, nonLu: x.non_lu, demo: x.demo };
+  } else {
+    if (!prospect.success) return null;
+    const p = await pool.query(
+      `select id, demo, coalesce(nullif(concat_ws(' ', prenom, nom), ''), 'Prospect') as nom,
+              nullif(concat_ws(' · ', poste, entreprise), '') as sous_titre
+         from public.prospects where id = $1`,
+      [prospect.data],
+    );
+    if (!p.rowCount) return null;
+    const y = p.rows[0];
+    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo };
+  }
+  const m = entete.id
+    ? await pool.query("select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500", [entete.id])
+    : { rows: [] };
+  // Messages rédigés dans l'outil, encore dans la file (dans cette conversation, ou premiers
+  // messages au prospect) : affichés à la suite, avec leur état.
   const enFile = await pool.query(
     `select id, payload->>'texte' as texte, coalesce(depart_estime, executer_apres) as quand, statut
        from public.taches
       where type_action = 'message' and statut in ('en_attente', 'en_cours', 'incertaine')
-        and payload->>'conversation_id' = $1::text
+        and (($1::text is not null and payload->>'conversation_id' = $1::text)
+             or ($2::text is not null and payload->>'prospect_id' = $2::text))
       order by ordre`,
-    [c.rows[0].id],
+    [entete.id, entete.prospectId],
   );
   const etat = { en_attente: "en_file", en_cours: "en_cours", incertaine: "incertain" } as const;
   return {
-    id: c.rows[0].id as string,
-    prospectId: c.rows[0].prospect_id as string | null,
-    nom: c.rows[0].nom as string,
-    sousTitre: c.rows[0].sous_titre as string | null,
-    nonLu: c.rows[0].non_lu as boolean,
-    demo: c.rows[0].demo as boolean,
+    ...entete,
     messages: [
-      ...m.rows.map((x): MessageFil => ({ id: x.id, sens: x.sens, texte: x.texte, envoyeAt: x.envoye_at, statut: "envoye" })),
+      ...m.rows.map((r): MessageFil => ({ id: r.id, sens: r.sens, texte: r.texte, envoyeAt: r.envoye_at, statut: "envoye" })),
       ...enFile.rows.map(
-        (x): MessageFil => ({ id: `file-${x.id}`, sens: "sortant", texte: x.texte, envoyeAt: x.quand, statut: etat[x.statut as keyof typeof etat] }),
+        (r): MessageFil => ({ id: `file-${r.id}`, sens: "sortant", texte: r.texte, envoyeAt: r.quand, statut: etat[r.statut as keyof typeof etat] }),
       ),
     ],
   };

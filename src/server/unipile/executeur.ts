@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import type { TypeLien } from "@/lib/statut-relation";
 import type { AppliquerEffets, ExecuteurLinkedIn, ResultatAppel } from "@/server/queue/worker";
@@ -13,17 +13,51 @@ const payloadMessage = z.object({
   chat_id: z.string().min(1).max(200),
   texte: z.string().min(1).max(8000),
 });
+/** Premier message à un prospect : la conversation est résolue (ou démarrée) au moment de l'envoi. */
+const payloadPremierMessage = z.object({
+  prospect_id: z.uuid(),
+  texte: z.string().min(1).max(8000),
+});
 const payloadLectureListe = z.object({ liste: listeSchema, limite: z.number().int().min(1).max(100).default(50) });
 
 type Donnees =
   | { genre: "profil"; profil: ProfilLu }
   | { genre: "liste"; liste: Liste; personnes: PersonneListee[] }
-  | { genre: "message"; conversationId: string; texte: string; messageId: string | null };
+  | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
+  | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null };
+
+/** État du destinataire d'un premier message, relu juste avant l'appel LinkedIn. */
+export interface Destinataire {
+  statutRelation: string;
+  providerId: string | null;
+  conversationId: string | null;
+  chatId: string | null;
+}
+export type LireDestinataire = (prospectId: string) => Promise<Destinataire | null>;
+
+export function lireDestinataireDepuis(pool: Pool): LireDestinataire {
+  return async (prospectId) => {
+    const r = await pool.query(
+      `select p.statut_relation, p.provider_id, c.id as conversation_id, c.unipile_chat_id
+         from public.prospects p
+         left join lateral (select id, unipile_chat_id from public.conversations
+                             where prospect_id = p.id order by dernier_message_at desc nulls last limit 1) c on true
+        where p.id = $1`,
+      [prospectId],
+    );
+    if (!r.rowCount) return null;
+    const x = r.rows[0];
+    return { statutRelation: x.statut_relation, providerId: x.provider_id, conversationId: x.conversation_id, chatId: x.unipile_chat_id };
+  };
+}
 
 const invalide = (type: string): ResultatAppel => ({ ok: false, erreur: { status: 400, type } });
 
-/** Traduit une tâche de la file en appel LinkedIn : lectures, et messages dans une conversation existante. */
-export function creerExecuteur(client: ClientLinkedIn): ExecuteurLinkedIn {
+/**
+ * Traduit une tâche de la file en appel LinkedIn : lectures, messages, et premier message
+ * (démarrage de conversation) à une relation de 1er degré, revérifiée juste avant l'appel.
+ */
+export function creerExecuteur(client: ClientLinkedIn, deps: { lireDestinataire?: LireDestinataire } = {}): ExecuteurLinkedIn {
   return {
     async executer(tache) {
       if (tache.typeAction === "lecture_profil") {
@@ -37,6 +71,36 @@ export function creerExecuteur(client: ClientLinkedIn): ExecuteurLinkedIn {
         if (!p.success) return invalide("payload_invalide");
         const r = await client.lireListe(p.data.liste, p.data.limite);
         return r.ok ? { ok: true, donnees: { genre: "liste", liste: p.data.liste, personnes: r.donnees } satisfies Donnees } : r;
+      }
+      if (tache.typeAction === "message" && payloadPremierMessage.safeParse(tache.payload).success) {
+        const p = payloadPremierMessage.parse(tache.payload);
+        if (!deps.lireDestinataire) return invalide("non_disponible");
+        const d = await deps.lireDestinataire(p.prospect_id);
+        if (!d) return invalide("prospect_introuvable");
+        if (d.conversationId && d.chatId) {
+          // Une conversation existe désormais (réponse reçue, ou premier message déjà parti) : on y écrit.
+          const r = await client.envoyerMessage(d.chatId, p.texte);
+          return r.ok
+            ? { ok: true, donnees: { genre: "message", conversationId: d.conversationId, texte: p.texte, messageId: r.donnees.messageId } satisfies Donnees }
+            : r;
+        }
+        // Message normal uniquement : sans relation de 1er degré, LinkedIn le bloquerait.
+        if (d.statutRelation !== "en_relation") return invalide("pas_en_relation");
+        if (!d.providerId) return invalide("identifiant_linkedin_inconnu");
+        const r = await client.demarrerConversation(d.providerId, p.texte);
+        return r.ok
+          ? {
+              ok: true,
+              donnees: {
+                genre: "conversation",
+                prospectId: p.prospect_id,
+                chatId: r.donnees.chatId,
+                providerId: d.providerId,
+                texte: p.texte,
+                messageId: r.donnees.messageId,
+              } satisfies Donnees,
+            }
+          : r;
       }
       if (tache.typeAction === "message") {
         const p = payloadMessage.safeParse(tache.payload);
@@ -114,9 +178,24 @@ async function effetsMessage(c: PoolClient, tacheId: string, d: Extract<Donnees,
   );
 }
 
+/** Conversation démarrée : elle est créée, rattachée au prospect, avec le premier message. */
+async function effetsConversation(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "conversation" }>) {
+  const conv = await c.query(
+    `insert into public.conversations (unipile_chat_id, prospect_id, interlocuteur_provider_id, demo)
+     select $1, p.id, $3, coalesce(p.demo, false)
+       from (select 1) x left join public.prospects p on p.id = $2
+     on conflict (unipile_chat_id) do update
+       set prospect_id = coalesce(public.conversations.prospect_id, excluded.prospect_id)
+     returning id`,
+    [d.chatId, d.prospectId, d.providerId],
+  );
+  await effetsMessage(c, tacheId, { genre: "message", conversationId: conv.rows[0].id, texte: d.texte, messageId: d.messageId });
+}
+
 export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees) => {
   const d = donnees as Donnees;
   if (d.genre === "message") return effetsMessage(c, tache.id, d);
+  if (d.genre === "conversation") return effetsConversation(c, tache.id, d);
   if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil);
   else if (d.genre === "liste") await effetsListe(c, d.liste, d.personnes);
 };

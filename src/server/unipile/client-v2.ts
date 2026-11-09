@@ -44,6 +44,21 @@ const messageEnvoyeSchema = z.object({
   message_id: z.union([z.string(), z.array(z.string()), z.null()]),
 });
 
+/**
+ * POST /v2/{account_id}/inboxes/{inbox_id}/chats/send (« Start a Chat from Inbox », vérifié le
+ * 2026-11-09) : corps JSON { text, users_ids } (un seul identifiant = conversation 1to1) →
+ * 200 { object: "ChatStarted", chat_id, message_id }. Pour LinkedIn Classic, la boîte qui peut
+ * démarrer une conversation est CLASSIC_PRIMARY (guide « LinkedIn – Send messages »).
+ * Aucune option `specifics` : pas d'InMail, message normal à une relation uniquement.
+ */
+const conversationDemarreeSchema = z.object({
+  object: z.literal("ChatStarted"),
+  chat_id: z.string().min(1).max(200),
+  message_id: z.union([z.string(), z.array(z.string()), z.null()]),
+});
+export const BOITE_LINKEDIN_CLASSIQUE = "CLASSIC_PRIMARY";
+const PROVIDER_ID = /^[A-Za-z0-9_-]{5,200}$/;
+
 const erreurSchema = z.object({ type: z.string().optional(), detail: z.string().optional() }).passthrough();
 
 function date(v: string | undefined): Date | null {
@@ -115,6 +130,17 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
       if (!r.ok) return r;
       const id = r.donnees.message_id;
       return { ok: true, donnees: { messageId: Array.isArray(id) ? (id[0] ?? null) : id } };
+    },
+
+    async demarrerConversation(providerId, texte) {
+      if (!PROVIDER_ID.test(providerId)) return { ok: false, erreur: { status: 400, type: "identifiant_invalide" } };
+      const r = await appeler(`/inboxes/${BOITE_LINKEDIN_CLASSIQUE}/chats/send`, {}, conversationDemarreeSchema, {
+        text: texte,
+        users_ids: providerId,
+      });
+      if (!r.ok) return r;
+      const id = r.donnees.message_id;
+      return { ok: true, donnees: { chatId: r.donnees.chat_id, messageId: Array.isArray(id) ? (id[0] ?? null) : id } };
     },
 
     async lireProfil(identifiant) {

@@ -19,12 +19,15 @@ export function SectionsGlissantes({
   sections,
   libelle,
   remplir = false,
+  initial,
 }: {
   sections: Section[];
   libelle: string;
   remplir?: boolean;
+  /** Section ouverte au départ (id), la première sinon. */
+  initial?: string;
 }) {
-  const [actif, setActif] = useState(0);
+  const [actif, setActif] = useState(() => Math.max(0, sections.findIndex((s) => s.id === initial)));
   const base = useId();
   const barre = useRef<HTMLDivElement>(null);
   const pilule = useRef<HTMLSpanElement>(null);
