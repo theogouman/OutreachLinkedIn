@@ -75,5 +75,6 @@ export async function secretsWebhookUnipile(
     })
     .map((w) => w.secret);
   cache = { secrets, jusqua: maintenant + DUREE_CACHE_MS };
+  console.info("[webhook] secrets lus chez Unipile : %d point(s) de terminaison sur %d", secrets.length, r.data.data.length);
   return secrets;
 }

@@ -63,15 +63,30 @@ export async function traiterWebhookUnipile(
 ): Promise<ReponseWebhook> {
   if (Buffer.byteLength(corpsBrut) > TAILLE_MAX_WEBHOOK) return { status: 413, corps: { ok: false } };
   let signe = !!opts.secret && verifierSignatureUnipile(signature, corpsBrut, opts.secret, opts.maintenantMs);
+  let nbSecours = 0;
   if (!signe && signature && opts.secretsSecours) {
-    for (const s of await opts.secretsSecours()) {
+    const secours = await opts.secretsSecours();
+    nbSecours = secours.length;
+    for (const s of secours) {
       if (verifierSignatureUnipile(signature, corpsBrut, s, opts.maintenantMs)) {
         signe = true;
         break;
       }
     }
   }
-  if (!signe) return { status: 401, corps: { ok: false } };
+  if (!signe) {
+    // Diagnostic sans donnée sensible : jamais la signature, le corps ni un secret.
+    const t = Number(/(?:^|,)\s*t=(\d+)/.exec(signature ?? "")?.[1]);
+    console.error(
+      "[webhook] signature refusée : en-tête %s, format %s, écart d'horloge %s s, secret configuré %s, secrets lus chez Unipile %s",
+      signature ? "présent" : "absent",
+      signature && /v0=[0-9a-f]{64}/i.test(signature) ? "attendu" : "inattendu",
+      Number.isFinite(t) ? Math.round((opts.maintenantMs ?? Date.now()) / 1000 - t) : "?",
+      opts.secret ? "oui" : "non",
+      nbSecours,
+    );
+    return { status: 401, corps: { ok: false } };
+  }
 
   let json: unknown;
   try {
