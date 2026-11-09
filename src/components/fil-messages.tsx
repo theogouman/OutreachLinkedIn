@@ -1,5 +1,6 @@
 import type { MessageFil } from "@/server/donnees";
 import { Avatar } from "./interface/elements";
+import { IconeCoche, IconeDoubleCoche } from "./icones";
 
 const fmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" });
 
@@ -47,13 +48,30 @@ export function FilMessages({
               >
                 {m.texte}
               </p>
-              <time dateTime={new Date(m.envoyeAt).toISOString()} className={`px-1 caption-5 ${legende}`}>
-                {m.statut === "envoye"
-                  ? `${moi ? "Vous" : nom.split(" ")[0]} · ${fmt.format(new Date(m.envoyeAt))}`
-                  : m.statut === "en_file"
-                    ? `${ETAT.en_file} ${fmt.format(new Date(m.envoyeAt))}`
-                    : ETAT[m.statut]}
-              </time>
+              <span className={`flex items-center gap-1 px-1 caption-5 ${legende}`}>
+                <time dateTime={new Date(m.envoyeAt).toISOString()}>
+                  {m.statut === "envoye"
+                    ? moi
+                      ? fmt.format(new Date(m.envoyeAt))
+                      : `${nom.split(" ")[0]} · ${fmt.format(new Date(m.envoyeAt))}`
+                    : m.statut === "en_file"
+                      ? `${ETAT.en_file} ${fmt.format(new Date(m.envoyeAt))}`
+                      : ETAT[m.statut]}
+                </time>
+                {/* Accusé de lecture : double coche colorée quand l'interlocuteur a lu, coche simple sinon. */}
+                {moi && m.statut === "envoye" &&
+                  (m.lu ? (
+                    <span className="inline-flex items-center gap-0.5 text-action" title="Lu">
+                      <IconeDoubleCoche taille={14} />
+                      <span className="sr-only">Lu</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex" title="Envoyé">
+                      <IconeCoche taille={12} />
+                      <span className="sr-only">Envoyé, pas encore lu</span>
+                    </span>
+                  ))}
+              </span>
             </div>
           </li>
         );

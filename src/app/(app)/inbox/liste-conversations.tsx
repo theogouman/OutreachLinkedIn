@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
+import { usePublierOrdreFiches } from "@/components/ordre-fiches";
 import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 import { MenuFiltres } from "@/components/filtres/menu-filtres";
 import { Avatar } from "@/components/interface/elements";
@@ -40,6 +41,8 @@ export function ListeConversations({
 }) {
   const l = useListeFiltree({ initial, filtresInitiaux, definitions: FILTRES_INBOX, charger });
   const f = l.filtres;
+  // Flèches de la fiche : les prospects dans l'ordre des conversations affichées.
+  usePublierOrdreFiches([...new Set(l.lignes.flatMap((c) => (c.prospectId ? [c.prospectId] : [])))]);
 
   return (
     <aside className="carte flex min-h-0 flex-col overflow-hidden">

@@ -161,4 +161,33 @@ describe.skipIf(!TEST_DATABASE_URL)("webhooks Unipile : messages et alertes", ()
     await expect(notifier(db.pool, { type: "test", niveau: "info", titre: "x", lien: "https://evil.example" })).rejects.toThrow();
     await expect(notifier(db.pool, { type: "test", niveau: "info", titre: "x", lien: "//evil.example" })).rejects.toThrow();
   });
+
+  it("accusé de lecture : nos messages envoyés jusqu'au message lu sont marqués lus", async () => {
+    await lea();
+    await recevoir(evenement("message.new", message({ id: "m1", is_sender: true, sender_id: "ACoMOI", timestamp: "2026-11-09T09:00:00Z" })), {
+      lireInterlocuteur: async () => "ACoLEA",
+    });
+    await recevoir(evenement("message.new", message({ id: "m2", is_sender: true, sender_id: "ACoMOI", timestamp: "2026-11-09T09:05:00Z" })));
+    await recevoir(evenement("message.new", message({ id: "m3", is_sender: true, sender_id: "ACoMOI", timestamp: "2026-11-09T09:10:00Z" })));
+    await recevoir(
+      evenement("message.receipt.read", { chat_id: "chat_lea", message_id: "m2", user_id: "ACoLEA", timestamp: "2026-11-09T09:20:00Z" }),
+    );
+    const r = await db.pool.query("select unipile_message_id, lu_le from public.messages order by envoye_at");
+    expect(r.rows.map((x) => [x.unipile_message_id, x.lu_le?.toISOString() ?? null])).toEqual([
+      ["m1", "2026-11-09T09:20:00.000Z"],
+      ["m2", "2026-11-09T09:20:00.000Z"],
+      ["m3", null],
+    ]);
+  });
+
+  it("accusé de lecture ignoré quand c'est nous qui lisons", async () => {
+    await lea();
+    await recevoir(evenement("message.new", message({ id: "s1", is_sender: true, sender_id: "ACoMOI", timestamp: "2026-11-09T09:00:00Z" })), {
+      lireInterlocuteur: async () => "ACoLEA",
+    });
+    await recevoir(evenement("message.new", message({ id: "e1", timestamp: "2026-11-09T09:05:00Z" })));
+    await recevoir(evenement("message.receipt.read", { chat_id: "chat_lea", message_id: "e1", user_id: "ACoMOI", timestamp: "2026-11-09T09:30:00Z" }));
+    await recevoir(evenement("message.receipt.read", { chat_id: "chat_lea", user_id: "ACoAUTRE", timestamp: "2026-11-09T09:30:00Z" }));
+    expect((await db.pool.query("select count(*)::int n from public.messages where lu_le is not null")).rows[0].n).toBe(0);
+  });
 });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import { enregistrerLiens, recalculerStatuts, traiterAcceptations } from "@/server/relations";
 import { verifierSignatureUnipile } from "@/server/secrets";
-import { enregistrerMessageRecu, messageUnipileSchema } from "@/server/conversations";
+import { accuseLectureSchema, enregistrerAccuseLecture, enregistrerMessageRecu, messageUnipileSchema } from "@/server/conversations";
 import { creerNotification, envoyerPush } from "@/server/notifications";
 
 export const TAILLE_MAX_WEBHOOK = 1024 * 1024;
@@ -113,6 +113,11 @@ export async function traiterWebhookUnipile(
       if (m.success) await c.query("delete from public.messages where unipile_message_id = $1", [m.data.id]);
     }
 
+    if (env.data.type === "message.receipt.read") {
+      const a = accuseLectureSchema.safeParse(env.data.payload);
+      if (a.success) await enregistrerAccuseLecture(c, a.data);
+    }
+
     if (env.data.type === "account.status.disconnected") {
       alerte = await creerNotification(c, {
         type: "compte_deconnecte",
@@ -122,7 +127,7 @@ export async function traiterWebhookUnipile(
         lien: "/reglages",
       });
     }
-    // Accusés de lecture, réactions, nouveaux abonnés : reçus sans effet pour l'instant.
+    // Accusés de réception, réactions, nouveaux abonnés : reçus sans effet pour l'instant.
 
     await c.query("update public.webhook_events set traite_le = now() where id = $1", [env.data.id]);
     await c.query("commit");

@@ -86,26 +86,34 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
           <>
             <MarquerLue id={ouvert.id} nonLu={ouvert.nonLu} />
             <header className="inbox-entete-conversation flex flex-wrap items-center justify-between gap-3 border-b border-trait px-4 py-3 sm:px-5">
-              <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 items-center gap-2">
                 <RetourListe />
-                <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
-                <div className="min-w-0">
-                  <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
-                  {ouvert.sousTitre && <p className="truncate caption-5 text-encre-3">{ouvert.sousTitre}</p>}
-                </div>
-              </div>
-              {ouvert.prospectId ? (
-                <span className="flex items-center gap-3">
-                  {etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />}
-                  {/* La fiche s'ouvre par-dessus la conversation, sans quitter l'Inbox. */}
+                {ouvert.prospectId ? (
+                  // Photo, nom et poste ouvrent la fiche par-dessus la conversation, sans quitter l'Inbox.
                   <Link
                     href={`/inbox?${new URLSearchParams({ conversation: ouvert.id, prospect: ouvert.prospectId })}`}
                     scroll={false}
-                    className="bouton bouton-contour px-3 py-1.5 caption-3"
+                    aria-label={`Ouvrir la fiche de ${ouvert.nom}`}
+                    className="group -mx-1 flex min-w-0 items-center gap-3 rounded-2xl px-1 py-0.5 outline-none transition-colors duration-150 hover:bg-creux focus-visible:ring-2 focus-visible:ring-accent"
                   >
-                    Voir la fiche
+                    <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
+                    <span className="min-w-0 pr-2">
+                      <h2 className="truncate title-3 text-encre underline-offset-2 group-hover:underline">{ouvert.nom}</h2>
+                      {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
+                    </span>
                   </Link>
-                </span>
+                ) : (
+                  <span className="flex min-w-0 items-center gap-3">
+                    <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
+                    <span className="min-w-0">
+                      <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
+                      {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
+                    </span>
+                  </span>
+                )}
+              </div>
+              {ouvert.prospectId ? (
+                etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />
               ) : (
                 <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM · ajout au CRM en phase 2</span>
               )}

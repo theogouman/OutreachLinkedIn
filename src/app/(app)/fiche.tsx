@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Modale, useModale } from "@/components/interface/modale";
 import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
@@ -14,6 +14,9 @@ import Link from "next/link";
 import { Avatar } from "@/components/interface/elements";
 import { LogoLinkedIn } from "@/components/logos";
 import { lienProfilLinkedIn } from "@/lib/linkedin-url";
+import { NotesProspect } from "./notes-prospect";
+import { useOrdreFiches } from "@/components/ordre-fiches";
+import { IconeFlecheDroite } from "@/components/icones-pages";
 
 const EVENEMENTS: Record<string, string> = {
   invitation: "Invitation",
@@ -76,9 +79,42 @@ export function ModaleFiche({
   };
   const nom = [fiche.prenom, fiche.nom].filter(Boolean).join(" ") || "Prospect";
 
+  // Flèches précédente / suivante : ordre de la liste affichée derrière la fiche.
+  const ordre = useOrdreFiches();
+  const [enCours, demarrer] = useTransition();
+  const rang = ordre.indexOf(fiche.id);
+  const aller = (id: string | undefined) => {
+    if (!id) return;
+    const q = new URLSearchParams(params);
+    q.set("prospect", id);
+    demarrer(() => router.replace(`${chemin}?${q}`, { scroll: false }));
+  };
+  const nav: Navigation = {
+    precedent: rang > 0 ? () => aller(ordre[rang - 1]) : undefined,
+    suivant: rang >= 0 && rang < ordre.length - 1 ? () => aller(ordre[rang + 1]) : undefined,
+    position: rang >= 0 ? `${rang + 1} sur ${ordre.length}` : null,
+    enCours,
+  };
+  const navRef = useRef(nav);
+  useEffect(() => {
+    navRef.current = nav;
+  });
+  // Clavier : ← → hors des champs de saisie.
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const cible = e.target as HTMLElement | null;
+      if (cible?.closest("input, textarea, select, [contenteditable='true'], [role='tab']")) return;
+      if (e.key === "ArrowLeft") navRef.current.precedent?.();
+      if (e.key === "ArrowRight") navRef.current.suivant?.();
+    };
+    document.addEventListener("keydown", touche);
+    return () => document.removeEventListener("keydown", touche);
+  }, []);
+
   return (
     // Taille fixe : une longue conversation défile dans son encadré, la modale ne bouge pas.
-    <Modale fermer={fermer} hauteurFixe enTete={<EnTeteFiche fiche={fiche} nom={nom} />}>
+    <Modale fermer={fermer} hauteurFixe enTete={<EnTeteFiche fiche={fiche} nom={nom} nav={nav} />}>
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
           remplir
@@ -152,14 +188,8 @@ export function ModaleFiche({
                     </section>
                   )}
 
-                  {fiche.notes && (
-                    <section className="flex flex-col gap-2" aria-label="Notes">
-                      <h3 className="caption-4 text-encre-3">Notes</h3>
-                      <p className="selectionnable whitespace-pre-wrap rounded-2xl bg-creux px-4 py-3 body-6 text-encre-2">
-                        {fiche.notes}
-                      </p>
-                    </section>
-                  )}
+                  {/* Clé : un autre prospect (navigation ← →) repart de ses propres notes. */}
+                  <NotesProspect key={fiche.id} prospectId={fiche.id} initiales={fiche.notes} />
                 </div>
               ),
             },
@@ -221,7 +251,24 @@ export function ModaleFiche({
   );
 }
 
-function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
+type Navigation = { precedent?: () => void; suivant?: () => void; position: string | null; enCours: boolean };
+
+function BoutonFleche({ sens, action, desactive }: { sens: "precedent" | "suivant"; action?: () => void; desactive: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={action}
+      disabled={!action || desactive}
+      aria-label={sens === "precedent" ? "Prospect précédent" : "Prospect suivant"}
+      title={sens === "precedent" ? "Prospect précédent (←)" : "Prospect suivant (→)"}
+      className="grid size-9 place-items-center rounded-full text-encre-2 outline-none transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-creux hover:text-encre active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-35"
+    >
+      <IconeFlecheDroite taille={15} className={sens === "precedent" ? "-scale-x-100" : undefined} />
+    </button>
+  );
+}
+
+function EnTeteFiche({ fiche, nom, nav }: { fiche: FicheProspect; nom: string; nav: Navigation }) {
   const { fermer, titreId } = useModale();
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
   const sousTitre = [fiche.poste, fiche.entreprise].filter(Boolean).join(" · ");
@@ -229,6 +276,19 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
     <header className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-5 sm:px-8 sm:pt-7">
       <div className="flex items-start justify-between gap-4">
         <Avatar nom={nom} taille={56} photo={fiche.photo} />
+        <div className="flex items-center gap-1">
+          {nav.position && (
+            <span className="mr-1 caption-5 tabular-nums text-encre-3" aria-live="polite">
+              {nav.position}
+            </span>
+          )}
+          {nav.position && (
+            <>
+              <BoutonFleche sens="precedent" action={nav.precedent} desactive={nav.enCours} />
+              <BoutonFleche sens="suivant" action={nav.suivant} desactive={nav.enCours} />
+              <span aria-hidden className="mx-1 h-5 w-px bg-trait" />
+            </>
+          )}
         <button
           type="button"
           onClick={fermer}
@@ -237,8 +297,9 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
         >
           <IconeFermer taille={16} />
         </button>
+        </div>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className={`flex flex-col gap-1.5 transition-opacity duration-150 ${nav.enCours ? "opacity-50" : ""}`}>
         <h2
           id={titreId}
           className="text-[28px] font-medium leading-tight tracking-[-0.02em] text-encre sm:text-[32px]"

@@ -141,3 +141,38 @@ export async function rattacherConversations(c: PoolClient, prospectId: string, 
   }
   return hors.rowCount ?? 0;
 }
+
+export const accuseLectureSchema = z
+  .object({
+    chat_id: z.string().min(1).max(300),
+    message_id: z.string().min(1).max(300).nullish(),
+    user_id: z.string().max(300).nullish(),
+    timestamp: z.string().max(60).nullish(),
+  })
+  .passthrough();
+
+/**
+ * message.receipt.read : l'interlocuteur a lu la conversation jusqu'à ce message. Nos messages
+ * envoyés jusque-là sont marqués lus. Ignoré si c'est nous qui lisons (message reçu, ou lecteur
+ * différent de l'interlocuteur connu).
+ */
+export async function enregistrerAccuseLecture(c: PoolClient, a: z.infer<typeof accuseLectureSchema>) {
+  const conv = await c.query("select id, interlocuteur_provider_id from public.conversations where unipile_chat_id = $1", [a.chat_id]);
+  if (!conv.rowCount) return 0;
+  const { id, interlocuteur_provider_id: interlocuteur } = conv.rows[0];
+  if (interlocuteur && a.user_id && a.user_id !== interlocuteur) return 0;
+  const lu = a.timestamp ? new Date(a.timestamp) : new Date();
+  if (Number.isNaN(lu.getTime())) return 0;
+  let jusqua = lu;
+  if (a.message_id) {
+    const m = await c.query("select sens, envoye_at from public.messages where unipile_message_id = $1", [a.message_id]);
+    if (m.rows[0]?.sens === "entrant") return 0;
+    if (m.rows[0]) jusqua = m.rows[0].envoye_at;
+  }
+  const r = await c.query(
+    `update public.messages set lu_le = $3
+      where conversation_id = $1 and sens = 'sortant' and lu_le is null and envoye_at <= $2`,
+    [id, jusqua, lu],
+  );
+  return r.rowCount ?? 0;
+}

@@ -373,6 +373,8 @@ export interface MessageFil {
   envoyeAt: Date;
   /** « envoye » pour l'historique ; les messages encore dans la file portent leur état. */
   statut: "envoye" | "en_file" | "en_cours" | "incertain";
+  /** Message envoyé lu par l'interlocuteur (accusé de lecture LinkedIn). */
+  lu: boolean;
 }
 
 /**
@@ -425,7 +427,10 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo, photo: adressePhoto(y.id, y.photo_maj) };
   }
   const m = entete.id
-    ? await pool.query("select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500", [entete.id])
+    ? await pool.query(
+        "select id, sens, texte, envoye_at, lu_le is not null as lu from public.messages where conversation_id = $1 order by envoye_at limit 500",
+        [entete.id],
+      )
     : { rows: [] };
   // Messages rédigés dans l'outil, encore dans la file (dans cette conversation, ou premiers
   // messages au prospect) : affichés à la suite, avec leur état.
@@ -442,9 +447,9 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
   return {
     ...entete,
     messages: [
-      ...m.rows.map((r): MessageFil => ({ id: r.id, sens: r.sens, texte: r.texte, envoyeAt: r.envoye_at, statut: "envoye" })),
+      ...m.rows.map((r): MessageFil => ({ id: r.id, sens: r.sens, texte: r.texte, envoyeAt: r.envoye_at, statut: "envoye", lu: r.lu })),
       ...enFile.rows.map(
-        (r): MessageFil => ({ id: `file-${r.id}`, sens: "sortant", texte: r.texte, envoyeAt: r.quand, statut: etat[r.statut as keyof typeof etat] }),
+        (r): MessageFil => ({ id: `file-${r.id}`, sens: "sortant", texte: r.texte, envoyeAt: r.quand, statut: etat[r.statut as keyof typeof etat], lu: false }),
       ),
     ],
   };

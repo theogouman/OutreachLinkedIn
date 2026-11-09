@@ -8,6 +8,7 @@ import { Avatar, Chiffre } from "@/components/interface/elements";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import { IconeFermer, IconeRecherche } from "@/components/icones";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
+import { usePublierOrdreFiches } from "@/components/ordre-fiches";
 import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES } from "@/lib/filtres/prospects";
 import { LIBELLES_STATUT } from "@/lib/statut-relation";
 import { actionListerProspects } from "@/app/actions";
@@ -53,6 +54,7 @@ export function ListeProspects({
     definitions: FILTRES_PROSPECTS,
     charger,
   });
+  usePublierOrdreFiches(l.lignes.map((p) => p.id));
   const f = l.filtres;
   const libellesEtapes = Object.fromEntries(etapes.map((e) => [e.code, e.libelle]));
   const pages = Math.max(1, Math.ceil(l.total / taillePage));

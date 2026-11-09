@@ -7,7 +7,7 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, EnvoiRefuse, majPlafonds, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
 import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
@@ -122,6 +122,20 @@ export async function actionEnvoyerMessage(entree: unknown): Promise<Retour> {
     const r = await mettreMessageEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
     return r.nouveau ? "Message mis en file d'attente." : "Ce message est déjà en file d'attente.";
   });
+}
+
+/** Notes de la fiche : enregistrées sans recharger la page (la fiche reste ouverte). */
+export async function actionModifierNotes(entree: unknown): Promise<Retour> {
+  await exigerUtilisateur();
+  try {
+    await majNotes(poolServeur(), entree);
+    return { ok: true, message: "Notes enregistrées." };
+  } catch (e) {
+    if (e instanceof EnvoiRefuse) return { ok: false, message: e.message };
+    if (e instanceof z.ZodError) return { ok: false, message: e.issues[0]?.message ?? "Valeurs invalides." };
+    console.error("[action:%s]", "notes", e);
+    return { ok: false, message: ERREUR };
+  }
 }
 
 // ─── Notifications et Push ────────────────────────────────────────────────────

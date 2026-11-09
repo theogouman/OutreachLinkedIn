@@ -187,3 +187,20 @@ export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { m
   return insererTacheMessage(pool, prospectId, { prospect_id: prospectId, texte: m.texte }, m.cle);
 }
 
+
+// ─── Notes du prospect ────────────────────────────────────────────────────────
+
+export const notesSchema = z.object({
+  prospectId: z.uuid(),
+  notes: z
+    .string()
+    .max(4000, "Notes trop longues (4 000 caractères au plus)")
+    .transform((t) => t.trim()),
+});
+
+/** Notes libres de la fiche (vide = aucune note). */
+export async function majNotes(pool: Pool, entree: unknown) {
+  const n = notesSchema.parse(entree);
+  const r = await pool.query("update public.prospects set notes = $2, updated_at = now() where id = $1", [n.prospectId, n.notes || null]);
+  if (!r.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+}
