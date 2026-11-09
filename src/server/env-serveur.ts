@@ -48,9 +48,9 @@ export function envUnipile():
 }
 
 export function envWebhook() {
-  return lire(
-    // Facultatif : à défaut (ou s'il ne correspond pas), le secret est lu chez Unipile (webhooks/secret.ts).
-    z.object({ UNIPILE_WEBHOOK_SECRET: z.string().min(16).optional(), UNIPILE_ACCOUNT_ID: z.string().min(3).optional() }),
-    { UNIPILE_WEBHOOK_SECRET: process.env.UNIPILE_WEBHOOK_SECRET || undefined, UNIPILE_ACCOUNT_ID: process.env.UNIPILE_ACCOUNT_ID },
-  );
+  // Secret facultatif : absent ou trop court (valeur provisoire), il est ignoré et le secret est lu
+  // chez Unipile (webhooks/secret.ts). Jamais une raison de refuser tous les webhooks.
+  const brut = process.env.UNIPILE_WEBHOOK_SECRET?.trim();
+  const e = lire(z.object({ UNIPILE_ACCOUNT_ID: z.string().min(3).optional() }), { UNIPILE_ACCOUNT_ID: process.env.UNIPILE_ACCOUNT_ID });
+  return { UNIPILE_WEBHOOK_SECRET: brut && brut.length >= 16 ? brut : undefined, UNIPILE_ACCOUNT_ID: e.UNIPILE_ACCOUNT_ID };
 }
