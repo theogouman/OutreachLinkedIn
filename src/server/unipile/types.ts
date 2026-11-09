@@ -13,6 +13,8 @@ export interface ProfilLu {
   distance: DistanceReseau | null;
   /** Invitation en attente entre le compte et ce profil, si LinkedIn la signale. */
   invitation: "envoyee" | "recue" | null;
+  /** Adresse publique de la photo de profil (CDN LinkedIn), si elle existe. */
+  photoUrl: string | null;
 }
 
 export interface PersonneListee {

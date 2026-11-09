@@ -217,7 +217,7 @@ export function TableProspects({ lignes, etapes, vide }: { lignes: LigneProspect
       valeur: (p) => `${p.nom ?? ""} ${p.prenom ?? ""}`,
       cellule: (p) => (
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar nom={nom(p)} />
+          <Avatar nom={nom(p)} photo={p.photo} />
           <div className="min-w-0">
             <p className="truncate title-4 text-encre">{nom(p)}</p>
             <p className="truncate caption-5 text-encre-3">{p.poste ?? "Poste inconnu"}</p>

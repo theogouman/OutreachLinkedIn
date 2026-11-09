@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 /* Teintes d'avatar : douces, lisibles en encre foncée (contraste ≥ 4,5:1). */
@@ -9,7 +10,21 @@ function teinte(nom: string) {
   return TEINTES[h % TEINTES.length];
 }
 
-export function Avatar({ nom, taille = 36 }: { nom: string; taille?: number }) {
+export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: number; photo?: string | null }) {
+  if (photo) {
+    return (
+      // Photo servie par l'outil (/api/photos) : déjà petite, pas d'optimisation Next.
+      <Image
+        src={photo}
+        alt=""
+        width={taille}
+        height={taille}
+        unoptimized
+        className="shrink-0 rounded-full bg-creux object-cover ring-1 ring-black/5"
+        style={{ width: taille, height: taille }}
+      />
+    );
+  }
   const initiales =
     nom
       .split(/\s+/)

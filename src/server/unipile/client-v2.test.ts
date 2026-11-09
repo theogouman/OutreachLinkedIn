@@ -19,6 +19,7 @@ describe("client Unipile v2", () => {
       last_name: "Doe",
       description: "CEO chez Acme",
       display_name: "Jane Doe",
+      public_picture_url: "https://media.licdn.com/dms/image/jane.jpg",
       specifics: { network_distance: "FIRST_DEGREE" },
     });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireProfil("jane-doe");
@@ -32,6 +33,7 @@ describe("client Unipile v2", () => {
         titre: "CEO chez Acme",
         distance: "FIRST_DEGREE",
         invitation: null,
+        photoUrl: "https://media.licdn.com/dms/image/jane.jpg",
       },
     });
     const [url, init] = f.mock.calls[0]!;

@@ -88,7 +88,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
             <header className="inbox-entete-conversation flex flex-wrap items-center justify-between gap-3 border-b border-trait px-4 py-3 sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
                 <RetourListe />
-                <Avatar nom={ouvert.nom} taille={40} />
+                <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
                 <div className="min-w-0">
                   <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
                   {ouvert.sousTitre && <p className="truncate caption-5 text-encre-3">{ouvert.sousTitre}</p>}
@@ -111,7 +111,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
               )}
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto bg-carte px-5 py-5">
-              <FilMessages messages={ouvert.messages} nom={ouvert.nom} />
+              <FilMessages messages={ouvert.messages} nom={ouvert.nom} photo={ouvert.photo} />
             </div>
             <footer className="border-t border-trait px-4 py-3">
               <RedactionMessage

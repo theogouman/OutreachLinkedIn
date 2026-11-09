@@ -90,6 +90,8 @@ export interface LigneProspect {
   etape: string;
   prochaineRelance: string | null;
   identifie: boolean;
+  /** Photo de profil servie par l'outil (null : initiales). */
+  photo: string | null;
 }
 
 export const TAILLE_PAGE = 50;
@@ -98,7 +100,7 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
   const r = await pool.query(
     `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie,
-            count(*) over ()::int as total
+            photo_maj, count(*) over ()::int as total
        from public.prospects
       where ($1::public.statut_relation is null or statut_relation = $1)
         and ($2::text is null or etape = $2)
@@ -134,6 +136,7 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
     etape: x.etape,
     prochaineRelance: x.prochaine_relance,
     identifie: x.identifie,
+    photo: adressePhoto(x.id, x.photo_maj),
   }));
   return { lignes, total: (r.rows[0]?.total as number | undefined) ?? 0 };
 }
@@ -179,7 +182,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
   const parse = z.uuid().safeParse(id);
   if (!parse.success) return null;
   const p = await pool.query(
-    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details,
+    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie
        from public.prospects where id = $1`,
     [parse.data],
@@ -206,6 +209,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
     etape: x.etape,
     prochaineRelance: x.prochaine_relance,
     identifie: x.identifie,
+    photo: adressePhoto(x.id, x.photo_maj),
     notes: x.notes,
     informationsListe: detailsAffichables(x.liste_origine, x.details),
     historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file })),
@@ -300,6 +304,7 @@ export interface LigneConversation {
   dernierSens: "entrant" | "sortant";
   dernierMessageAt: Date | null;
   nonLu: boolean;
+  photo: string | null;
 }
 
 export const TAILLE_PAGE_INBOX = 100;
@@ -310,7 +315,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
     `with conv as (
        select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
               coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
-              nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape,
+              nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape, p.photo_maj,
               coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens
          from public.conversations c
          left join public.prospects p on p.id = c.prospect_id
@@ -350,6 +355,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
     dernierSens: x.dernier_sens,
     dernierMessageAt: x.dernier_message_at,
     nonLu: x.non_lu,
+    photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : null,
   }));
   return { lignes, total: r.rows[0]?.total ?? 0 };
 }
@@ -377,7 +383,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
   const prospect = z.uuid().safeParse(cle.prospectId);
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu, c.demo,
+    `select c.id, c.prospect_id, c.non_lu, c.demo, p.photo_maj,
             coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
             nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
@@ -386,20 +392,36 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     [conv.success ? conv.data : null, prospect.success ? prospect.data : null],
   );
   const x = c.rows[0];
-  let entete: { id: string | null; prospectId: string | null; nom: string; sousTitre: string | null; nonLu: boolean; demo: boolean };
+  let entete: {
+    id: string | null;
+    prospectId: string | null;
+    nom: string;
+    sousTitre: string | null;
+    nonLu: boolean;
+    demo: boolean;
+    photo: string | null;
+  };
   if (x) {
-    entete = { id: x.id, prospectId: x.prospect_id, nom: x.nom, sousTitre: x.sous_titre, nonLu: x.non_lu, demo: x.demo };
+    entete = {
+      id: x.id,
+      prospectId: x.prospect_id,
+      nom: x.nom,
+      sousTitre: x.sous_titre,
+      nonLu: x.non_lu,
+      demo: x.demo,
+      photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : null,
+    };
   } else {
     if (!prospect.success) return null;
     const p = await pool.query(
-      `select id, demo, coalesce(nullif(concat_ws(' ', prenom, nom), ''), 'Prospect') as nom,
+      `select id, demo, photo_maj, coalesce(nullif(concat_ws(' ', prenom, nom), ''), 'Prospect') as nom,
               nullif(concat_ws(' · ', poste, entreprise), '') as sous_titre
          from public.prospects where id = $1`,
       [prospect.data],
     );
     if (!p.rowCount) return null;
     const y = p.rows[0];
-    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo };
+    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo, photo: adressePhoto(y.id, y.photo_maj) };
   }
   const m = entete.id
     ? await pool.query("select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500", [entete.id])
@@ -556,4 +578,17 @@ export async function statistiques() {
   const pool = poolServeur();
   const [entonnoir, activite] = await Promise.all([entonnoirDepuis(pool), activiteDepuis(pool)]);
   return { entonnoir, activite };
+}
+
+// ─── Photos de profil ─────────────────────────────────────────────────────────
+
+/** Adresse de la photo servie par l'outil (version dans l'URL : le cache suit les mises à jour). */
+export function adressePhoto(id: string, maj: Date | string | null): string | null {
+  return maj ? `/api/photos/${id}?v=${new Date(maj).getTime()}` : null;
+}
+
+export async function photoProspect(id: string): Promise<{ contenu: Buffer; type: string } | null> {
+  await exigerUtilisateur();
+  const r = await poolServeur().query("select contenu, type_mime from public.photos_prospects where prospect_id = $1", [id]);
+  return r.rowCount ? { contenu: r.rows[0].contenu, type: r.rows[0].type_mime } : null;
 }

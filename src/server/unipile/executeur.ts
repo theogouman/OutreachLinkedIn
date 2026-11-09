@@ -5,6 +5,7 @@ import type { TypeLien } from "@/lib/statut-relation";
 import type { AppliquerEffets, ExecuteurLinkedIn, ResultatAppel } from "@/server/queue/worker";
 import { enregistrerLiens, recalculerStatuts, traiterAcceptations, type LienLinkedIn } from "@/server/relations";
 import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu } from "./types";
+import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "./photo";
 
 const listeSchema = z.enum(["relations", "invitations_envoyees", "invitations_recues"]);
 const payloadLectureProfil = z.object({ public_identifier: z.string().min(3).max(100) });
@@ -21,7 +22,7 @@ const payloadPremierMessage = z.object({
 const payloadLectureListe = z.object({ liste: listeSchema, limite: z.number().int().min(1).max(100).default(50) });
 
 type Donnees =
-  | { genre: "profil"; profil: ProfilLu }
+  | { genre: "profil"; profil: ProfilLu; photo: Photo | null }
   | { genre: "liste"; liste: Liste; personnes: PersonneListee[] }
   | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
   | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null };
@@ -57,14 +58,21 @@ const invalide = (type: string): ResultatAppel => ({ ok: false, erreur: { status
  * Traduit une tâche de la file en appel LinkedIn : lectures, messages, et premier message
  * (démarrage de conversation) à une relation de 1er degré, revérifiée juste avant l'appel.
  */
-export function creerExecuteur(client: ClientLinkedIn, deps: { lireDestinataire?: LireDestinataire } = {}): ExecuteurLinkedIn {
+export function creerExecuteur(
+  client: ClientLinkedIn,
+  deps: { lireDestinataire?: LireDestinataire; telechargerPhoto?: (url: string) => Promise<Photo | null> } = {},
+): ExecuteurLinkedIn {
+  const telecharger = deps.telechargerPhoto ?? telechargerPhotoLinkedIn;
   return {
     async executer(tache) {
       if (tache.typeAction === "lecture_profil") {
         const p = payloadLectureProfil.safeParse(tache.payload);
         if (!p.success) return invalide("payload_invalide");
         const r = await client.lireProfil(p.data.public_identifier);
-        return r.ok ? { ok: true, donnees: { genre: "profil", profil: r.donnees } satisfies Donnees } : r;
+        if (!r.ok) return r;
+        // Photo prise au passage (aucun appel LinkedIn en plus : CDN public) ; échec = pas de photo.
+        const photo = r.donnees.photoUrl ? await telecharger(r.donnees.photoUrl).catch(() => null) : null;
+        return { ok: true, donnees: { genre: "profil", profil: r.donnees, photo } satisfies Donnees };
       }
       if (tache.typeAction === "lecture_liste") {
         const p = payloadLectureListe.safeParse(tache.payload);
@@ -127,11 +135,20 @@ function urlDe(p: { publicIdentifier: string | null; providerId: string }): stri
   return (p.publicIdentifier && identifiantVersProfil(p.publicIdentifier)?.urlNormalisee) || `provider:${p.providerId}`;
 }
 
-async function effetsProfil(c: PoolClient, prospectId: string | null, tacheId: string, profil: ProfilLu) {
+async function effetsProfil(c: PoolClient, prospectId: string | null, tacheId: string, profil: ProfilLu, photo: Photo | null) {
   if (!prospectId) return;
   const prospect = await c.query("select url_normalisee from public.prospects where id = $1", [prospectId]);
   if (!prospect.rowCount) return; // supprimé entre-temps
   const url: string = prospect.rows[0].url_normalisee;
+
+  if (photo) {
+    await c.query(
+      `insert into public.photos_prospects (prospect_id, contenu, type_mime, maj) values ($1, $2, $3, now())
+       on conflict (prospect_id) do update set contenu = excluded.contenu, type_mime = excluded.type_mime, maj = now()`,
+      [prospectId, photo.contenu, photo.type],
+    );
+    await c.query("update public.prospects set photo_maj = now() where id = $1", [prospectId]);
+  }
 
   const doublon = await c.query("select id from public.prospects where provider_id = $1 and id <> $2", [profil.providerId, prospectId]);
   if (doublon.rowCount) {
@@ -178,8 +195,23 @@ async function effetsMessage(c: PoolClient, tacheId: string, d: Extract<Donnees,
   );
 }
 
-/** Conversation démarrée : elle est créée, rattachée au prospect, avec le premier message. */
+/**
+ * Conversation démarrée : rattachée au prospect avec le premier message. Une conversation reprise
+ * de l'archive LinkedIn (sans chat Unipile) est reliée à ce chat plutôt que dupliquée.
+ */
 async function effetsConversation(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "conversation" }>) {
+  const reliee = await c.query(
+    `update public.conversations set unipile_chat_id = $1, interlocuteur_provider_id = coalesce(interlocuteur_provider_id, $3)
+      where id = (select id from public.conversations where prospect_id = $2 and unipile_chat_id is null
+                   order by dernier_message_at desc nulls last limit 1)
+        and not exists (select 1 from public.conversations where unipile_chat_id = $1)
+      returning id`,
+    [d.chatId, d.prospectId, d.providerId],
+  );
+  if (reliee.rowCount) {
+    await effetsMessage(c, tacheId, { genre: "message", conversationId: reliee.rows[0].id, texte: d.texte, messageId: d.messageId });
+    return;
+  }
   const conv = await c.query(
     `insert into public.conversations (unipile_chat_id, prospect_id, interlocuteur_provider_id, demo)
      select $1, p.id, $3, coalesce(p.demo, false)
@@ -196,6 +228,6 @@ export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees)
   const d = donnees as Donnees;
   if (d.genre === "message") return effetsMessage(c, tache.id, d);
   if (d.genre === "conversation") return effetsConversation(c, tache.id, d);
-  if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil);
+  if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil, d.photo);
   else if (d.genre === "liste") await effetsListe(c, d.liste, d.personnes);
 };

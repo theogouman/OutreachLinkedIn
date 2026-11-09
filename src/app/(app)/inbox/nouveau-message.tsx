@@ -119,7 +119,7 @@ function Recherche() {
                 onClick={() => choisir(p)}
                 className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left outline-none transition-colors duration-150 hover:bg-creux focus-visible:bg-creux"
               >
-                <Avatar nom={nom} taille={32} />
+                <Avatar nom={nom} taille={32} photo={p.photo} />
                 <span className="min-w-0">
                   <span className="block truncate body-6 text-encre">{nom}</span>
                   {sous && <span className="block truncate caption-5 text-encre-3">{sous}</span>}

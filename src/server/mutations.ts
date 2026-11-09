@@ -156,29 +156,34 @@ export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { m
   const m = messageSchema.parse(entree);
   const horsDemo = "Unipile n'est pas encore branché : seules les données de démonstration peuvent recevoir un message.";
 
-  let conversationId = m.conversationId ?? null;
-  if (m.prospectId) {
-    const p = await pool.query(
-      `select p.statut_relation, p.demo,
-              (select c.id from public.conversations c where c.prospect_id = p.id
-                order by c.dernier_message_at desc nulls last limit 1) as conversation_id
-         from public.prospects p where p.id = $1`,
+  let conv: { id: string; unipile_chat_id: string | null; prospect_id: string | null; demo: boolean } | null = null;
+  if (m.conversationId) {
+    const r = await pool.query("select id, unipile_chat_id, prospect_id, demo from public.conversations where id = $1", [m.conversationId]);
+    if (!r.rowCount) throw new EnvoiRefuse("Conversation introuvable.");
+    conv = r.rows[0];
+  } else {
+    // Conversation déjà ouverte avec ce prospect : on y écrit.
+    const r = await pool.query(
+      `select id, unipile_chat_id, prospect_id, demo from public.conversations
+        where prospect_id = $1 order by dernier_message_at desc nulls last limit 1`,
       [m.prospectId],
     );
-    if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
-    const { statut_relation: statut, demo, conversation_id: existante } = p.rows[0];
-    if (existante) {
-      conversationId = existante; // conversation déjà ouverte : on y écrit
-    } else {
-      if (statut !== "en_relation") throw new EnvoiRefuse(REFUS_PAS_EN_RELATION);
-      if (opts.modeSimule && !demo) throw new EnvoiRefuse(horsDemo);
-      return insererTacheMessage(pool, m.prospectId, { prospect_id: m.prospectId, texte: m.texte }, m.cle);
-    }
+    conv = r.rows[0] ?? null;
   }
 
-  const conv = await pool.query("select unipile_chat_id, prospect_id, demo from public.conversations where id = $1", [conversationId]);
-  if (!conv.rowCount) throw new EnvoiRefuse("Conversation introuvable.");
-  const { unipile_chat_id: chatId, prospect_id: prospectId, demo } = conv.rows[0];
-  if (opts.modeSimule && !demo) throw new EnvoiRefuse(horsDemo);
-  return insererTacheMessage(pool, prospectId, { conversation_id: conversationId!, chat_id: chatId, texte: m.texte }, m.cle);
+  if (conv?.unipile_chat_id) {
+    if (opts.modeSimule && !conv.demo) throw new EnvoiRefuse(horsDemo);
+    return insererTacheMessage(pool, conv.prospect_id, { conversation_id: conv.id, chat_id: conv.unipile_chat_id, texte: m.texte }, m.cle);
+  }
+
+  // Pas de chat Unipile (nouveau prospect, ou conversation reprise de l'archive LinkedIn) :
+  // le message passe par le démarrage de conversation, qui exige une relation de 1er degré.
+  const prospectId = m.prospectId ?? conv?.prospect_id ?? null;
+  if (!prospectId) throw new EnvoiRefuse("Cette conversation n'est pas encore reliée à LinkedIn : réponds-y depuis LinkedIn pour l'instant.");
+  const p = await pool.query("select statut_relation, demo from public.prospects where id = $1", [prospectId]);
+  if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+  if (p.rows[0].statut_relation !== "en_relation") throw new EnvoiRefuse(REFUS_PAS_EN_RELATION);
+  if (opts.modeSimule && !p.rows[0].demo) throw new EnvoiRefuse(horsDemo);
+  return insererTacheMessage(pool, prospectId, { prospect_id: prospectId, texte: m.texte }, m.cle);
 }
+

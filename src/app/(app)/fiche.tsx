@@ -228,7 +228,7 @@ function EnTeteFiche({ fiche, nom }: { fiche: FicheProspect; nom: string }) {
   return (
     <header className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-5 sm:px-8 sm:pt-7">
       <div className="flex items-start justify-between gap-4">
-        <Avatar nom={nom} taille={56} />
+        <Avatar nom={nom} taille={56} photo={fiche.photo} />
         <button
           type="button"
           onClick={fermer}
@@ -340,7 +340,7 @@ function OngletConversation({
     <div className="flex h-full min-h-0 flex-col gap-3">
       <FilDefilant nombre={messages.length}>
         {messages.length > 0 ? (
-          <FilMessages messages={messages} nom={nom} surMotif />
+          <FilMessages messages={messages} nom={nom} photo={fiche.photo} surMotif />
         ) : (
           <p className="grid h-full place-items-center text-center body-6 text-encre-2">
             Aucun message avec {prenom} pour l&apos;instant : écris le premier

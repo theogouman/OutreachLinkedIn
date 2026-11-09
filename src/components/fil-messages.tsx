@@ -13,10 +13,13 @@ const ETAT: Record<Exclude<MessageFil["statut"], "envoye">, string> = {
 export function FilMessages({
   messages,
   nom,
+  photo = null,
   surMotif = false,
 }: {
   messages: MessageFil[];
   nom: string;
+  /** Photo de l'interlocuteur (null : initiales). */
+  photo?: string | null;
   /** Posé sur le fond pointillé (.fond-conversation) : bulles reçues blanches, légendes plus foncées. */
   surMotif?: boolean;
 }) {
@@ -29,7 +32,7 @@ export function FilMessages({
         const attente = m.statut !== "envoye";
         return (
           <li key={m.id} className={`flex animate-apparition items-end gap-2 ${moi ? "flex-row-reverse" : ""}`}>
-            {!moi && <Avatar nom={nom} taille={28} />}
+            {!moi && <Avatar nom={nom} taille={28} photo={photo} />}
             <div className={`flex max-w-[80%] flex-col gap-1 ${moi ? "items-end" : "items-start"}`}>
               <p
                 className={`selectionnable whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 body-6 ${

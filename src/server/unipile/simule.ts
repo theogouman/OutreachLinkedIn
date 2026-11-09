@@ -48,6 +48,7 @@ export function creerClientSimule(
         titre: demo ? `${demo.poste} chez ${demo.entreprise}` : null,
         distance: null,
         invitation: null,
+        photoUrl: null,
       };
       return { ok: true, donnees: profil };
     },

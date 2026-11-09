@@ -20,6 +20,7 @@ const utilisateurSchema = z.object({
 });
 
 const profilSchema = utilisateurSchema.extend({
+  public_picture_url: z.string().max(2000).optional(),
   specifics: z
     .object({
       network_distance: z.enum(["SELF", "FIRST_DEGREE", "SECOND_DEGREE", "THIRD_DEGREE", "OUT_OF_NETWORK"]).optional(),
@@ -159,6 +160,7 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
         titre: p.description ?? null,
         distance: p.specifics?.network_distance ?? null,
         invitation: req && enAttente ? (req.type === "sent" ? "envoyee" : "recue") : null,
+        photoUrl: p.public_picture_url ?? null,
       };
       return { ok: true, donnees: profil };
     },

@@ -181,5 +181,37 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
     it("le client simulé ne démarre de conversation qu'avec un prospect fictif", async () => {
       expect((await creerClientSimule().demarrerConversation("ACoAAReel123", "Bonjour")).ok).toBe(false);
     });
+
+    it("conversation reprise de l'archive (sans chat Unipile) : le message la relie au chat démarré, sans doublon", async () => {
+      const id = await prospect("en_relation");
+      const arch = await db.pool.query(
+        `insert into public.conversations (linkedin_conversation_id, prospect_id, dernier_message_at, demo)
+         values ('2-archive', $1, '2026-10-29', true) returning id`,
+        [id],
+      );
+      await db.pool.query(
+        "insert into public.messages (conversation_id, sens, texte, envoye_at) values ($1, 'sortant', 'Ancien message', '2026-10-29')",
+        [arch.rows[0].id],
+      );
+      const r = await mettreMessageEnFile(db.pool, { conversationId: arch.rows[0].id, texte: "Relance", cle: randomUUID() }, { modeSimule: true });
+      const t = await db.pool.query("select payload from public.taches where id = $1", [r.tacheId]);
+      expect(t.rows[0].payload).toEqual({ prospect_id: id, texte: "Relance" });
+      await db.pool.query("update public.taches set executer_apres = '2026-11-01'");
+      expect(await tour()).toMatchObject({ resultat: "succes" });
+      const c = await db.pool.query("select id, unipile_chat_id, linkedin_conversation_id from public.conversations where prospect_id = $1", [id]);
+      expect(c.rows).toEqual([{ id: arch.rows[0].id, unipile_chat_id: expect.stringMatching(/^demo-chat-/), linkedin_conversation_id: "2-archive" }]);
+      expect((await filDepuis(db.pool, { prospectId: id }))?.messages.map((m) => m.texte)).toEqual(["Ancien message", "Relance"]);
+    });
+
+    it("conversation de l'archive sans prospect : réponse refusée (à faire depuis LinkedIn)", async () => {
+      const arch = await db.pool.query("insert into public.conversations (linkedin_conversation_id, demo) values ('2-hors-crm', true) returning id");
+      await expect(
+        mettreMessageEnFile(db.pool, { conversationId: arch.rows[0].id, texte: "x", cle: randomUUID() }, { modeSimule: true }),
+      ).rejects.toThrow(/LinkedIn/);
+    });
+
+    it("une conversation doit avoir au moins un identifiant", async () => {
+      await expect(db.pool.query("insert into public.conversations (demo) values (true)")).rejects.toThrow(/conversations_identifiant/);
+    });
   });
 });

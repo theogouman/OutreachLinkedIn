@@ -120,7 +120,7 @@ export function ListeConversations({
                   aria-current={actif ? "true" : undefined}
                   className={`relative flex gap-3 px-4 py-3 outline-none transition-colors duration-150 focus-visible:bg-accent-doux ${actif ? "bg-accent-doux" : "hover:bg-creux"}`}
                 >
-                  <Avatar nom={c.nom} />
+                  <Avatar nom={c.nom} photo={c.photo} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center justify-between gap-2">
                       <span className={`truncate ${c.nonLu ? "title-4 text-encre" : "body-6 text-encre"}`}>{c.nom}</span>
