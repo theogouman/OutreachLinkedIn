@@ -19,6 +19,7 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | Bouton en relief (`relief-marque`, `globals.css`) | consultant-notion.fr, classe `nc-btn-3d` (projet de l'utilisateur) | Usage interne |
 | `src/components/icones-pages.tsx` (icônes des pages) | SF Symbols, Apple, fournies par l'utilisateur dans `public/icons` | Licence Apple SF Symbols (usage prévu pour les plateformes Apple) |
 | `src/components/interface/texte-saisie-anime.tsx` (effet « Blur Out Up ») | pixel-point/animate-text — paramètres publiés de l'effet (durées, courbes, décalages) ; code réécrit, rien de copié | Aucune licence trouvée dans le dépôt : seuls des paramètres d'animation sont repris |
+| `public/emojis/croix.webp` (emoji animé « Cross Mark », réduit à 128 px) | Tarikul-Islam-Anik/Telegram-Animated-Emojis (emojis animés de Telegram), choisi par l'utilisateur | Aucune licence publiée dans le dépôt ; illustrations d'origine Telegram |
 | Règles de typographie, d'espacement et d'états (`src/app/globals.css`) | ai-design-skills, anti-slop (© 2026 Miqdad Badjuber) | MIT |
 | Passes de finition (texte, graisses, couleur, icônes, mouvement) | unslop, Damir Sokolovsky (@heydamir) | CC BY 4.0 |
 

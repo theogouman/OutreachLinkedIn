@@ -9,6 +9,7 @@ import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
 import { RedactionMessage } from "@/components/redaction-message";
+import Image from "next/image";
 import Link from "next/link";
 import { Avatar } from "@/components/interface/elements";
 import { LogoLinkedIn } from "@/components/logos";
@@ -292,13 +293,23 @@ function FilDefilant({ nombre, children }: { nombre: number; children: ReactNode
   );
 }
 
-/** Pourquoi on ne peut pas encore écrire : LinkedIn n'accepte un message normal qu'entre relations de 1er degré. */
-function raisonPasEnRelation(statut: string, prenom: string): string {
-  if (statut === "en_attente")
-    return `Invitation envoyée, pas encore acceptée : LinkedIn bloquerait un message. L'écriture s'ouvrira dès que ${prenom} l'aura acceptée`;
-  if (statut === "invitation_recue")
-    return `${prenom} t'a envoyé une invitation : accepte-la sur LinkedIn, l'écriture s'ouvrira ensuite`;
-  return `${prenom} n'est pas dans tes relations de 1er degré : LinkedIn bloquerait un message. Il faut d'abord une invitation acceptée`;
+/** Précision selon l'état de l'invitation (LinkedIn n'accepte un message normal qu'entre relations de 1er degré). */
+function precisionPasEnRelation(statut: string, prenom: string): string | null {
+  if (statut === "en_attente") return `Invitation envoyée, pas encore acceptée : l'écriture s'ouvrira dès que ${prenom} l'aura acceptée`;
+  if (statut === "invitation_recue") return `${prenom} t'a envoyé une invitation : accepte-la sur LinkedIn, l'écriture s'ouvrira ensuite`;
+  return null;
+}
+
+function PasEnRelation({ statut, prenom }: { statut: string; prenom: string }) {
+  const precision = precisionPasEnRelation(statut, prenom);
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 rounded-2xl bg-creux px-6 py-10 text-center">
+      {/* Emoji animé « Cross Mark » (Telegram-Animated-Emojis), décoratif. */}
+      <Image src="/emojis/croix.webp" alt="" width={64} height={64} unoptimized priority />
+      <h3 className="title-3 text-encre">{prenom} n&apos;est pas encore en Relation</h3>
+      {precision && <p className="max-w-[420px] caption-5 text-encre-3">{precision}</p>}
+    </div>
+  );
 }
 
 function OngletConversation({
@@ -323,9 +334,7 @@ function OngletConversation({
     modeSimule && !conversation?.demo ? "Unipile n'est pas encore branché : aucun message ne peut partir vers un vrai prospect" : undefined;
 
   if (!peutEcrire) {
-    return (
-      <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">{raisonPasEnRelation(fiche.statutRelation, prenom)}</p>
-    );
+    return <PasEnRelation statut={fiche.statutRelation} prenom={prenom} />;
   }
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
