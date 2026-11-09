@@ -38,6 +38,12 @@ const invitationsSchema = z.object({
   data: z.array(z.object({ id: z.string(), created_at: z.string().optional(), user: utilisateurSchema.optional() })),
 });
 
+/** POST /v2/{account_id}/chats/{chat_id}/messages/send → 200 { object: "MessageSent", message_id }. */
+const messageEnvoyeSchema = z.object({
+  object: z.literal("MessageSent"),
+  message_id: z.union([z.string(), z.array(z.string()), z.null()]),
+});
+
 const erreurSchema = z.object({ type: z.string().optional(), detail: z.string().optional() }).passthrough();
 
 function date(v: string | undefined): Date | null {
@@ -58,13 +64,24 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
   const base = (opts.baseUrl ?? "https://api.unipile.com").replace(/\/$/, "");
   const f = opts.fetch ?? fetch;
 
-  async function appeler<T>(chemin: string, params: Record<string, string>, schema: z.ZodType<T>): Promise<Resultat<T>> {
+  async function appeler<T>(
+    chemin: string,
+    params: Record<string, string>,
+    schema: z.ZodType<T>,
+    corpsJson?: Record<string, unknown>,
+  ): Promise<Resultat<T>> {
     const url = new URL(`${base}/v2/${encodeURIComponent(opts.accountId)}${chemin}`);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     let rep: Response;
     try {
       rep = await f(url, {
-        headers: { "X-API-KEY": opts.apiKey, accept: "application/json" },
+        method: corpsJson ? "POST" : "GET",
+        body: corpsJson ? JSON.stringify(corpsJson) : undefined,
+        headers: {
+          "X-API-KEY": opts.apiKey,
+          accept: "application/json",
+          ...(corpsJson ? { "content-type": "application/json" } : {}),
+        },
         signal: AbortSignal.timeout(DELAI_APPEL_MS),
         cache: "no-store",
       });
@@ -93,6 +110,13 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
   }
 
   return {
+    async envoyerMessage(chatId, texte) {
+      const r = await appeler(`/chats/${encodeURIComponent(chatId)}/messages/send`, {}, messageEnvoyeSchema, { text: texte });
+      if (!r.ok) return r;
+      const id = r.donnees.message_id;
+      return { ok: true, donnees: { messageId: Array.isArray(id) ? (id[0] ?? null) : id } };
+    },
+
     async lireProfil(identifiant) {
       // variant=linkedin_classic : accepte un identifiant public (« jane-doe ») ou un id ACo…
       // Pas de notification de visite (action séparée, jamais appelée).

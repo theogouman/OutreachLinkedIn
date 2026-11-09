@@ -3,9 +3,10 @@ import Link from "next/link";
 import { BadgeEtape } from "@/components/badges";
 import { FilMessages } from "@/components/fil-messages";
 import { Avatar, EnTetePage, EtatVide } from "@/components/interface/elements";
-import { IconeEnvoyer, IconeInbox, IconeMessage } from "@/components/icones";
+import { IconeInbox, IconeMessage } from "@/components/icones";
 import { etatOutil, fil, filtreInboxSchema, inbox, referentiels, type FiltreInbox } from "@/server/donnees";
 import { MarquerLue } from "./marquer-lue";
+import { RedactionMessage } from "@/components/redaction-message";
 
 const FILTRES: { cle: FiltreInbox; libelle: string }[] = [
   { cle: "tous", libelle: "Toutes" },
@@ -158,21 +159,13 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
               <FilMessages messages={ouvert.messages} nom={ouvert.nom} />
             </div>
             <footer className="border-t border-trait px-4 py-3">
-              <div className="flex items-end gap-2 rounded-xl bg-creux p-2 ring-1 ring-trait">
-                <textarea
-                  disabled
-                  rows={2}
-                  aria-label="Message"
-                  placeholder="L'envoi arrive en phase 2 : chaque message rejoindra la file d'attente, sous quota."
-                  className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1 body-6 text-encre-3 outline-none placeholder:text-encre-3"
-                />
-                <button type="button" disabled className="bouton bouton-plein size-9 p-0" aria-label="Envoyer (phase 2)">
-                  <IconeEnvoyer taille={16} />
-                </button>
-              </div>
-              <p className="mt-2 px-1 caption-5 text-encre-3">
-                {restants} message{restants > 1 ? "s" : ""} restant{restants > 1 ? "s" : ""} aujourd&apos;hui
-              </p>
+              <RedactionMessage
+                key={ouvert.id}
+                conversationId={ouvert.id}
+                destinataire={ouvert.nom}
+                restants={restants}
+                bloque={etat.modeSimule && !ouvert.demo ? "Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message" : undefined}
+              />
             </footer>
           </>
         ) : (

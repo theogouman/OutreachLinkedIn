@@ -7,7 +7,7 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, majPlafonds, majReglages, marquerLue, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majPlafonds, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
 import { prospectsDepuis, type LigneProspect } from "@/server/donnees";
@@ -29,7 +29,7 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
     refresh();
     return { ok: true, message };
   } catch (e) {
-    if (e instanceof ErreurImport || e instanceof DemoDejaChargee) return { ok: false, message: e.message };
+    if (e instanceof ErreurImport || e instanceof DemoDejaChargee || e instanceof EnvoiRefuse) return { ok: false, message: e.message };
     if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
     console.error("[action:%s]", nom, e);
     return { ok: false, message: ERREUR };
@@ -112,6 +112,14 @@ export async function actionPurgerDemo(): Promise<Retour> {
 
 export async function actionMarquerLue(id: string): Promise<Retour> {
   return executer("marquer-lue", async () => ((await marquerLue(poolServeur(), id)) ? "Conversation marquée comme lue." : ""));
+}
+
+/** Message rédigé dans l'outil : mis en file, jamais envoyé directement. */
+export async function actionEnvoyerMessage(entree: unknown): Promise<Retour> {
+  return executer("envoyerMessage", async () => {
+    const r = await mettreMessageEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
+    return r.nouveau ? "Message mis en file d'attente." : "Ce message est déjà en file d'attente.";
+  });
 }
 
 // ─── Listes filtrées (standard : src/lib/filtres) ─────────────────────────────

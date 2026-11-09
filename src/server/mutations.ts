@@ -108,3 +108,42 @@ export async function marquerLue(pool: Pool, id: unknown): Promise<boolean> {
   const r = await pool.query("update public.conversations set non_lu = false where id = $1 and non_lu", [idSchema.parse(id)]);
   return (r.rowCount ?? 0) > 0;
 }
+
+// ─── Messages : un seul chemin d'envoi, la file d'attente ─────────────────────
+
+/** Refus explicable à l'utilisateur (message affiché tel quel). */
+export class EnvoiRefuse extends Error {}
+
+export const messageSchema = z.object({
+  conversationId: z.uuid(),
+  texte: z
+    .string()
+    .transform((t) => t.trim())
+    .pipe(z.string().min(1, "Message vide").max(8000, "Message trop long (8 000 caractères au plus)")),
+  /** Identifiant de rédaction, généré par le navigateur : un double clic n'envoie qu'une fois. */
+  cle: z.uuid(),
+});
+
+/**
+ * Met un message en file d'attente. Il partira sous les quotas, dans les plages horaires et
+ * après le délai entre actions, comme toute action LinkedIn (le worker ne fait jamais d'exception).
+ * Tant qu'Unipile n'est pas branché, seules les conversations de démonstration sont acceptées.
+ */
+export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { modeSimule: boolean }) {
+  const m = messageSchema.parse(entree);
+  const conv = await pool.query("select unipile_chat_id, prospect_id, demo from public.conversations where id = $1", [m.conversationId]);
+  if (!conv.rowCount) throw new EnvoiRefuse("Conversation introuvable.");
+  const { unipile_chat_id: chatId, prospect_id: prospectId, demo } = conv.rows[0];
+  if (opts.modeSimule && !demo) {
+    throw new EnvoiRefuse("Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message.");
+  }
+  const cle = `message:${m.cle}`;
+  const r = await pool.query(
+    `insert into public.taches (type_action, prospect_id, payload, cle_idempotence)
+     values ('message', $1, $2, $3) on conflict (cle_idempotence) do nothing returning id`,
+    [prospectId, { conversation_id: m.conversationId, chat_id: chatId, texte: m.texte }, cle],
+  );
+  if (r.rowCount) return { tacheId: r.rows[0].id as string, nouveau: true };
+  const existante = await pool.query("select id from public.taches where cle_idempotence = $1", [cle]);
+  return { tacheId: existante.rows[0].id as string, nouveau: false };
+}

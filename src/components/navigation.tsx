@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { IconeFile, IconeImport, IconeInbox, IconeProspects, IconeReglages, IconeStatistiques } from "./icones";
+import { IconePageFile, IconePageImport, IconePageInbox, IconePageProspects, IconePageReglages, IconePageStats } from "./icones-pages";
 
 const LIENS = [
-  { href: "/", libelle: "Prospects", Icone: IconeProspects, compte: null },
-  { href: "/inbox", libelle: "Inbox", Icone: IconeInbox, compte: "nonLus" },
-  { href: "/file", libelle: "File", Icone: IconeFile, compte: "enAttente" },
-  { href: "/statistiques", libelle: "Stats", Icone: IconeStatistiques, compte: null },
-  { href: "/import", libelle: "Import", Icone: IconeImport, compte: null },
-  { href: "/reglages", libelle: "Réglages", Icone: IconeReglages, compte: null },
+  { href: "/", libelle: "Prospects", Icone: IconePageProspects, compte: null },
+  { href: "/inbox", libelle: "Inbox", Icone: IconePageInbox, compte: "nonLus" },
+  { href: "/file", libelle: "File", Icone: IconePageFile, compte: "enAttente" },
+  { href: "/statistiques", libelle: "Stats", Icone: IconePageStats, compte: null },
+  { href: "/import", libelle: "Import", Icone: IconePageImport, compte: null },
+  { href: "/reglages", libelle: "Réglages", Icone: IconePageReglages, compte: null },
 ] as const;
 
 

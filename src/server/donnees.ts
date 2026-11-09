@@ -300,7 +300,7 @@ export interface LigneConversation {
 
 export async function inboxDepuis(pool: Pool, filtre: FiltreInbox): Promise<LigneConversation[]> {
   const r = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
+    `select c.id, c.prospect_id, c.non_lu, c.demo, c.dernier_message_at,
             coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
             nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape,
             m.texte as apercu, m.sens as dernier_sens
@@ -342,6 +342,8 @@ export interface MessageFil {
   sens: "entrant" | "sortant";
   texte: string;
   envoyeAt: Date;
+  /** « envoye » pour l'historique ; les messages encore dans la file portent leur état. */
+  statut: "envoye" | "en_file" | "en_cours" | "incertain";
 }
 
 export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; prospectId?: unknown }) {
@@ -362,13 +364,29 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     "select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500",
     [c.rows[0].id],
   );
+  // Messages rédigés dans l'outil, encore dans la file : affichés à la suite, avec leur état.
+  const enFile = await pool.query(
+    `select id, payload->>'texte' as texte, coalesce(depart_estime, executer_apres) as quand, statut
+       from public.taches
+      where type_action = 'message' and statut in ('en_attente', 'en_cours', 'incertaine')
+        and payload->>'conversation_id' = $1::text
+      order by ordre`,
+    [c.rows[0].id],
+  );
+  const etat = { en_attente: "en_file", en_cours: "en_cours", incertaine: "incertain" } as const;
   return {
     id: c.rows[0].id as string,
     prospectId: c.rows[0].prospect_id as string | null,
     nom: c.rows[0].nom as string,
     sousTitre: c.rows[0].sous_titre as string | null,
     nonLu: c.rows[0].non_lu as boolean,
-    messages: m.rows.map((x): MessageFil => ({ id: x.id, sens: x.sens, texte: x.texte, envoyeAt: x.envoye_at })),
+    demo: c.rows[0].demo as boolean,
+    messages: [
+      ...m.rows.map((x): MessageFil => ({ id: x.id, sens: x.sens, texte: x.texte, envoyeAt: x.envoye_at, statut: "envoye" })),
+      ...enFile.rows.map(
+        (x): MessageFil => ({ id: `file-${x.id}`, sens: "sortant", texte: x.texte, envoyeAt: x.quand, statut: etat[x.statut as keyof typeof etat] }),
+      ),
+    ],
   };
 }
 

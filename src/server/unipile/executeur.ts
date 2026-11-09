@@ -8,15 +8,21 @@ import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu } from "./types";
 
 const listeSchema = z.enum(["relations", "invitations_envoyees", "invitations_recues"]);
 const payloadLectureProfil = z.object({ public_identifier: z.string().min(3).max(100) });
+const payloadMessage = z.object({
+  conversation_id: z.uuid(),
+  chat_id: z.string().min(1).max(200),
+  texte: z.string().min(1).max(8000),
+});
 const payloadLectureListe = z.object({ liste: listeSchema, limite: z.number().int().min(1).max(100).default(50) });
 
 type Donnees =
   | { genre: "profil"; profil: ProfilLu }
-  | { genre: "liste"; liste: Liste; personnes: PersonneListee[] };
+  | { genre: "liste"; liste: Liste; personnes: PersonneListee[] }
+  | { genre: "message"; conversationId: string; texte: string; messageId: string | null };
 
 const invalide = (type: string): ResultatAppel => ({ ok: false, erreur: { status: 400, type } });
 
-/** Traduit une tâche de la file en appel LinkedIn. Phase 1 : lectures uniquement. */
+/** Traduit une tâche de la file en appel LinkedIn : lectures, et messages dans une conversation existante. */
 export function creerExecuteur(client: ClientLinkedIn): ExecuteurLinkedIn {
   return {
     async executer(tache) {
@@ -32,8 +38,16 @@ export function creerExecuteur(client: ClientLinkedIn): ExecuteurLinkedIn {
         const r = await client.lireListe(p.data.liste, p.data.limite);
         return r.ok ? { ok: true, donnees: { genre: "liste", liste: p.data.liste, personnes: r.donnees } satisfies Donnees } : r;
       }
-      // Invitations et messages : phase 2.
-      return invalide("non_disponible_phase_1");
+      if (tache.typeAction === "message") {
+        const p = payloadMessage.safeParse(tache.payload);
+        if (!p.success) return invalide("payload_invalide");
+        const r = await client.envoyerMessage(p.data.chat_id, p.data.texte);
+        return r.ok
+          ? { ok: true, donnees: { genre: "message", conversationId: p.data.conversation_id, texte: p.data.texte, messageId: r.donnees.messageId } satisfies Donnees }
+          : r;
+      }
+      // Invitations : pas encore disponibles.
+      return invalide("non_disponible");
     },
   };
 }
@@ -85,8 +99,24 @@ async function effetsListe(c: PoolClient, liste: Liste, personnes: PersonneListe
   );
 }
 
+/** Message parti : il rejoint le fil de la conversation, à l'heure de l'envoi. */
+async function effetsMessage(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "message" }>) {
+  const a = await c.query("select created_at from public.actions where tache_id = $1 order by created_at desc limit 1", [tacheId]);
+  const quand: Date = a.rows[0]?.created_at ?? new Date();
+  await c.query(
+    `insert into public.messages (conversation_id, unipile_message_id, sens, texte, envoye_at)
+     values ($1, $2, 'sortant', $3, $4) on conflict (unipile_message_id) do nothing`,
+    [d.conversationId, d.messageId, d.texte, quand],
+  );
+  await c.query(
+    "update public.conversations set dernier_message_at = greatest(coalesce(dernier_message_at, $2), $2) where id = $1",
+    [d.conversationId, quand],
+  );
+}
+
 export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees) => {
   const d = donnees as Donnees;
+  if (d.genre === "message") return effetsMessage(c, tache.id, d);
   if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil);
   else if (d.genre === "liste") await effetsListe(c, d.liste, d.personnes);
 };

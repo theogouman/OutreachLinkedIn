@@ -96,4 +96,26 @@ describe("client Unipile v2", () => {
   it("refuse un identifiant de compte mal formé", () => {
     expect(() => creerClientUnipileV2({ ...OPTS, accountId: "../x" })).toThrow();
   });
+
+  it("envoie un message dans une conversation existante : POST JSON, réponse MessageSent", async () => {
+    const f = fetchFactice(200, { object: "MessageSent", message_id: "msg_42" });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).envoyerMessage("chat/1", "Bonjour Camille");
+    expect(r).toEqual({ ok: true, donnees: { messageId: "msg_42" } });
+    const [url, init] = f.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.example.test/v2/acc_test/chats/chat%2F1/messages/send");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ text: "Bonjour Camille" });
+    expect((init?.headers as Record<string, string>)["content-type"]).toBe("application/json");
+  });
+
+  it("message : identifiant en tableau ou absent, réponse inattendue, refus de LinkedIn", async () => {
+    const c = (status: number, corps: unknown) => creerClientUnipileV2({ ...OPTS, fetch: fetchFactice(status, corps) as unknown as typeof fetch });
+    expect(await c(200, { object: "MessageSent", message_id: ["a", "b"] }).envoyerMessage("x", "t")).toEqual({ ok: true, donnees: { messageId: "a" } });
+    expect(await c(200, { object: "MessageSent", message_id: null }).envoyerMessage("x", "t")).toEqual({ ok: true, donnees: { messageId: null } });
+    expect(await c(200, { object: "Autre" }).envoyerMessage("x", "t")).toMatchObject({ ok: false, erreur: { type: "reponse_inattendue" } });
+    expect(await c(422, { type: "provider/unprocessable_entity" }).envoyerMessage("x", "t")).toMatchObject({
+      ok: false,
+      erreur: { status: 422, type: "provider/unprocessable_entity" },
+    });
+  });
 });

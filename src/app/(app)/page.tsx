@@ -3,22 +3,14 @@ import Link from "next/link";
 import { etatOutil, ficheProspect, fil, prospects, referentiels, statsProspects, TAILLE_PAGE } from "@/server/donnees";
 import { BoutonDemo } from "@/components/bouton-demo";
 import { EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
-import { IconeImport, IconeProspects } from "@/components/icones";
+import { IconeProspects } from "@/components/icones";
 import { ModaleFiche } from "./fiche";
 import { ListeProspects } from "./liste-prospects";
 
 export default function PageProspects({ searchParams }: PageProps<"/">) {
   return (
     <section className="flex flex-col gap-6">
-      <EnTetePage
-        titre="Prospects"
-        actions={
-          <Link href="/import" className="bouton bouton-plein">
-            <IconeImport taille={18} />
-            Importer
-          </Link>
-        }
-      />
+      <EnTetePage titre="Prospects" />
       <Suspense
         fallback={
           <>
@@ -83,7 +75,15 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
           />
         }
       />
-      {fiche && <ModaleFiche fiche={fiche} libelleEtape={etapes[fiche.etape] ?? fiche.etape} conversation={conversation} />}
+      {fiche && (
+        <ModaleFiche
+          fiche={fiche}
+          libelleEtape={etapes[fiche.etape] ?? fiche.etape}
+          conversation={conversation}
+          restants={Math.max(0, (etat.quotas.message.plafond.jour ?? 0) - etat.quotas.message.compteur.jour)}
+          modeSimule={etat.modeSimule}
+        />
+      )}
     </>
   );
 }

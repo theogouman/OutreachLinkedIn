@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ACCEPTEES_DEMO, PROSPECTS_DEMO, providerDemo } from "@/server/demo";
 import type { ClientLinkedIn, PersonneListee, ProfilLu } from "./types";
 
@@ -28,6 +28,11 @@ export function creerClientSimule(
   donnees: { relations?: PersonneListee[]; envoyees?: PersonneListee[]; recues?: PersonneListee[] } = LISTES_DEMO,
 ): ClientLinkedIn {
   return {
+    async envoyerMessage(chatId) {
+      // Garde-fou : la simulation n'« envoie » que dans les conversations de démonstration.
+      if (!chatId.startsWith("demo-chat-")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
+      return { ok: true, donnees: { messageId: `demo-msg-${randomUUID()}` } };
+    },
     async lireProfil(identifiant) {
       const demo = PROSPECTS_DEMO.find((p) => p.id === identifiant);
       const profil: ProfilLu = {

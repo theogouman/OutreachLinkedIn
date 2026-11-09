@@ -7,6 +7,7 @@ import { IconeFermer } from "@/components/icones";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
+import { RedactionMessage } from "@/components/redaction-message";
 import Link from "next/link";
 import { Avatar } from "@/components/interface/elements";
 import { LogoLinkedIn } from "@/components/logos";
@@ -51,10 +52,15 @@ export function ModaleFiche({
   fiche,
   libelleEtape,
   conversation,
+  restants,
+  modeSimule,
 }: {
   fiche: FicheProspect;
   libelleEtape: string;
-  conversation: { id: string; messages: MessageFil[] } | null;
+  conversation: { id: string; demo: boolean; messages: MessageFil[] } | null;
+  /** Messages encore possibles aujourd'hui (quota du jour). */
+  restants: number;
+  modeSimule: boolean;
 }) {
   const router = useRouter();
   const chemin = usePathname();
@@ -135,6 +141,12 @@ export function ModaleFiche({
                           nom={nom}
                         />
                       </div>
+                      <RedactionMessage
+                        conversationId={conversation.id}
+                        destinataire={fiche.prenom ?? nom}
+                        restants={restants}
+                        bloque={modeSimule && !conversation.demo ? "Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message" : undefined}
+                      />
                       <Link
                         href={`/inbox?conversation=${conversation.id}`}
                         className="bouton bouton-discret self-start px-3 py-1.5 caption-3 text-action"
@@ -144,7 +156,8 @@ export function ModaleFiche({
                     </>
                   ) : (
                     <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">
-                      Aucune conversation pour l&apos;instant
+                      Pas encore de conversation LinkedIn avec ce prospect : l&apos;écriture s&apos;ouvre dès
+                      qu&apos;un premier échange existe
                     </p>
                   )}
                 </div>

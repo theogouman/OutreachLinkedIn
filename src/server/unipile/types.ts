@@ -23,8 +23,10 @@ export interface PersonneListee {
 
 export type Liste = "relations" | "invitations_envoyees" | "invitations_recues";
 
-/** Opérations LinkedIn utilisées par l'outil (phase 1 : lectures uniquement). */
+/** Opérations LinkedIn utilisées par l'outil (lectures et messages dans une conversation existante). */
 export interface ClientLinkedIn {
+  /** Message dans une conversation existante (chat Unipile). Jamais appelé hors de la file. */
+  envoyerMessage(chatId: string, texte: string): Promise<Resultat<{ messageId: string | null }>>;
   lireProfil(identifiant: string): Promise<Resultat<ProfilLu>>;
   /** Première page uniquement (recommandation Unipile : pas de parcours complet répété). */
   lireListe(liste: Liste, limite: number): Promise<Resultat<PersonneListee[]>>;
