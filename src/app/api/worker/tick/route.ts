@@ -4,7 +4,7 @@ import { envUnipile, envWorker } from "@/server/env-serveur";
 import { planifierSynchronisations } from "@/server/queue/planification";
 import { executerUnTour } from "@/server/queue/worker";
 import { jetonBearer, secretsEgaux } from "@/server/secrets";
-import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
+import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis, photosManquantesDepuis } from "@/server/unipile/executeur";
 import { completerConversations } from "@/server/completion-conversations";
 import { clientLinkedIn, dependancesCompletion } from "@/server/unipile/fabrique";
 
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     await completerConversations(pool, dependancesCompletion(), 5).catch((e) => console.error("[completion]", (e as Error).message));
     const bilan = await executerUnTour({
       pool,
-      executeur: creerExecuteur(clientLinkedIn(), { lireDestinataire: lireDestinataireDepuis(pool) }),
+      executeur: creerExecuteur(clientLinkedIn(), { lireDestinataire: lireDestinataireDepuis(pool), photosManquantes: photosManquantesDepuis(pool) }),
       appliquerEffets: appliquerEffetsUnipile,
       // Unipile simulé : seules les données de démonstration sont traitées.
       seulementDemo: envUnipile().mode === "simule",

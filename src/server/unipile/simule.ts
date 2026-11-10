@@ -57,7 +57,7 @@ export function creerClientSimule(
     },
     async lireListe(liste) {
       const source = liste === "relations" ? donnees.relations : liste === "invitations_envoyees" ? donnees.envoyees : donnees.recues;
-      return { ok: true, donnees: source ?? [] };
+      return { ok: true, donnees: { personnes: source ?? [], suivant: null } };
     },
   };
 }

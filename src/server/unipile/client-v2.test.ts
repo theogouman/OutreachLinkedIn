@@ -54,21 +54,41 @@ describe("client Unipile v2", () => {
     expect(String(f.mock.calls[0]![0])).toContain("/users/..%2F..%2Faccounts?");
   });
 
-  it("lit la première page des relations (provider id de la personne, pas de la relation)", async () => {
+  it("lit une page des relations (provider id de la personne, photo, curseur suivant)", async () => {
     const f = fetchFactice(200, {
-      data: [{ id: "rel_1", object: "UserRelation", created_at: "2026-11-01T10:00:00Z", user: { id: "ACoU1", public_identifier: "bob", display_name: "Bob" } }],
+      data: [
+        {
+          id: "rel_1",
+          object: "UserRelation",
+          created_at: "2026-11-01T10:00:00Z",
+          user: { id: "ACoU1", public_identifier: "bob", display_name: "Bob", public_picture_url: "https://media.licdn.com/b.jpg", description: null },
+        },
+      ],
       next_cursor: "abc",
     });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 50);
-    expect(r).toEqual({ ok: true, donnees: [{ providerId: "ACoU1", publicIdentifier: "bob", date: new Date("2026-11-01T10:00:00Z") }] });
+    expect(r).toEqual({
+      ok: true,
+      donnees: {
+        personnes: [{ providerId: "ACoU1", publicIdentifier: "bob", date: new Date("2026-11-01T10:00:00Z"), photoUrl: "https://media.licdn.com/b.jpg" }],
+        suivant: "abc",
+      },
+    });
     expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=50");
+  });
+
+  it("passe le curseur de la page demandée et plafonne la taille de page", async () => {
+    const f = fetchFactice(200, { data: [], next_cursor: null });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 5000, "c/2+");
+    expect(r).toEqual({ ok: true, donnees: { personnes: [], suivant: null } });
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=1000&cursor=c%2F2%2B");
   });
 
   it("lit les invitations envoyées / reçues", async () => {
     const f = fetchFactice(200, { data: [{ id: "req1", object: "RelationRequest", type: "sent", user: { id: "ACoU2" } }, { id: "req2", type: "sent" }] });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500);
-    expect(r).toEqual({ ok: true, donnees: [{ providerId: "ACoU2", publicIdentifier: null, date: null }] });
-    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100");
+    expect(r).toEqual({ ok: true, donnees: { personnes: [{ providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null }], suivant: null } });
+    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=500");
   });
 
   it("remonte le statut, le type, le détail et retry-after d'une erreur", async () => {

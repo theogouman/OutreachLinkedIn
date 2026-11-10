@@ -13,14 +13,14 @@ export const DELAI_APPEL_MS = 25_000;
 
 const utilisateurSchema = z.object({
   id: z.string().min(1),
-  public_identifier: z.string().optional(),
-  first_name: z.string().optional(),
-  last_name: z.string().optional(),
-  description: z.string().optional(),
+  public_identifier: z.string().nullish(),
+  first_name: z.string().nullish(),
+  last_name: z.string().nullish(),
+  description: z.string().nullish(),
+  public_picture_url: z.string().max(2000).nullish(),
 });
 
 const profilSchema = utilisateurSchema.extend({
-  public_picture_url: z.string().max(2000).optional(),
   specifics: z
     .object({
       network_distance: z.enum(["SELF", "FIRST_DEGREE", "SECOND_DEGREE", "THIRD_DEGREE", "OUT_OF_NETWORK"]).optional(),
@@ -31,13 +31,20 @@ const profilSchema = utilisateurSchema.extend({
     .optional(),
 });
 
+const curseurSchema = z.string().min(1).max(4000).nullish();
+
 const relationsSchema = z.object({
-  data: z.array(z.object({ id: z.string(), created_at: z.string().optional(), user: utilisateurSchema })),
+  data: z.array(z.object({ id: z.string(), created_at: z.string().nullish(), user: utilisateurSchema })),
+  next_cursor: curseurSchema,
 });
 
 const invitationsSchema = z.object({
-  data: z.array(z.object({ id: z.string(), created_at: z.string().optional(), user: utilisateurSchema.optional() })),
+  data: z.array(z.object({ id: z.string(), created_at: z.string().nullish(), user: utilisateurSchema.nullish() })),
+  next_cursor: curseurSchema,
 });
+
+/** Taille de page demandée : plafond, Unipile peut renvoyer moins (la suite vient par le curseur). */
+export const TAILLE_PAGE_MAX = 1000;
 
 /** POST /v2/{account_id}/chats/{chat_id}/messages/send → 200 { object: "MessageSent", message_id }. */
 const messageEnvoyeSchema = z.object({
@@ -186,26 +193,29 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
       return { ok: true, donnees: profil };
     },
 
-    async lireListe(liste: Liste, limite) {
-      const limit = String(Math.min(Math.max(limite, 1), 100));
+    async lireListe(liste: Liste, limite, curseur) {
+      const params: Record<string, string> = { limit: String(Math.min(Math.max(Math.trunc(limite), 1), TAILLE_PAGE_MAX)) };
+      if (curseur) params.cursor = curseur;
+      const personne = (u: z.infer<typeof utilisateurSchema>, creeLe: string | null | undefined): PersonneListee => ({
+        providerId: u.id,
+        publicIdentifier: u.public_identifier ?? null,
+        date: date(creeLe ?? undefined),
+        photoUrl: u.public_picture_url ?? null,
+      });
       if (liste === "relations") {
-        const r = await appeler("/users/me/relations", { limit }, relationsSchema);
+        const r = await appeler("/users/me/relations", params, relationsSchema);
         if (!r.ok) return r;
-        return {
-          ok: true,
-          donnees: r.donnees.data.map(
-            (x): PersonneListee => ({ providerId: x.user.id, publicIdentifier: x.user.public_identifier ?? null, date: date(x.created_at) }),
-          ),
-        };
+        return { ok: true, donnees: { personnes: r.donnees.data.map((x) => personne(x.user, x.created_at)), suivant: r.donnees.next_cursor ?? null } };
       }
       const type = liste === "invitations_envoyees" ? "sent" : "received";
-      const r = await appeler("/users/me/relation-requests", { type, limit }, invitationsSchema);
+      const r = await appeler("/users/me/relation-requests", { type, ...params }, invitationsSchema);
       if (!r.ok) return r;
       return {
         ok: true,
-        donnees: r.donnees.data
-          .filter((x) => x.user)
-          .map((x): PersonneListee => ({ providerId: x.user!.id, publicIdentifier: x.user!.public_identifier ?? null, date: date(x.created_at) })),
+        donnees: {
+          personnes: r.donnees.data.flatMap((x) => (x.user ? [personne(x.user, x.created_at)] : [])),
+          suivant: r.donnees.next_cursor ?? null,
+        },
       };
     },
   };

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Pool, PoolClient } from "pg";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
@@ -24,11 +25,25 @@ const payloadPremierMessage = z.object({
   prospect_id: z.uuid(),
   texte: z.string().min(1).max(8000),
 });
-const payloadLectureListe = z.object({ liste: listeSchema, limite: z.number().int().min(1).max(100).default(50) });
+/**
+ * Lecture d'une liste. `complete` : parcours de toutes les pages (synchronisation initiale), une tâche
+ * par page, la suivante mise en file avec le curseur ; sinon première page seulement.
+ */
+const payloadLectureListe = z.object({
+  liste: listeSchema,
+  limite: z.number().int().min(1).max(1000).default(50),
+  curseur: z.string().min(1).max(4000).optional(),
+  complete: z.boolean().optional(),
+  page: z.number().int().min(1).max(500).optional(),
+});
+type PayloadLectureListe = z.infer<typeof payloadLectureListe>;
+
+/** Pages au plus par parcours complet (garde-fou contre une boucle de curseurs). */
+export const PAGES_MAX = 200;
 
 type Donnees =
   | { genre: "profil"; profil: ProfilLu; photo: Photo | null; conversationId?: string }
-  | { genre: "liste"; liste: Liste; personnes: PersonneListee[] }
+  | { genre: "liste"; liste: Liste; personnes: PersonneListee[]; photos: Map<string, Photo>; suivant: string | null; payload: PayloadLectureListe }
   | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
   | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null };
 
@@ -40,6 +55,47 @@ export interface Destinataire {
   chatId: string | null;
 }
 export type LireDestinataire = (prospectId: string) => Promise<Destinataire | null>;
+
+/**
+ * Personnes d'une liste dont la photo manque en base (prospect ou interlocuteur hors CRM) :
+ * seules celles-ci sont téléchargées. Renvoie leurs provider_id.
+ */
+export type PhotosManquantes = (personnes: PersonneListee[]) => Promise<Set<string>>;
+
+export function photosManquantesDepuis(pool: Pool): PhotosManquantes {
+  return async (personnes) => {
+    const avecPhoto = personnes.filter((p) => p.photoUrl);
+    if (!avecPhoto.length) return new Set();
+    const urls = avecPhoto.map((p) => (p.publicIdentifier && identifiantVersProfil(p.publicIdentifier)?.urlNormalisee) || "");
+    const ids = avecPhoto.map((p) => p.providerId);
+    const r = await pool.query(
+      `select x.provider_id from unnest($1::text[], $2::text[]) as x(provider_id, url)
+        where exists (select 1 from public.prospects p
+                       where p.photo_maj is null and not p.demo and (p.provider_id = x.provider_id or (x.url <> '' and p.url_normalisee = x.url and p.provider_id is null)))
+           or exists (select 1 from public.conversations c
+                       where c.prospect_id is null and c.photo_maj is null and c.interlocuteur_provider_id = x.provider_id)`,
+      [ids, urls],
+    );
+    return new Set(r.rows.map((x) => x.provider_id as string));
+  };
+}
+
+/** Téléchargements de photos en parallèle, par petits groupes (CDN public, aucun appel LinkedIn). */
+async function telechargerPhotos(
+  personnes: PersonneListee[],
+  telecharger: (url: string) => Promise<Photo | null>,
+): Promise<Map<string, Photo>> {
+  const photos = new Map<string, Photo>();
+  for (let i = 0; i < personnes.length; i += 8) {
+    await Promise.all(
+      personnes.slice(i, i + 8).map(async (p) => {
+        const photo = p.photoUrl ? await telecharger(p.photoUrl).catch(() => null) : null;
+        if (photo) photos.set(p.providerId, photo);
+      }),
+    );
+  }
+  return photos;
+}
 
 export function lireDestinataireDepuis(pool: Pool): LireDestinataire {
   return async (prospectId) => {
@@ -65,7 +121,11 @@ const invalide = (type: string): ResultatAppel => ({ ok: false, erreur: { status
  */
 export function creerExecuteur(
   client: ClientLinkedIn,
-  deps: { lireDestinataire?: LireDestinataire; telechargerPhoto?: (url: string) => Promise<Photo | null> } = {},
+  deps: {
+    lireDestinataire?: LireDestinataire;
+    telechargerPhoto?: (url: string) => Promise<Photo | null>;
+    photosManquantes?: PhotosManquantes;
+  } = {},
 ): ExecuteurLinkedIn {
   const telecharger = deps.telechargerPhoto ?? telechargerPhotoLinkedIn;
   return {
@@ -82,8 +142,17 @@ export function creerExecuteur(
       if (tache.typeAction === "lecture_liste") {
         const p = payloadLectureListe.safeParse(tache.payload);
         if (!p.success) return invalide("payload_invalide");
-        const r = await client.lireListe(p.data.liste, p.data.limite);
-        return r.ok ? { ok: true, donnees: { genre: "liste", liste: p.data.liste, personnes: r.donnees } satisfies Donnees } : r;
+        const r = await client.lireListe(p.data.liste, p.data.limite, p.data.curseur);
+        if (!r.ok) return r;
+        const manquantes = deps.photosManquantes ? await deps.photosManquantes(r.donnees.personnes).catch(() => new Set<string>()) : new Set<string>();
+        const photos = await telechargerPhotos(
+          r.donnees.personnes.filter((x) => manquantes.has(x.providerId)),
+          telecharger,
+        );
+        return {
+          ok: true,
+          donnees: { genre: "liste", liste: p.data.liste, personnes: r.donnees.personnes, photos, suivant: r.donnees.suivant, payload: p.data } satisfies Donnees,
+        };
       }
       if (tache.typeAction === "message" && payloadPremierMessage.safeParse(tache.payload).success) {
         const p = payloadPremierMessage.parse(tache.payload);
@@ -176,14 +245,98 @@ async function effetsProfil(c: PoolClient, prospectId: string | null, tacheId: s
   await traiterAcceptations(c, await recalculerStatuts(c, { urls: [url], providerIds: [profil.providerId] }));
 }
 
-async function effetsListe(c: PoolClient, liste: Liste, personnes: PersonneListee[]) {
+async function effetsListe(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "liste" }>) {
+  const { liste, personnes } = d;
   const liens = personnes.map((p) => ({ type: TYPE_LIEN[liste], urlNormalisee: urlDe(p), providerId: p.providerId, date: p.date }));
   await enregistrerLiens(c, liens, "sync");
   const transitions = await recalculerStatuts(c, { urls: liens.map((l) => l.urlNormalisee), providerIds: liens.map((l) => l.providerId) });
   await traiterAcceptations(c, transitions);
+  for (const p of personnes) await identifierDepuisListe(c, p, d.photos.get(p.providerId) ?? null);
   await c.query(
     "insert into public.sync_runs (type, fin, nb_elements, statut) values ($1, now(), $2, 'succes')",
     [liste, personnes.length],
+  );
+  if (d.payload.complete && d.suivant) await pageSuivante(c, tacheId, d);
+}
+
+/**
+ * Personne d'une liste : le prospect de même URL reçoit son identifiant LinkedIn et sa photo, ses
+ * conversations lui sont rattachées et sa lecture de profil de fond devient inutile (annulée). Un
+ * interlocuteur hors CRM de même identifiant reçoit sa photo.
+ */
+async function identifierDepuisListe(c: PoolClient, p: PersonneListee, photo: Photo | null) {
+  const url = p.publicIdentifier ? identifiantVersProfil(p.publicIdentifier)?.urlNormalisee : null;
+  const r = await c.query(
+    "select id, provider_id from public.prospects where not demo and (provider_id = $1 or ($2::text is not null and url_normalisee = $2)) order by (provider_id = $1) desc nulls last limit 1",
+    [p.providerId, url ?? null],
+  );
+  const prospect = r.rows[0] as { id: string; provider_id: string | null } | undefined;
+  if (prospect && (!prospect.provider_id || prospect.provider_id === p.providerId)) {
+    const pris = await c.query("select 1 from public.prospects where provider_id = $1 and id <> $2", [p.providerId, prospect.id]);
+    if (!pris.rowCount) {
+      await c.query(
+        "update public.prospects set provider_id = $2, public_identifier = coalesce(public_identifier, $3), updated_at = now() where id = $1",
+        [prospect.id, p.providerId, p.publicIdentifier],
+      );
+      await rattacherConversations(c, prospect.id, p.providerId);
+      // Lecture de fond devenue inutile (pas celles d'identification d'une conversation).
+      await c.query(
+        `update public.taches set statut = 'annulee', derniere_erreur = 'identifié par la liste'
+          where prospect_id = $1 and type_action = 'lecture_profil' and statut = 'en_attente' and not (payload ? 'conversation_id')`,
+        [prospect.id],
+      );
+    }
+    if (photo) {
+      await c.query(
+        `insert into public.photos_prospects (prospect_id, contenu, type_mime, maj) values ($1, $2, $3, now())
+         on conflict (prospect_id) do update set contenu = excluded.contenu, type_mime = excluded.type_mime, maj = now()`,
+        [prospect.id, photo.contenu, photo.type],
+      );
+      await c.query("update public.prospects set photo_maj = now() where id = $1", [prospect.id]);
+    }
+  }
+  if (photo) {
+    const convs = await c.query(
+      "select id from public.conversations where prospect_id is null and photo_maj is null and interlocuteur_provider_id = $1",
+      [p.providerId],
+    );
+    for (const conv of convs.rows) {
+      await c.query(
+        `insert into public.photos_conversations (conversation_id, contenu, type_mime, maj) values ($1, $2, $3, now())
+         on conflict (conversation_id) do update set contenu = excluded.contenu, type_mime = excluded.type_mime, maj = now()`,
+        [conv.id, photo.contenu, photo.type],
+      );
+      await c.query("update public.conversations set photo_maj = now(), interlocuteur_public_identifier = coalesce(interlocuteur_public_identifier, $2) where id = $1", [
+        conv.id,
+        p.publicIdentifier,
+      ]);
+    }
+  }
+}
+
+/**
+ * Parcours complet : page suivante mise en file, sauf si plus rien n'est à apprendre. Pour les
+ * relations (des milliers), on s'arrête dès que tous les prospects en relation sont identifiés ;
+ * les invitations (quelques pages) sont toujours lues jusqu'au bout.
+ */
+async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "liste" }>) {
+  const page = (d.payload.page ?? 1) + 1;
+  if (page > PAGES_MAX) return;
+  if (d.liste === "relations") {
+    const reste = await c.query(
+      "select 1 from public.prospects where not demo and statut_relation = 'en_relation' and provider_id is null limit 1",
+    );
+    if (!reste.rowCount) return;
+  }
+  await c.query(
+    `insert into public.taches (type_action, payload, cle_idempotence, executer_apres)
+     select 'lecture_liste', $1, $2, executer_apres from public.taches where id = $3
+     on conflict (cle_idempotence) do nothing`,
+    [
+      { liste: d.liste, limite: d.payload.limite, curseur: d.suivant, complete: true, page },
+      `complete:${d.liste}:${createHash("sha256").update(d.suivant ?? "").digest("hex").slice(0, 32)}`,
+      tacheId,
+    ],
   );
 }
 
@@ -303,5 +456,5 @@ export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees)
   if (d.genre === "conversation") return effetsConversation(c, tache.id, d);
   if (d.genre === "profil" && d.conversationId && !tache.prospectId) await effetsIdentification(c, d.conversationId, d.profil, d.photo);
   else if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil, d.photo);
-  else if (d.genre === "liste") await effetsListe(c, d.liste, d.personnes);
+  else if (d.genre === "liste") await effetsListe(c, tache.id, d);
 };

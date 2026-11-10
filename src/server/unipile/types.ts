@@ -21,6 +21,14 @@ export interface PersonneListee {
   providerId: string;
   publicIdentifier: string | null;
   date: Date | null;
+  /** Adresse publique de la photo (CDN LinkedIn), si la liste la donne. */
+  photoUrl?: string | null;
+}
+
+/** Une page d'une liste LinkedIn ; `suivant` : curseur de la page suivante (null : dernière page). */
+export interface PageListe {
+  personnes: PersonneListee[];
+  suivant: string | null;
 }
 
 export type Liste = "relations" | "invitations_envoyees" | "invitations_recues";
@@ -37,6 +45,9 @@ export interface ClientLinkedIn {
   lireProfil(identifiant: string): Promise<Resultat<ProfilLu>>;
   /** Interlocuteur d'une conversation à deux (identifiant LinkedIn interne), lu chez Unipile. */
   lireConversation(chatId: string): Promise<Resultat<{ interlocuteurId: string | null; nom: string | null; photoUrl: string | null }>>;
-  /** Première page uniquement (recommandation Unipile : pas de parcours complet répété). */
-  lireListe(liste: Liste, limite: number): Promise<Resultat<PersonneListee[]>>;
+  /**
+   * Une page d'une liste (curseur facultatif). Parcours complet réservé à la synchronisation
+   * initiale ; ensuite, première page seulement (recommandation Unipile : pas de parcours répété).
+   */
+  lireListe(liste: Liste, limite: number, curseur?: string): Promise<Resultat<PageListe>>;
 }
