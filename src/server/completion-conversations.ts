@@ -1,6 +1,6 @@
 import "server-only";
 import type { Pool, PoolClient } from "pg";
-import { normaliser, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
+import { cleNom, cleNomSql, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 import { rattacherConversations } from "@/server/conversations";
 import type { Photo } from "@/server/unipile/photo";
 import type { ClientLinkedIn } from "@/server/unipile/types";
@@ -28,12 +28,12 @@ export async function prospectDuMemeNom(
   interlocuteurId: string | null,
   statut?: "en_attente",
 ): Promise<string | null> {
-  const cle = normaliser(nom).replace(/\s+/g, " ").trim();
-  if (cle.length < 3) return null;
+  const cle = cleNom(nom);
+  if (cle.length < 3 || !cle.includes(" ")) return null; // prénom seul : trop peu pour rapprocher
   const r = await pool.query(
     `select id, provider_id from public.prospects
       where not demo and ($4::text is null or statut_relation::text = $4)
-        and regexp_replace(lower(translate(concat_ws(' ', prenom, nom), $2, $3)), '\\s+', ' ', 'g') = $1
+        and ${cleNomSql("concat_ws(' ', prenom, nom)", "$2", "$3")} = $1
       limit 2`,
     [cle, TRANSLATE_DE, TRANSLATE_VERS, statut ?? null],
   );

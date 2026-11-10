@@ -34,3 +34,15 @@ describe("correspond", () => {
     expect(correspond({ prenom: null, nom: null, entreprise: null, poste: null }, "x")).toBe(false);
   });
 });
+
+describe("clé de nom (rapprochement sans URL)", () => {
+  it("ignore titres, emojis, ponctuation, accents et tirets", async () => {
+    const { cleNom } = await import("./recherche");
+    expect(cleNom("Aude Nyadanu, PhD")).toBe("aude nyadanu");
+    expect(cleNom("Romain Levrini 🏘️")).toBe("romain levrini");
+    expect(cleNom("🌳 Loïc Zellvegre 🌲")).toBe("loic zellvegre");
+    expect(cleNom("Pierre-Alix LLORET-BAVAI")).toBe("pierre alix lloret bavai");
+    expect(cleNom("Marion Pageot (Raith)")).toBe("marion pageot");
+    expect(cleNom("Léa | CEO")).toBe("lea");
+  });
+});

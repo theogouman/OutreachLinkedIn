@@ -9,7 +9,7 @@ import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu } from "./types";
 import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "./photo";
 import { rattacherConversations } from "@/server/conversations";
 import { prospectDuMemeNom } from "@/server/completion-conversations";
-import { normaliser, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
+import { cleNom, cleNomSql, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
 const listeSchema = z.enum(["relations", "invitations_envoyees", "invitations_recues"]);
 const payloadLectureProfil = z.object({
@@ -75,14 +75,14 @@ export function photosManquantesDepuis(pool: Pool): PhotosManquantes {
     const urls = avecPhoto.map((p) => (p.publicIdentifier && identifiantVersProfil(p.publicIdentifier)?.urlNormalisee) || "");
     const ids = avecPhoto.map((p) => p.providerId);
     // Sans URL (invitations) : nom normalisé, comparé aux prospects dont l'invitation est en attente.
-    const noms = avecPhoto.map((p) => (!p.publicIdentifier && p.nom ? normaliser(p.nom).replace(/\s+/g, " ").trim() : ""));
+    const noms = avecPhoto.map((p) => (!p.publicIdentifier && p.nom ? cleNom(p.nom) : ""));
     const r = await pool.query(
       `select x.provider_id from unnest($1::text[], $2::text[], $3::text[]) as x(provider_id, url, nom)
         where exists (select 1 from public.prospects p
                        where p.photo_maj is null and not p.demo and (p.provider_id = x.provider_id or (x.url <> '' and p.url_normalisee = x.url and p.provider_id is null)))
            or exists (select 1 from public.prospects p
                        where x.nom <> '' and p.photo_maj is null and not p.demo and p.provider_id is null and p.statut_relation = 'en_attente'
-                         and regexp_replace(lower(translate(concat_ws(' ', p.prenom, p.nom), $4, $5)), '\\s+', ' ', 'g') = x.nom)
+                         and ${cleNomSql("concat_ws(' ', p.prenom, p.nom)", "$4", "$5")} = x.nom)
            or exists (select 1 from public.conversations c
                        where c.prospect_id is null and c.photo_maj is null and c.interlocuteur_provider_id = x.provider_id)`,
       [ids, urls, noms, TRANSLATE_DE, TRANSLATE_VERS],

@@ -172,4 +172,16 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
     for (let i = 0; i < 4; i++) await tour(client);
     expect(appels.map((a) => a.offset)).toEqual([undefined, 100]);
   });
+
+  it("le nom affiché sur LinkedIn peut porter un titre ou des emojis", async () => {
+    const aude = await prospect("aude-n", "en_attente");
+    await db.pool.query("update public.prospects set prenom = 'Aude', nom = 'Nyadanu' where id = $1", [aude]);
+    const pa = await prospect("pa-lb", "en_attente");
+    await db.pool.query("update public.prospects set prenom = 'Pierre-Alix', nom = 'Lloret-Bavai 🚀' where id = $1", [pa]);
+    await lancer("invitations_envoyees");
+    const sansUrl = (id: string, nom: string) => ({ providerId: `ACo${id}`, publicIdentifier: null, date: null, photoUrl: null, nom });
+    await tour(clientPagine({ debut: { personnes: [sansUrl("A", "Aude Nyadanu, PhD"), sansUrl("P", "Pierre Alix LLORET-BAVAI")], suivant: null } }, []));
+    const r = await db.pool.query("select provider_id from public.prospects where id = any($1) order by public_identifier", [[aude, pa]]);
+    expect(r.rows.map((x) => x.provider_id)).toEqual(["ACoA", "ACoP"]);
+  });
 });
