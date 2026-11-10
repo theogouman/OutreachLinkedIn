@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { z } from "zod";
+import { identifierProspect } from "@/server/unipile/executeur";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import { enregistrerLiens, recalculerStatuts, traiterAcceptations } from "@/server/relations";
 import { verifierSignatureUnipile } from "@/server/secrets";
@@ -143,6 +144,8 @@ export async function traiterWebhookUnipile(
         const url = (public_identifier && identifiantVersProfil(public_identifier)?.urlNormalisee) || `provider:${id}`;
         const d = rel.data.created_at ? new Date(rel.data.created_at) : null;
         await enregistrerLiens(c, [{ type: "relation", urlNormalisee: url, providerId: id, date: d && !Number.isNaN(d.getTime()) ? d : null }], "webhook");
+        // Invitation acceptée : le prospect reçoit aussi son identifiant LinkedIn (la photo viendra de la liste des relations).
+        await identifierProspect(c, { providerId: id, publicIdentifier: public_identifier ?? null, date: null }, null, "webhook");
         await traiterAcceptations(c, await recalculerStatuts(c, { urls: [url], providerIds: [id] }));
       }
     }

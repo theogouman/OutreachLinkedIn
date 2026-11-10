@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ErreurAppel } from "@/server/queue/politique";
+import { normaliserUrlLinkedIn } from "@/lib/linkedin-url";
 import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu, Resultat } from "./types";
 
 /**
@@ -18,6 +19,8 @@ const utilisateurSchema = z.object({
   last_name: z.string().nullish(),
   description: z.string().nullish(),
   public_picture_url: z.string().max(2000).nullish(),
+  display_name: z.string().max(300).nullish(),
+  profile_url: z.string().max(500).nullish(),
 });
 
 const profilSchema = utilisateurSchema.extend({
@@ -193,15 +196,18 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
       return { ok: true, donnees: profil };
     },
 
-    async lireListe(liste: Liste, limite, curseur) {
+    async lireListe(liste: Liste, limite, curseur, offset) {
       const params: Record<string, string> = { limit: String(Math.min(Math.max(Math.trunc(limite), 1), TAILLE_PAGE_MAX)) };
       if (curseur) params.cursor = curseur;
-      const personne = (u: z.infer<typeof utilisateurSchema>, creeLe: string | null | undefined): PersonneListee => ({
-        providerId: u.id,
-        publicIdentifier: u.public_identifier ?? null,
-        date: date(creeLe ?? undefined),
-        photoUrl: u.public_picture_url ?? null,
-      });
+      else if (offset && offset > 0) params.offset = String(Math.trunc(offset));
+      const personne = (u: z.infer<typeof utilisateurSchema>, creeLe: string | null | undefined): PersonneListee => {
+        // Identifiant public absent (cas des invitations) : repris de l'URL du profil, sauf si elle ne
+        // contient que l'identifiant interne (ACo…), inutile pour rapprocher.
+        const depuisUrl = normaliserUrlLinkedIn(u.profile_url)?.publicIdentifier;
+        const publicIdentifier = u.public_identifier || (depuisUrl && depuisUrl !== u.id.toLowerCase() ? depuisUrl : null);
+        const nom = (u.display_name?.trim() || [u.first_name, u.last_name].filter(Boolean).join(" ").trim()).slice(0, 200) || null;
+        return { providerId: u.id, publicIdentifier, date: date(creeLe ?? undefined), photoUrl: u.public_picture_url ?? null, nom };
+      };
       if (liste === "relations") {
         const r = await appeler("/users/me/relations", params, relationsSchema);
         if (!r.ok) return r;

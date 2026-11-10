@@ -70,7 +70,7 @@ describe("client Unipile v2", () => {
     expect(r).toEqual({
       ok: true,
       donnees: {
-        personnes: [{ providerId: "ACoU1", publicIdentifier: "bob", date: new Date("2026-11-01T10:00:00Z"), photoUrl: "https://media.licdn.com/b.jpg" }],
+        personnes: [{ providerId: "ACoU1", publicIdentifier: "bob", date: new Date("2026-11-01T10:00:00Z"), photoUrl: "https://media.licdn.com/b.jpg", nom: "Bob" }],
         suivant: "abc",
       },
     });
@@ -85,9 +85,28 @@ describe("client Unipile v2", () => {
   });
 
   it("lit les invitations envoyées / reçues", async () => {
-    const f = fetchFactice(200, { data: [{ id: "req1", object: "RelationRequest", type: "sent", user: { id: "ACoU2" } }, { id: "req2", type: "sent" }] });
-    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500);
-    expect(r).toEqual({ ok: true, donnees: { personnes: [{ providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null }], suivant: null } });
+    const f = fetchFactice(200, {
+      data: [
+        { id: "req1", object: "RelationRequest", type: "sent", user: { id: "ACoU2", first_name: "Léa", last_name: "Martin" } },
+        { id: "req2", type: "sent" },
+        // Identifiant public absent : repris de l'URL du profil, sauf si elle ne contient que l'identifiant interne.
+        { id: "req3", type: "sent", user: { id: "ACoU3", display_name: "Tom", profile_url: "https://www.linkedin.com/in/tom-d" } },
+        { id: "req4", type: "sent", user: { id: "ACoU4", profile_url: "https://www.linkedin.com/in/ACoU4" } },
+      ],
+    });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500, undefined, 100);
+    expect(r).toEqual({
+      ok: true,
+      donnees: {
+        personnes: [
+          { providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null, nom: "Léa Martin" },
+          { providerId: "ACoU3", publicIdentifier: "tom-d", date: null, photoUrl: null, nom: "Tom" },
+          { providerId: "ACoU4", publicIdentifier: null, date: null, photoUrl: null, nom: null },
+        ],
+        suivant: null,
+      },
+    });
+    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100&offset=100");
     expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100");
   });
 

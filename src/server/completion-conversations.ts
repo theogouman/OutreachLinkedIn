@@ -1,5 +1,5 @@
 import "server-only";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { normaliser, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 import { rattacherConversations } from "@/server/conversations";
 import type { Photo } from "@/server/unipile/photo";
@@ -18,15 +18,24 @@ export interface DependancesCompletion {
   telechargerPhoto: (url: string) => Promise<Photo | null>;
 }
 
-/** Prospect unique dont le nom complet correspond (sans casse ni accents), compatible avec l'identifiant. */
-async function prospectDuMemeNom(pool: Pool, nom: string, interlocuteurId: string | null): Promise<string | null> {
+/**
+ * Prospect unique dont le nom complet correspond (sans casse ni accents), compatible avec l'identifiant.
+ * `statut` : ne chercher que parmi les prospects de ce statut de relation (ex. invitation en attente).
+ */
+export async function prospectDuMemeNom(
+  pool: Pool | PoolClient,
+  nom: string,
+  interlocuteurId: string | null,
+  statut?: "en_attente",
+): Promise<string | null> {
   const cle = normaliser(nom).replace(/\s+/g, " ").trim();
   if (cle.length < 3) return null;
   const r = await pool.query(
     `select id, provider_id from public.prospects
-      where not demo and regexp_replace(lower(translate(concat_ws(' ', prenom, nom), $2, $3)), '\\s+', ' ', 'g') = $1
+      where not demo and ($4::text is null or statut_relation::text = $4)
+        and regexp_replace(lower(translate(concat_ws(' ', prenom, nom), $2, $3)), '\\s+', ' ', 'g') = $1
       limit 2`,
-    [cle, TRANSLATE_DE, TRANSLATE_VERS],
+    [cle, TRANSLATE_DE, TRANSLATE_VERS, statut ?? null],
   );
   if (r.rowCount !== 1) return null; // aucun ou ambigu : pas de rattachement au hasard
   const p = r.rows[0];

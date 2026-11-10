@@ -40,8 +40,9 @@ describe.skipIf(!TEST_DATABASE_URL)("webhook Unipile", () => {
   it("relation.new : invitation acceptée → « En relation », étape « Connecté »", async () => {
     const corps = relationNew("evt_1");
     expect(await traiterWebhookUnipile(db.pool, corps, signer(corps), OPTS)).toEqual({ status: 200, corps: { ok: true } });
-    const p = await db.pool.query("select statut_relation, etape from public.prospects where id = $1", [prospectId]);
-    expect(p.rows[0]).toEqual({ statut_relation: "en_relation", etape: "connecte" });
+    const p = await db.pool.query("select statut_relation, etape, provider_id from public.prospects where id = $1", [prospectId]);
+    // L'identifiant LinkedIn est enregistré au passage (premier message possible sans lecture de profil).
+    expect(p.rows[0]).toEqual({ statut_relation: "en_relation", etape: "connecte", provider_id: "ACoEVA" });
   });
 
   it("un même événement reçu deux fois n'a qu'un effet", async () => {

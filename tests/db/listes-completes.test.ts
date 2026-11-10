@@ -135,4 +135,41 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
     const ident = await db.pool.query("select statut from public.taches where cle_idempotence = 'identification:x'");
     expect(ident.rows[0].statut).toBe("en_attente");
   });
+
+  it("invitations sans URL : rapprochement par le nom, seulement parmi les invitations en attente et sans homonyme", async () => {
+    const lea = await prospect("lea-martin-x", "en_attente");
+    await db.pool.query("update public.prospects set prenom = 'Léa', nom = 'Martin' where id = $1", [lea]);
+    const a1 = await prospect("tom-a", "en_attente");
+    const a2 = await prospect("tom-b", "en_attente");
+    await db.pool.query("update public.prospects set prenom = 'Tom', nom = 'Durand' where id = any($1)", [[a1, a2]]);
+    const rel = await prospect("zoe-r", "a_inviter");
+    await db.pool.query("update public.prospects set prenom = 'Zoé', nom = 'Roy' where id = $1", [rel]);
+    await lancer("invitations_envoyees");
+    const sansUrl = (id: string, nom: string) => ({ providerId: `ACo${id}`, publicIdentifier: null, date: null, photoUrl: `https://media.licdn.com/${id}.jpg`, nom });
+    const client = clientPagine(
+      { debut: { personnes: [sansUrl("L", "lea martin"), sansUrl("T", "Tom Durand"), sansUrl("Z", "Zoé Roy")], suivant: null } },
+      [],
+    );
+    await tour(client);
+    const r = await db.pool.query("select id, provider_id, photo_maj is not null as photo from public.prospects where id = any($1)", [[lea, a1, a2, rel]]);
+    const par = Object.fromEntries(r.rows.map((x) => [x.id, x]));
+    expect(par[lea]).toMatchObject({ provider_id: "ACoL", photo: true });
+    expect(par[a1].provider_id).toBeNull(); // homonymes : rien au hasard
+    expect(par[a2].provider_id).toBeNull();
+    expect(par[rel].provider_id).toBeNull(); // pas en attente d'invitation : pas ce prospect-là
+  });
+
+  it("sans curseur, une page pleine enchaîne par décalage ; une page identique arrête le parcours", async () => {
+    await prospect("ivy", "en_attente");
+    await lancer("invitations_envoyees");
+    const appels: { offset?: number }[] = [];
+    const pleine = (n: number) => Array.from({ length: n }, (_, i) => ({ providerId: `ACoP${i}`, publicIdentifier: null, date: null }));
+    const client: ClientLinkedIn = {
+      ...creerClientSimule(),
+      // Décalage ignoré par le fournisseur : il renvoie toujours la même page pleine.
+      lireListe: async (_l, _limite, _c, offset) => (appels.push({ offset }), { ok: true, donnees: { personnes: pleine(100), suivant: null } }),
+    };
+    for (let i = 0; i < 4; i++) await tour(client);
+    expect(appels.map((a) => a.offset)).toEqual([undefined, 100]);
+  });
 });

@@ -8,6 +8,8 @@ import { enregistrerLiens, recalculerStatuts, traiterAcceptations, type LienLink
 import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu } from "./types";
 import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "./photo";
 import { rattacherConversations } from "@/server/conversations";
+import { prospectDuMemeNom } from "@/server/completion-conversations";
+import { normaliser, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
 const listeSchema = z.enum(["relations", "invitations_envoyees", "invitations_recues"]);
 const payloadLectureProfil = z.object({
@@ -33,6 +35,10 @@ const payloadLectureListe = z.object({
   liste: listeSchema,
   limite: z.number().int().min(1).max(100).default(50),
   curseur: z.string().min(1).max(4000).optional(),
+  /** Suite par décalage, quand Unipile ne renvoie pas de curseur (liste des invitations). */
+  offset: z.number().int().min(1).max(20_000).optional(),
+  /** Premier identifiant de la page précédente : une page identique (décalage ignoré) arrête le parcours. */
+  premier: z.string().max(200).optional(),
   complete: z.boolean().optional(),
   page: z.number().int().min(1).max(500).optional(),
 });
@@ -68,13 +74,18 @@ export function photosManquantesDepuis(pool: Pool): PhotosManquantes {
     if (!avecPhoto.length) return new Set();
     const urls = avecPhoto.map((p) => (p.publicIdentifier && identifiantVersProfil(p.publicIdentifier)?.urlNormalisee) || "");
     const ids = avecPhoto.map((p) => p.providerId);
+    // Sans URL (invitations) : nom normalisé, comparé aux prospects dont l'invitation est en attente.
+    const noms = avecPhoto.map((p) => (!p.publicIdentifier && p.nom ? normaliser(p.nom).replace(/\s+/g, " ").trim() : ""));
     const r = await pool.query(
-      `select x.provider_id from unnest($1::text[], $2::text[]) as x(provider_id, url)
+      `select x.provider_id from unnest($1::text[], $2::text[], $3::text[]) as x(provider_id, url, nom)
         where exists (select 1 from public.prospects p
                        where p.photo_maj is null and not p.demo and (p.provider_id = x.provider_id or (x.url <> '' and p.url_normalisee = x.url and p.provider_id is null)))
+           or exists (select 1 from public.prospects p
+                       where x.nom <> '' and p.photo_maj is null and not p.demo and p.provider_id is null and p.statut_relation = 'en_attente'
+                         and regexp_replace(lower(translate(concat_ws(' ', p.prenom, p.nom), $4, $5)), '\\s+', ' ', 'g') = x.nom)
            or exists (select 1 from public.conversations c
                        where c.prospect_id is null and c.photo_maj is null and c.interlocuteur_provider_id = x.provider_id)`,
-      [ids, urls],
+      [ids, urls, noms, TRANSLATE_DE, TRANSLATE_VERS],
     );
     return new Set(r.rows.map((x) => x.provider_id as string));
   };
@@ -142,7 +153,7 @@ export function creerExecuteur(
       if (tache.typeAction === "lecture_liste") {
         const p = payloadLectureListe.safeParse(tache.payload);
         if (!p.success) return invalide("payload_invalide");
-        const r = await client.lireListe(p.data.liste, p.data.limite, p.data.curseur);
+        const r = await client.lireListe(p.data.liste, p.data.limite, p.data.curseur, p.data.offset);
         if (!r.ok) return r;
         const manquantes = deps.photosManquantes ? await deps.photosManquantes(r.donnees.personnes).catch(() => new Set<string>()) : new Set<string>();
         const photos = await telechargerPhotos(
@@ -251,26 +262,32 @@ async function effetsListe(c: PoolClient, tacheId: string, d: Extract<Donnees, {
   await enregistrerLiens(c, liens, "sync");
   const transitions = await recalculerStatuts(c, { urls: liens.map((l) => l.urlNormalisee), providerIds: liens.map((l) => l.providerId) });
   await traiterAcceptations(c, transitions);
-  for (const p of personnes) await identifierDepuisListe(c, p, d.photos.get(p.providerId) ?? null);
+  for (const p of personnes) await identifierProspect(c, p, d.photos.get(p.providerId) ?? null, liste);
   await c.query(
     "insert into public.sync_runs (type, fin, nb_elements, statut) values ($1, now(), $2, 'succes')",
     [liste, personnes.length],
   );
-  if (d.payload.complete && d.suivant) await pageSuivante(c, tacheId, d);
+  if (d.payload.complete) await pageSuivante(c, tacheId, d);
 }
 
 /**
- * Personne d'une liste : le prospect de même URL reçoit son identifiant LinkedIn et sa photo, ses
- * conversations lui sont rattachées et sa lecture de profil de fond devient inutile (annulée). Un
- * interlocuteur hors CRM de même identifiant reçoit sa photo.
+ * Personne vue sur LinkedIn (liste ou webhook d'acceptation) : le prospect de même URL reçoit son
+ * identifiant LinkedIn et sa photo, ses conversations lui sont rattachées et sa lecture de profil de
+ * fond devient inutile (annulée). La liste des invitations ne donne pas l'URL : on y rapproche par le
+ * nom, parmi les seuls prospects dont l'invitation est en attente, et seulement s'il est unique.
+ * Un interlocuteur hors CRM de même identifiant reçoit sa photo.
  */
-async function identifierDepuisListe(c: PoolClient, p: PersonneListee, photo: Photo | null) {
+export async function identifierProspect(c: PoolClient, p: PersonneListee, photo: Photo | null, liste: Liste | "webhook") {
   const url = p.publicIdentifier ? identifiantVersProfil(p.publicIdentifier)?.urlNormalisee : null;
   const r = await c.query(
     "select id, provider_id from public.prospects where not demo and (provider_id = $1 or ($2::text is not null and url_normalisee = $2)) order by (provider_id = $1) desc nulls last limit 1",
     [p.providerId, url ?? null],
   );
-  const prospect = r.rows[0] as { id: string; provider_id: string | null } | undefined;
+  let prospect = r.rows[0] as { id: string; provider_id: string | null } | undefined;
+  if (!prospect && liste === "invitations_envoyees" && p.nom) {
+    const id = await prospectDuMemeNom(c, p.nom, p.providerId, "en_attente");
+    if (id) prospect = { id, provider_id: null };
+  }
   if (prospect && (!prospect.provider_id || prospect.provider_id === p.providerId)) {
     const pris = await c.query("select 1 from public.prospects where provider_id = $1 and id <> $2", [p.providerId, prospect.id]);
     if (!pris.rowCount) {
@@ -321,22 +338,29 @@ async function identifierDepuisListe(c: PoolClient, p: PersonneListee, photo: Ph
  */
 async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "liste" }>) {
   const page = (d.payload.page ?? 1) + 1;
-  if (page > PAGES_MAX) return;
+  if (page > PAGES_MAX || !d.personnes.length) return;
+  const premier = d.personnes[0]!.providerId;
+  if (d.payload.premier === premier) return; // même page qu'avant : le décalage n'est pas pris en compte
+  // Suite : curseur d'Unipile ; à défaut, page pleine → décalage.
+  const suite: { curseur?: string; offset?: number } | null = d.suivant
+    ? { curseur: d.suivant }
+    : d.personnes.length >= d.payload.limite
+      ? { offset: (d.payload.offset ?? 0) + d.personnes.length }
+      : null;
+  if (!suite) return;
   if (d.liste === "relations") {
     const reste = await c.query(
       "select 1 from public.prospects where not demo and statut_relation = 'en_relation' and provider_id is null limit 1",
     );
     if (!reste.rowCount) return;
   }
+  const jour = new Date().toISOString().slice(0, 10);
+  const cle = suite.curseur ? createHash("sha256").update(suite.curseur).digest("hex").slice(0, 32) : `offset-${suite.offset}`;
   await c.query(
     `insert into public.taches (type_action, payload, cle_idempotence, executer_apres)
      select 'lecture_liste', $1, $2, executer_apres from public.taches where id = $3
      on conflict (cle_idempotence) do nothing`,
-    [
-      { liste: d.liste, limite: d.payload.limite, curseur: d.suivant, complete: true, page },
-      `complete:${d.liste}:${createHash("sha256").update(d.suivant ?? "").digest("hex").slice(0, 32)}`,
-      tacheId,
-    ],
+    [{ liste: d.liste, limite: d.payload.limite, ...suite, premier, complete: true, page }, `complete:${d.liste}:${jour}:${cle}`, tacheId],
   );
 }
 

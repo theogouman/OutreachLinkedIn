@@ -23,6 +23,8 @@ export interface PersonneListee {
   date: Date | null;
   /** Adresse publique de la photo (CDN LinkedIn), si la liste la donne. */
   photoUrl?: string | null;
+  /** Nom affiché, si la liste le donne (rapprochement quand l'URL manque). */
+  nom?: string | null;
 }
 
 /** Une page d'une liste LinkedIn ; `suivant` : curseur de la page suivante (null : dernière page). */
@@ -49,5 +51,5 @@ export interface ClientLinkedIn {
    * Une page d'une liste (curseur facultatif). Parcours complet réservé à la synchronisation
    * initiale ; ensuite, première page seulement (recommandation Unipile : pas de parcours répété).
    */
-  lireListe(liste: Liste, limite: number, curseur?: string): Promise<Resultat<PageListe>>;
+  lireListe(liste: Liste, limite: number, curseur?: string, offset?: number): Promise<Resultat<PageListe>>;
 }
