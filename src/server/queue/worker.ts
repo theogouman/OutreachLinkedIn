@@ -166,6 +166,7 @@ async function chargerCandidates(c: PoolClient, maintenant: Date, seulementDemo:
              or exists (select 1 from public.prospects d where d.id = t.prospect_id and d.demo))
       order by (case
                   when t.type_action = 'message' then 0
+                  when t.payload ? 'conversation_id' and t.type_action = 'lecture_profil' then 1
                   when t.prospect_id is not null and exists (
                          select 1 from public.taches m
                           where m.prospect_id = t.prospect_id and m.type_action = 'message'

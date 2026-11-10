@@ -79,6 +79,7 @@ export function InboxGlissante({
     q.delete("conversation");
     q.delete("prospect");
     q.delete("onglet");
+    q.delete("interlocuteur");
     router.replace(q.size ? `${chemin}?${q}` : chemin, { scroll: false });
   };
 

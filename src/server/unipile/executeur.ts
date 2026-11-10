@@ -9,7 +9,11 @@ import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "./phot
 import { rattacherConversations } from "@/server/conversations";
 
 const listeSchema = z.enum(["relations", "invitations_envoyees", "invitations_recues"]);
-const payloadLectureProfil = z.object({ public_identifier: z.string().min(3).max(100) });
+const payloadLectureProfil = z.object({
+  public_identifier: z.string().min(3).max(100),
+  /** Lecture d'identification de l'interlocuteur d'une conversation hors CRM. */
+  conversation_id: z.uuid().optional(),
+});
 const payloadMessage = z.object({
   conversation_id: z.uuid(),
   chat_id: z.string().min(1).max(200),
@@ -23,7 +27,7 @@ const payloadPremierMessage = z.object({
 const payloadLectureListe = z.object({ liste: listeSchema, limite: z.number().int().min(1).max(100).default(50) });
 
 type Donnees =
-  | { genre: "profil"; profil: ProfilLu; photo: Photo | null }
+  | { genre: "profil"; profil: ProfilLu; photo: Photo | null; conversationId?: string }
   | { genre: "liste"; liste: Liste; personnes: PersonneListee[] }
   | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
   | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null };
@@ -73,7 +77,7 @@ export function creerExecuteur(
         if (!r.ok) return r;
         // Photo prise au passage (aucun appel LinkedIn en plus : CDN public) ; échec = pas de photo.
         const photo = r.donnees.photoUrl ? await telecharger(r.donnees.photoUrl).catch(() => null) : null;
-        return { ok: true, donnees: { genre: "profil", profil: r.donnees, photo } satisfies Donnees };
+        return { ok: true, donnees: { genre: "profil", profil: r.donnees, photo, conversationId: p.data.conversation_id } satisfies Donnees };
       }
       if (tache.typeAction === "lecture_liste") {
         const p = payloadLectureListe.safeParse(tache.payload);
@@ -227,10 +231,68 @@ async function effetsConversation(c: PoolClient, tacheId: string, d: Extract<Don
   await effetsMessage(c, tacheId, { genre: "message", conversationId: conv.rows[0].id, texte: d.texte, messageId: d.messageId });
 }
 
+/**
+ * Interlocuteur d'une conversation hors CRM identifié : prospect retrouvé par l'URL (ou l'identifiant
+ * LinkedIn) → conversation rattachée, identifiant et photo enregistrés, sa propre lecture de profil
+ * retirée de la file ; sinon, identité gardée sur la conversation (nom, poste, URL, photo).
+ */
+async function effetsIdentification(c: PoolClient, conversationId: string, profil: ProfilLu, photo: Photo | null) {
+  const conv = await c.query("select id, prospect_id, interlocuteur_provider_id from public.conversations where id = $1", [conversationId]);
+  if (!conv.rowCount) return; // supprimée entre-temps
+  const url = profil.publicIdentifier ? identifiantVersProfil(profil.publicIdentifier)?.urlNormalisee : null;
+  const prospect = await c.query(
+    "select id from public.prospects where ($1::text is not null and url_normalisee = $1) or provider_id = $2 order by provider_id is not null desc limit 1",
+    [url ?? null, profil.providerId],
+  );
+  const p = prospect.rows[0] as { id: string } | undefined;
+  if (p && !conv.rows[0].prospect_id) {
+    const libre = await c.query("select 1 from public.prospects where provider_id = $1 and id <> $2", [profil.providerId, p.id]);
+    if (!libre.rowCount) {
+      await c.query(
+        "update public.prospects set provider_id = coalesce(provider_id, $2), public_identifier = coalesce(public_identifier, $3), updated_at = now() where id = $1",
+        [p.id, profil.providerId, profil.publicIdentifier],
+      );
+    }
+    if (photo) {
+      await c.query(
+        `insert into public.photos_prospects (prospect_id, contenu, type_mime, maj) values ($1, $2, $3, now())
+         on conflict (prospect_id) do update set contenu = excluded.contenu, type_mime = excluded.type_mime, maj = now()`,
+        [p.id, photo.contenu, photo.type],
+      );
+      await c.query("update public.prospects set photo_maj = now() where id = $1", [p.id]);
+    }
+    // Sa lecture de profil, devenue inutile, quitte la file.
+    await c.query(
+      "update public.taches set statut = 'annulee', updated_at = now() where prospect_id = $1 and type_action = 'lecture_profil' and statut = 'en_attente'",
+      [p.id],
+    );
+    await rattacherConversations(c, p.id, conv.rows[0].interlocuteur_provider_id ?? profil.providerId);
+    await c.query("update public.conversations set prospect_id = $1 where id = $2 and prospect_id is null", [p.id, conversationId]);
+    return;
+  }
+  const nom = [profil.prenom, profil.nom].filter(Boolean).join(" ").slice(0, 200) || null;
+  await c.query(
+    `update public.conversations
+        set interlocuteur_nom = coalesce($2, interlocuteur_nom), interlocuteur_titre = $3,
+            interlocuteur_public_identifier = $4, interlocuteur_provider_id = coalesce(interlocuteur_provider_id, $5)
+      where id = $1`,
+    [conversationId, nom, profil.titre?.slice(0, 300) ?? null, profil.publicIdentifier?.slice(0, 100) ?? null, profil.providerId],
+  );
+  if (photo) {
+    await c.query(
+      `insert into public.photos_conversations (conversation_id, contenu, type_mime, maj) values ($1, $2, $3, now())
+       on conflict (conversation_id) do update set contenu = excluded.contenu, type_mime = excluded.type_mime, maj = now()`,
+      [conversationId, photo.contenu, photo.type],
+    );
+    await c.query("update public.conversations set photo_maj = now() where id = $1", [conversationId]);
+  }
+}
+
 export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees) => {
   const d = donnees as Donnees;
   if (d.genre === "message") return effetsMessage(c, tache.id, d);
   if (d.genre === "conversation") return effetsConversation(c, tache.id, d);
-  if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil, d.photo);
+  if (d.genre === "profil" && d.conversationId && !tache.prospectId) await effetsIdentification(c, d.conversationId, d.profil, d.photo);
+  else if (d.genre === "profil") await effetsProfil(c, tache.prospectId, tache.id, d.profil, d.photo);
   else if (d.genre === "liste") await effetsListe(c, d.liste, d.personnes);
 };

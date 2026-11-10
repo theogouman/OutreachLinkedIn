@@ -11,6 +11,7 @@ import { ListeConversations } from "./liste-conversations";
 import { MarquerLue } from "./marquer-lue";
 import { BoutonNouveauMessage } from "./nouveau-message";
 import { InboxGlissante, RetourListe } from "./inbox-glissante";
+import { CarteInterlocuteur } from "./carte-interlocuteur";
 import { RedactionMessage } from "@/components/redaction-message";
 
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
@@ -103,19 +104,25 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                     </span>
                   </Link>
                 ) : (
-                  <span className="flex min-w-0 items-center gap-3">
+                  // Hors CRM : nom et photo ouvrent sa carte d'infos (sans l'ajouter au CRM).
+                  <Link
+                    href={`/inbox?${new URLSearchParams({ conversation: ouvert.id, interlocuteur: "1" })}`}
+                    scroll={false}
+                    aria-label={`Voir la carte de ${ouvert.nom}`}
+                    className="group -mx-1 flex min-w-0 items-center gap-3 rounded-2xl px-1 py-0.5 outline-none transition-colors duration-150 hover:bg-creux focus-visible:ring-2 focus-visible:ring-accent"
+                  >
                     <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
-                    <span className="min-w-0">
-                      <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
+                    <span className="min-w-0 pr-2">
+                      <h2 className="truncate title-3 text-encre underline-offset-2 group-hover:underline">{ouvert.nom}</h2>
                       {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
                     </span>
-                  </span>
+                  </Link>
                 )}
               </div>
               {ouvert.prospectId ? (
                 etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />
               ) : (
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM · ajout au CRM en phase 2</span>
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM</span>
               )}
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto bg-carte px-5 py-5">
@@ -138,6 +145,15 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
         }
       />
 
+      {ouvert && !ouvert.prospectId && premier(sp.interlocuteur) === "1" && (
+        <CarteInterlocuteur
+          nom={ouvert.nom}
+          titre={ouvert.sousTitre}
+          photo={ouvert.photo}
+          lienLinkedIn={ouvert.lienLinkedIn}
+          identifie={!!ouvert.lienLinkedIn}
+        />
+      )}
       {fiche && (
         <ModaleFiche
           fiche={fiche}

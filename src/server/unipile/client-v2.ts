@@ -62,6 +62,8 @@ const conversationSchema = z.object({
   object: z.literal("Chat"),
   id: z.string().min(1).max(300),
   user_id: z.string().min(1).max(300).nullish(),
+  /** Nom de la conversation : pour une conversation à deux, le nom de l'interlocuteur. */
+  name: z.string().max(300).nullish(),
 });
 
 export const BOITE_LINKEDIN_CLASSIQUE = "CLASSIC_PRIMARY";
@@ -153,7 +155,7 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
 
     async lireConversation(chatId) {
       const r = await appeler(`/chats/${encodeURIComponent(chatId)}`, {}, conversationSchema);
-      return r.ok ? { ok: true, donnees: { interlocuteurId: r.donnees.user_id ?? null } } : r;
+      return r.ok ? { ok: true, donnees: { interlocuteurId: r.donnees.user_id ?? null, nom: r.donnees.name?.trim() || null } } : r;
     },
 
     async lireProfil(identifiant) {

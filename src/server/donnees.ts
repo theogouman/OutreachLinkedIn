@@ -2,6 +2,7 @@ import "server-only";
 import type { Pool } from "pg";
 import { z } from "zod";
 import { detailsAffichables } from "@/lib/listes";
+import { lienProfilLinkedIn } from "@/lib/linkedin-url";
 import { notificationsDepuis } from "./notifications";
 import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
@@ -315,8 +316,9 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
   const r = await pool.query(
     `with conv as (
        select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
-              coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
-              nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape, p.photo_maj,
+              coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Identification en cours') as nom,
+              coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre, p.etape,
+              p.photo_maj, c.photo_maj as photo_conv_maj,
               coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens
          from public.conversations c
          left join public.prospects p on p.id = c.prospect_id
@@ -356,7 +358,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
     dernierSens: x.dernier_sens,
     dernierMessageAt: x.dernier_message_at,
     nonLu: x.non_lu,
-    photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : null,
+    photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
   }));
   return { lignes, total: r.rows[0]?.total ?? 0 };
 }
@@ -386,9 +388,9 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
   const prospect = z.uuid().safeParse(cle.prospectId);
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu, c.demo, p.photo_maj,
-            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
-            nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre
+    `select c.id, c.prospect_id, c.non_lu, c.demo, p.photo_maj, c.photo_maj as photo_conv_maj, c.interlocuteur_public_identifier,
+            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Identification en cours') as nom,
+            coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
       where ($1::uuid is not null and c.id = $1) or ($2::uuid is not null and c.prospect_id = $2)
       order by c.dernier_message_at desc nulls last limit 1`,
@@ -403,6 +405,8 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     nonLu: boolean;
     demo: boolean;
     photo: string | null;
+    /** Interlocuteur hors CRM : lien LinkedIn reconstruit depuis son identifiant public (carte d'infos). */
+    lienLinkedIn: string | null;
   };
   if (x) {
     entete = {
@@ -412,7 +416,8 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
       sousTitre: x.sous_titre,
       nonLu: x.non_lu,
       demo: x.demo,
-      photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : null,
+      photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
+      lienLinkedIn: x.prospect_id ? null : lienProfilLinkedIn(x.interlocuteur_public_identifier ? `https://www.linkedin.com/in/${x.interlocuteur_public_identifier}` : null),
     };
   } else {
     if (!prospect.success) return null;
@@ -424,7 +429,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     );
     if (!p.rowCount) return null;
     const y = p.rows[0];
-    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo, photo: adressePhoto(y.id, y.photo_maj) };
+    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo, photo: adressePhoto(y.id, y.photo_maj), lienLinkedIn: null };
   }
   const m = entete.id
     ? await pool.query(
@@ -593,9 +598,16 @@ export function adressePhoto(id: string, maj: Date | string | null): string | nu
   return maj ? `/api/photos/${id}?v=${new Date(maj).getTime()}` : null;
 }
 
+/** Photo d'un prospect, ou de l'interlocuteur d'une conversation hors CRM (même adresse /api/photos/<id>). */
 export async function photoProspect(id: string): Promise<{ contenu: Buffer; type: string } | null> {
   await exigerUtilisateur();
-  const r = await poolServeur().query("select contenu, type_mime from public.photos_prospects where prospect_id = $1", [id]);
+  const r = await poolServeur().query(
+    `select contenu, type_mime from public.photos_prospects where prospect_id = $1
+     union all
+     select contenu, type_mime from public.photos_conversations where conversation_id = $1
+     limit 1`,
+    [id],
+  );
   return r.rowCount ? { contenu: r.rows[0].contenu, type: r.rows[0].type_mime } : null;
 }
 

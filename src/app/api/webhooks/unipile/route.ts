@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       deps: {
         lireInterlocuteur: async (chatId) => {
           const r = await clientLinkedIn().lireConversation(chatId);
-          return r.ok ? r.donnees.interlocuteurId : null;
+          return r.ok ? { id: r.donnees.interlocuteurId, nom: r.donnees.nom } : null;
         },
       },
     });

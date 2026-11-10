@@ -39,7 +39,7 @@ export function creerClientSimule(
       return { ok: true, donnees: { chatId: `demo-chat-${randomUUID()}`, messageId: `demo-msg-${randomUUID()}` } };
     },
     async lireConversation() {
-      return { ok: true, donnees: { interlocuteurId: null } };
+      return { ok: true, donnees: { interlocuteurId: null, nom: null } };
     },
     async lireProfil(identifiant) {
       const demo = PROSPECTS_DEMO.find((p) => p.id === identifiant);

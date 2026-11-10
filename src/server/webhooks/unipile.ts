@@ -3,7 +3,7 @@ import { z } from "zod";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import { enregistrerLiens, recalculerStatuts, traiterAcceptations } from "@/server/relations";
 import { verifierSignatureUnipile } from "@/server/secrets";
-import { accuseLectureSchema, enregistrerAccuseLecture, enregistrerMessageRecu, messageUnipileSchema } from "@/server/conversations";
+import { accuseLectureSchema, enregistrerAccuseLecture, enregistrerMessageRecu, messageUnipileSchema, type Interlocuteur } from "@/server/conversations";
 import { creerNotification, envoyerPush } from "@/server/notifications";
 
 export const TAILLE_MAX_WEBHOOK = 1024 * 1024;
@@ -26,7 +26,7 @@ const messageSupprimeSchema = z.object({ id: z.string().min(1).max(300) }).passt
 /** Dépendances externes, remplaçables en test. */
 export interface DependancesWebhook {
   /** Interlocuteur d'un chat inconnu dont le message vient du compte lui-même (Get a Chat). */
-  lireInterlocuteur?: (chatId: string) => Promise<string | null>;
+  lireInterlocuteur?: (chatId: string) => Promise<Interlocuteur | null>;
   envoyerPush?: Parameters<typeof envoyerPush>[2];
 }
 
@@ -113,12 +113,13 @@ export async function traiterWebhookUnipile(
 
   // message.new d'un chat inconnu, envoyé depuis le compte (téléphone…) : qui est l'interlocuteur ?
   let messageRecu: ReturnType<typeof messageUnipileSchema.safeParse> | null = null;
-  let interlocuteur: string | null = null;
+  let interlocuteur: Interlocuteur = { id: null, nom: null };
   if (env.data.type === "message.new") {
     messageRecu = messageUnipileSchema.safeParse(env.data.payload);
     if (messageRecu.success && messageRecu.data.is_sender && opts.deps?.lireInterlocuteur) {
       const connu = await pool.query("select 1 from public.conversations where unipile_chat_id = $1", [messageRecu.data.chat_id]);
-      if (!connu.rowCount) interlocuteur = await avecDelai(opts.deps.lireInterlocuteur(messageRecu.data.chat_id), 3000, null);
+      if (!connu.rowCount)
+        interlocuteur = (await avecDelai(opts.deps.lireInterlocuteur(messageRecu.data.chat_id), 3000, null)) ?? interlocuteur;
     }
   }
 

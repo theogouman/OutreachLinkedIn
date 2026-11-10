@@ -35,8 +35,18 @@ export function texteMessage(m: MessageUnipile): string | null {
   return m.attachments?.length ? "[Pièce jointe]" : null;
 }
 
-/** Conversation existante pour ce chat, sinon rattachée (archive) ou créée. */
-async function conversationPour(c: PoolClient, m: MessageUnipile, interlocuteurId: string | null) {
+export interface Interlocuteur {
+  id: string | null;
+  nom: string | null;
+}
+
+/**
+ * Conversation existante pour ce chat, sinon rattachée (archive) ou créée. Interlocuteur inconnu
+ * du CRM : sa lecture de profil est mise en file, en priorité, pour l'identifier (nom, poste,
+ * photo, URL), et le rattacher à un prospect si l'URL correspond.
+ */
+async function conversationPour(c: PoolClient, m: MessageUnipile, interlocuteur: Interlocuteur) {
+  const interlocuteurId = interlocuteur.id;
   const connue = await c.query("select id, prospect_id from public.conversations where unipile_chat_id = $1", [m.chat_id]);
   if (connue.rowCount) return connue.rows[0] as { id: string; prospect_id: string | null };
 
@@ -54,29 +64,31 @@ async function conversationPour(c: PoolClient, m: MessageUnipile, interlocuteurI
     );
     if (reliee.rowCount) return reliee.rows[0];
   }
-  const nom = m.is_sender ? null : (m.sender?.display_name ?? null);
+  const nom = (m.is_sender ? interlocuteur.nom : (m.sender?.display_name ?? interlocuteur.nom))?.trim().slice(0, 200) || null;
   await c.query(
     `insert into public.conversations (unipile_chat_id, prospect_id, interlocuteur_provider_id, interlocuteur_nom, demo)
      values ($1, $2, $3, $4, $5) on conflict (unipile_chat_id) do nothing`,
     [m.chat_id, p?.id ?? null, interlocuteurId, nom, p?.demo ?? false],
   );
-  return (await c.query("select id, prospect_id from public.conversations where unipile_chat_id = $1", [m.chat_id])).rows[0] as {
+  const conv = (await c.query("select id, prospect_id from public.conversations where unipile_chat_id = $1", [m.chat_id])).rows[0] as {
     id: string;
     prospect_id: string | null;
   };
+  if (!conv.prospect_id && interlocuteurId) await identifierInterlocuteur(c, conv.id, interlocuteurId);
+  return conv;
 }
 
 /**
  * message.new : le message rejoint le fil (sans doublon : identifiant Unipile). Reçu → conversation
  * non lue ; d'un prospect → étape « Répondu » si elle était avant, avec l'événement au journal.
  */
-export async function enregistrerMessageRecu(c: PoolClient, m: MessageUnipile, interlocuteurId: string | null) {
+export async function enregistrerMessageRecu(c: PoolClient, m: MessageUnipile, interlocuteur: Interlocuteur = { id: null, nom: null }) {
   const texte = texteMessage(m);
   if (!texte) return { enregistre: false };
   const quand = new Date(m.timestamp);
   if (Number.isNaN(quand.getTime())) return { enregistre: false };
 
-  const conv = await conversationPour(c, m, m.is_sender ? interlocuteurId : (m.sender_id ?? interlocuteurId));
+  const conv = await conversationPour(c, m, m.is_sender ? interlocuteur : { id: m.sender_id ?? interlocuteur.id, nom: interlocuteur.nom });
   const ins = await c.query(
     `insert into public.messages (conversation_id, unipile_message_id, sens, texte, envoye_at)
      values ($1, $2, $3, $4, $5) on conflict (unipile_message_id) do nothing returning id`,
@@ -175,4 +187,17 @@ export async function enregistrerAccuseLecture(c: PoolClient, a: z.infer<typeof 
     [id, jusqua, lu],
   );
   return r.rowCount ?? 0;
+}
+
+/**
+ * Lecture de profil de l'interlocuteur d'une conversation hors CRM (une seule par conversation),
+ * en file sous le quota des lectures. Ses effets : identification.ts (rattachement ou identité).
+ */
+export async function identifierInterlocuteur(c: PoolClient, conversationId: string, providerId: string) {
+  if (!/^[A-Za-z0-9_-]{3,100}$/.test(providerId)) return;
+  await c.query(
+    `insert into public.taches (type_action, prospect_id, payload, cle_idempotence)
+     values ('lecture_profil', null, $1, $2) on conflict (cle_idempotence) do nothing`,
+    [{ public_identifier: providerId, conversation_id: conversationId }, `identification:${conversationId}`],
+  );
 }
