@@ -61,7 +61,7 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
   const lancer = (liste: Liste) =>
     db.pool.query(
       `insert into public.taches (type_action, payload, cle_idempotence, executer_apres) values ('lecture_liste', $1, $2, '2026-11-01')`,
-      [{ liste, limite: 1000, complete: true, page: 1 }, `complete:${liste}:debut`],
+      [{ liste, limite: 100, complete: true, page: 1 }, `complete:${liste}:debut`],
     );
   const personne = (id: string) => ({ providerId: `ACo${id}`, publicIdentifier: id, date: null, photoUrl: `https://media.licdn.com/${id}.jpg` });
 

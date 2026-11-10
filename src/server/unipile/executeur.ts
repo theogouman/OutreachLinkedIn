@@ -31,7 +31,7 @@ const payloadPremierMessage = z.object({
  */
 const payloadLectureListe = z.object({
   liste: listeSchema,
-  limite: z.number().int().min(1).max(1000).default(50),
+  limite: z.number().int().min(1).max(100).default(50),
   curseur: z.string().min(1).max(4000).optional(),
   complete: z.boolean().optional(),
   page: z.number().int().min(1).max(500).optional(),

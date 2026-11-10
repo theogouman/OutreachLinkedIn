@@ -43,8 +43,8 @@ const invitationsSchema = z.object({
   next_cursor: curseurSchema,
 });
 
-/** Taille de page demandée : plafond, Unipile peut renvoyer moins (la suite vient par le curseur). */
-export const TAILLE_PAGE_MAX = 1000;
+/** Taille de page : 100 au plus (au-delà, Unipile répond 400 invalid_parameters, constaté le 2026-11-10). */
+export const TAILLE_PAGE_MAX = 100;
 
 /** POST /v2/{account_id}/chats/{chat_id}/messages/send → 200 { object: "MessageSent", message_id }. */
 const messageEnvoyeSchema = z.object({

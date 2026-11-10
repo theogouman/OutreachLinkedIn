@@ -81,14 +81,14 @@ describe("client Unipile v2", () => {
     const f = fetchFactice(200, { data: [], next_cursor: null });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 5000, "c/2+");
     expect(r).toEqual({ ok: true, donnees: { personnes: [], suivant: null } });
-    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=1000&cursor=c%2F2%2B");
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=100&cursor=c%2F2%2B");
   });
 
   it("lit les invitations envoyées / reçues", async () => {
     const f = fetchFactice(200, { data: [{ id: "req1", object: "RelationRequest", type: "sent", user: { id: "ACoU2" } }, { id: "req2", type: "sent" }] });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500);
     expect(r).toEqual({ ok: true, donnees: { personnes: [{ providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null }], suivant: null } });
-    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=500");
+    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100");
   });
 
   it("remonte le statut, le type, le détail et retry-after d'une erreur", async () => {
