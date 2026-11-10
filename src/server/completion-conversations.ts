@@ -47,6 +47,16 @@ export async function completerConversations(pool: Pool, deps: DependancesComple
     const r = await deps.lireConversation(conv.unipile_chat_id).catch(() => null);
     const infos = r?.ok ? r.donnees : null;
     const photo = !conv.prospect_id && infos?.photoUrl ? await deps.telechargerPhoto(infos.photoUrl).catch(() => null) : null;
+    if (!conv.prospect_id) {
+      // Diagnostic sans donnée personnelle : présence d'une photo chez Unipile, hôte, résultat du téléchargement.
+      let hote: string | null = null;
+      try {
+        hote = infos?.photoUrl ? new URL(infos.photoUrl).hostname : null;
+      } catch {
+        hote = "invalide";
+      }
+      console.info("[completion] photo", { lue: !!r?.ok, hote, telechargee: !!photo });
+    }
     const nom = conv.interlocuteur_nom ?? infos?.nom?.slice(0, 200) ?? null;
     const interlocuteurId = conv.interlocuteur_provider_id ?? infos?.interlocuteurId ?? null;
     const prospectId = !conv.prospect_id && nom ? await prospectDuMemeNom(pool, nom, interlocuteurId) : null;
