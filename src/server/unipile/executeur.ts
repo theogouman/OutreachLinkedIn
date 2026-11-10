@@ -237,7 +237,10 @@ async function effetsConversation(c: PoolClient, tacheId: string, d: Extract<Don
  * retirée de la file ; sinon, identité gardée sur la conversation (nom, poste, URL, photo).
  */
 async function effetsIdentification(c: PoolClient, conversationId: string, profil: ProfilLu, photo: Photo | null) {
-  const conv = await c.query("select id, prospect_id, interlocuteur_provider_id from public.conversations where id = $1", [conversationId]);
+  const conv = await c.query(
+    "select id, prospect_id, interlocuteur_provider_id, rattachement_par_nom from public.conversations where id = $1",
+    [conversationId],
+  );
   if (!conv.rowCount) return; // supprimée entre-temps
   const url = profil.publicIdentifier ? identifiantVersProfil(profil.publicIdentifier)?.urlNormalisee : null;
   const prospect = await c.query(
@@ -245,7 +248,13 @@ async function effetsIdentification(c: PoolClient, conversationId: string, profi
     [url ?? null, profil.providerId],
   );
   const p = prospect.rows[0] as { id: string } | undefined;
-  if (p && !conv.rows[0].prospect_id) {
+  const actuel = conv.rows[0] as { prospect_id: string | null; rattachement_par_nom: boolean };
+  // Rattachement provisoire par le nom démenti par l'URL : la conversation est détachée (ou réattribuée).
+  if (actuel.prospect_id && actuel.rattachement_par_nom && actuel.prospect_id !== p?.id) {
+    await c.query("update public.conversations set prospect_id = null, rattachement_par_nom = false where id = $1", [conversationId]);
+    actuel.prospect_id = null;
+  }
+  if (p && (!actuel.prospect_id || actuel.prospect_id === p.id)) {
     const libre = await c.query("select 1 from public.prospects where provider_id = $1 and id <> $2", [profil.providerId, p.id]);
     if (!libre.rowCount) {
       await c.query(
@@ -267,7 +276,7 @@ async function effetsIdentification(c: PoolClient, conversationId: string, profi
       [p.id],
     );
     await rattacherConversations(c, p.id, conv.rows[0].interlocuteur_provider_id ?? profil.providerId);
-    await c.query("update public.conversations set prospect_id = $1 where id = $2 and prospect_id is null", [p.id, conversationId]);
+    await c.query("update public.conversations set prospect_id = $1, rattachement_par_nom = false where id = $2", [p.id, conversationId]);
     return;
   }
   const nom = [profil.prenom, profil.nom].filter(Boolean).join(" ").slice(0, 200) || null;

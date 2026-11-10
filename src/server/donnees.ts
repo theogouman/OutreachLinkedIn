@@ -316,7 +316,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
   const r = await pool.query(
     `with conv as (
        select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
-              coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Identification en cours') as nom,
+              coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
               coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre, p.etape,
               p.photo_maj, c.photo_maj as photo_conv_maj,
               coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens
@@ -389,7 +389,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
     `select c.id, c.prospect_id, c.non_lu, c.demo, p.photo_maj, c.photo_maj as photo_conv_maj, c.interlocuteur_public_identifier,
-            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Identification en cours') as nom,
+            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
             coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
       where ($1::uuid is not null and c.id = $1) or ($2::uuid is not null and c.prospect_id = $2)

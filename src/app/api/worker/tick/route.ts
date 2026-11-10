@@ -5,7 +5,8 @@ import { planifierSynchronisations } from "@/server/queue/planification";
 import { executerUnTour } from "@/server/queue/worker";
 import { jetonBearer, secretsEgaux } from "@/server/secrets";
 import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
-import { clientLinkedIn } from "@/server/unipile/fabrique";
+import { completerConversations } from "@/server/completion-conversations";
+import { clientLinkedIn, dependancesCompletion } from "@/server/unipile/fabrique";
 
 export const maxDuration = 60;
 
@@ -29,6 +30,8 @@ export async function POST(request: Request) {
     const pool = poolServeur();
     const maintenant = new Date();
     await planifierSynchronisations(pool, maintenant);
+    // Conversations à compléter (nom, photo) : lecture de la messagerie, hors quota et hors file.
+    await completerConversations(pool, dependancesCompletion(), 5).catch((e) => console.error("[completion]", (e as Error).message));
     const bilan = await executerUnTour({
       pool,
       executeur: creerExecuteur(clientLinkedIn(), { lireDestinataire: lireDestinataireDepuis(pool) }),

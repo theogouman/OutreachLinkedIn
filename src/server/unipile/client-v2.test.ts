@@ -149,9 +149,9 @@ describe("client Unipile v2", () => {
   });
 
   it("lit l'interlocuteur et le nom d'une conversation à deux (Get a Chat)", async () => {
-    const f = fetchFactice(200, { object: "Chat", id: "chat_1", user_id: "ACoLEA", name: " Léa Martin " });
+    const f = fetchFactice(200, { object: "Chat", id: "chat_1", user_id: "ACoLEA", name: " Léa Martin ", public_picture_url: "https://media.licdn.com/p.jpg" });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireConversation("chat_1");
-    expect(r).toEqual({ ok: true, donnees: { interlocuteurId: "ACoLEA", nom: "Léa Martin" } });
+    expect(r).toEqual({ ok: true, donnees: { interlocuteurId: "ACoLEA", nom: "Léa Martin", photoUrl: "https://media.licdn.com/p.jpg" } });
     expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/chats/chat_1");
   });
 });
