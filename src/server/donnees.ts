@@ -1,11 +1,15 @@
 import "server-only";
 import type { Pool } from "pg";
 import { z } from "zod";
+import { detailsAffichables } from "@/lib/listes";
+import { lienProfilLinkedIn } from "@/lib/linkedin-url";
+import { notificationsDepuis } from "./notifications";
 import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
 import { chargerContexte } from "./queue/worker";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
+import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
 /**
  * Couche d'accès aux données pour l'interface. Chaque fonction exportée vérifie
@@ -31,6 +35,7 @@ export interface EtatOutil {
   etatFile: "en_cours" | "en_pause" | "gele";
   modeSimule: boolean;
   prospectsDemo: number;
+  nonLus: number;
 }
 
 export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Promise<EtatOutil> {
@@ -38,7 +43,8 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
   const f = await pool.query(
     `select count(*) filter (where statut = 'en_attente')::int as en_attente,
             count(*) filter (where statut = 'incertaine')::int as incertaines,
-            (select count(*) from public.prospects where demo)::int as demo
+            (select count(*) from public.prospects where demo)::int as demo,
+            (select count(*) from public.conversations where non_lu)::int as non_lus
        from public.taches`,
   );
   const quotas = {} as EtatOutil["quotas"];
@@ -60,6 +66,7 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
     etatFile: ctx.reglages.arretDurgence ? "en_pause" : unGel ? "gele" : "en_cours",
     modeSimule: envUnipile().mode === "simule",
     prospectsDemo: f.rows[0].demo,
+    nonLus: f.rows[0].non_lus,
   };
 }
 
@@ -70,15 +77,8 @@ export async function etatOutil() {
 
 // ─── Prospects ────────────────────────────────────────────────────────────────
 
-export const filtresProspectsSchema = z.object({
-  statut: z.enum(["en_relation", "en_attente", "invitation_recue", "a_inviter"]).optional(),
-  etape: z.string().max(50).optional(),
-  liste: z.string().max(100).optional(),
-  relanceAvant: z.iso.date().optional(),
-  recherche: z.string().max(100).optional(),
-  page: z.coerce.number().int().min(1).max(10_000).default(1),
-});
-export type FiltresProspects = z.infer<typeof filtresProspectsSchema>;
+export { filtresProspectsSchema, type FiltresProspects } from "@/lib/filtres/prospects";
+import type { FiltresProspects } from "@/lib/filtres/prospects";
 
 export interface LigneProspect {
   id: string;
@@ -92,6 +92,8 @@ export interface LigneProspect {
   etape: string;
   prochaineRelance: string | null;
   identifie: boolean;
+  /** Photo de profil servie par l'outil (null : initiales). */
+  photo: string | null;
 }
 
 export const TAILLE_PAGE = 50;
@@ -100,13 +102,16 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
   const r = await pool.query(
     `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie,
-            count(*) over ()::int as total
+            photo_maj, count(*) over ()::int as total
        from public.prospects
       where ($1::public.statut_relation is null or statut_relation = $1)
         and ($2::text is null or etape = $2)
         and ($3::text is null or liste_origine = $3)
         and ($4::date is null or prochaine_relance <= $4)
-        and ($5::text is null or concat_ws(' ', prenom, nom, entreprise, poste) ilike '%' || $5 || '%')
+        and not exists (
+              select 1 from unnest($5::text[]) as terme
+               where position(terme in translate(lower(concat_ws(' ', prenom, nom, entreprise, poste)), $8, $9)) = 0
+            )
       order by coalesce(nom, ''), coalesce(prenom, ''), id
       limit $6 offset $7`,
     [
@@ -114,9 +119,11 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
       filtres.etape ?? null,
       filtres.liste ?? null,
       filtres.relanceAvant ?? null,
-      filtres.recherche ? filtres.recherche.replace(/[\\%_]/g, (m) => `\\${m}`) : null,
+      termesRecherche(filtres.recherche ?? ""),
       TAILLE_PAGE,
       (filtres.page - 1) * TAILLE_PAGE,
+      TRANSLATE_DE,
+      TRANSLATE_VERS,
     ],
   );
   const lignes: LigneProspect[] = r.rows.map((x) => ({
@@ -131,6 +138,7 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
     etape: x.etape,
     prochaineRelance: x.prochaine_relance,
     identifie: x.identifie,
+    photo: adressePhoto(x.id, x.photo_maj),
   }));
   return { lignes, total: (r.rows[0]?.total as number | undefined) ?? 0 };
 }
@@ -167,6 +175,8 @@ export interface EvenementHistorique {
 
 export interface FicheProspect extends LigneProspect {
   notes: string | null;
+  /** Informations propres à la liste d'origine, déjà filtrées et revalidées (src/lib/listes.ts). */
+  informationsListe: ReturnType<typeof detailsAffichables>;
   historique: EvenementHistorique[];
 }
 
@@ -174,7 +184,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
   const parse = z.uuid().safeParse(id);
   if (!parse.success) return null;
   const p = await pool.query(
-    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes,
+    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie
        from public.prospects where id = $1`,
     [parse.data],
@@ -201,7 +211,9 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
     etape: x.etape,
     prochaineRelance: x.prochaine_relance,
     identifie: x.identifie,
+    photo: adressePhoto(x.id, x.photo_maj),
     notes: x.notes,
+    informationsListe: detailsAffichables(x.liste_origine, x.details),
     historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file })),
   };
 }
@@ -281,8 +293,8 @@ export async function reglages() {
 
 // ─── Inbox ────────────────────────────────────────────────────────────────────
 
-export const filtreInboxSchema = z.enum(["tous", "non_lus", "a_traiter", "hors_crm"]).catch("tous");
-export type FiltreInbox = z.infer<typeof filtreInboxSchema>;
+export { filtresInboxSchema, type FiltresInbox } from "@/lib/filtres/inbox";
+import { filtresInboxSchema, type FiltresInbox } from "@/lib/filtres/inbox";
 
 export interface LigneConversation {
   id: string;
@@ -294,45 +306,66 @@ export interface LigneConversation {
   dernierSens: "entrant" | "sortant";
   dernierMessageAt: Date | null;
   nonLu: boolean;
+  photo: string | null;
 }
 
-export async function inboxDepuis(pool: Pool, filtre: FiltreInbox): Promise<LigneConversation[]> {
+export const TAILLE_PAGE_INBOX = 100;
+
+/** Conversations de l'Inbox selon les filtres (standard src/lib/filtres : mêmes règles qu'en local). */
+export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ lignes: LigneConversation[]; total: number }> {
   const r = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
-            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
-            nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre, p.etape,
-            m.texte as apercu, m.sens as dernier_sens
-       from public.conversations c
-       left join public.prospects p on p.id = c.prospect_id
-       left join lateral (
-         select texte, sens from public.messages where conversation_id = c.id order by envoye_at desc limit 1
-       ) m on true
-      where case $1::text
-              when 'non_lus' then c.non_lu
-              when 'a_traiter' then m.sens = 'entrant'
-              when 'hors_crm' then c.prospect_id is null
-              else true
-            end
-      order by c.dernier_message_at desc nulls last
-      limit 200`,
-    [filtre],
+    `with conv as (
+       select c.id, c.prospect_id, c.non_lu, c.dernier_message_at,
+              coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
+              coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre, p.etape,
+              p.photo_maj, c.photo_maj as photo_conv_maj,
+              coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens
+         from public.conversations c
+         left join public.prospects p on p.id = c.prospect_id
+         left join lateral (
+           select texte, sens from public.messages where conversation_id = c.id order by envoye_at desc limit 1
+         ) m on true
+     )
+     select *, count(*) over ()::int as total
+       from conv
+      where (not $1::boolean or non_lu)
+        and (not $2::boolean or dernier_sens = 'entrant')
+        and (not $3::boolean or prospect_id is null)
+        and not exists (
+              select 1 from unnest($4::text[]) as terme
+               where position(terme in translate(lower(concat_ws(' ', nom, sous_titre, apercu)), $5, $6)) = 0
+            )
+      order by dernier_message_at desc nulls last, id
+      limit $7 offset $8`,
+    [
+      filtres.nonLus === "oui",
+      filtres.aTraiter === "oui",
+      filtres.horsCrm === "oui",
+      termesRecherche(filtres.recherche ?? ""),
+      TRANSLATE_DE,
+      TRANSLATE_VERS,
+      TAILLE_PAGE_INBOX,
+      (filtres.page - 1) * TAILLE_PAGE_INBOX,
+    ],
   );
-  return r.rows.map((x) => ({
+  const lignes = r.rows.map((x) => ({
     id: x.id,
     prospectId: x.prospect_id,
     nom: x.nom,
     sousTitre: x.sous_titre,
     etape: x.etape,
-    apercu: (x.apercu ?? "").slice(0, 160),
-    dernierSens: x.dernier_sens ?? "sortant",
+    apercu: x.apercu,
+    dernierSens: x.dernier_sens,
     dernierMessageAt: x.dernier_message_at,
     nonLu: x.non_lu,
+    photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
   }));
+  return { lignes, total: r.rows[0]?.total ?? 0 };
 }
 
-export async function inbox(filtre: unknown) {
+export async function inbox(filtres: unknown) {
   await exigerUtilisateur();
-  return inboxDepuis(poolServeur(), filtreInboxSchema.parse(filtre));
+  return inboxDepuis(poolServeur(), filtresInboxSchema.parse(filtres));
 }
 
 export interface MessageFil {
@@ -340,37 +373,247 @@ export interface MessageFil {
   sens: "entrant" | "sortant";
   texte: string;
   envoyeAt: Date;
+  /** « envoye » pour l'historique ; les messages encore dans la file portent leur état. */
+  statut: "envoye" | "en_file" | "en_cours" | "incertain";
+  /** Message envoyé lu par l'interlocuteur (accusé de lecture LinkedIn). */
+  lu: boolean;
 }
 
+/**
+ * Fil d'une conversation (par son id, ou la plus récente d'un prospect). Pour un prospect sans
+ * conversation, renvoie un fil vide (id null) avec ses premiers messages encore en file.
+ */
 export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; prospectId?: unknown }) {
   const conv = z.uuid().safeParse(cle.conversationId);
   const prospect = z.uuid().safeParse(cle.prospectId);
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu,
-            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Inconnu') as nom,
-            nullif(concat_ws(' · ', p.poste, p.entreprise), '') as sous_titre
+    `select c.id, c.prospect_id, c.non_lu, c.demo, p.photo_maj, c.photo_maj as photo_conv_maj, c.interlocuteur_public_identifier,
+            coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
+            coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
       where ($1::uuid is not null and c.id = $1) or ($2::uuid is not null and c.prospect_id = $2)
       order by c.dernier_message_at desc nulls last limit 1`,
     [conv.success ? conv.data : null, prospect.success ? prospect.data : null],
   );
-  if (!c.rowCount) return null;
-  const m = await pool.query(
-    "select id, sens, texte, envoye_at from public.messages where conversation_id = $1 order by envoye_at limit 500",
-    [c.rows[0].id],
+  const x = c.rows[0];
+  let entete: {
+    id: string | null;
+    prospectId: string | null;
+    nom: string;
+    sousTitre: string | null;
+    nonLu: boolean;
+    demo: boolean;
+    photo: string | null;
+    /** Interlocuteur hors CRM : lien LinkedIn reconstruit depuis son identifiant public (carte d'infos). */
+    lienLinkedIn: string | null;
+  };
+  if (x) {
+    entete = {
+      id: x.id,
+      prospectId: x.prospect_id,
+      nom: x.nom,
+      sousTitre: x.sous_titre,
+      nonLu: x.non_lu,
+      demo: x.demo,
+      photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
+      lienLinkedIn: x.prospect_id ? null : lienProfilLinkedIn(x.interlocuteur_public_identifier ? `https://www.linkedin.com/in/${x.interlocuteur_public_identifier}` : null),
+    };
+  } else {
+    if (!prospect.success) return null;
+    const p = await pool.query(
+      `select id, demo, photo_maj, coalesce(nullif(concat_ws(' ', prenom, nom), ''), 'Prospect') as nom,
+              nullif(concat_ws(' · ', poste, entreprise), '') as sous_titre
+         from public.prospects where id = $1`,
+      [prospect.data],
+    );
+    if (!p.rowCount) return null;
+    const y = p.rows[0];
+    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo, photo: adressePhoto(y.id, y.photo_maj), lienLinkedIn: null };
+  }
+  const m = entete.id
+    ? await pool.query(
+        "select id, sens, texte, envoye_at, lu_le is not null as lu from public.messages where conversation_id = $1 order by envoye_at limit 500",
+        [entete.id],
+      )
+    : { rows: [] };
+  // Messages rédigés dans l'outil, encore dans la file (dans cette conversation, ou premiers
+  // messages au prospect) : affichés à la suite, avec leur état.
+  const enFile = await pool.query(
+    `select id, payload->>'texte' as texte, coalesce(depart_estime, executer_apres) as quand, statut
+       from public.taches
+      where type_action = 'message' and statut in ('en_attente', 'en_cours', 'incertaine')
+        and (($1::text is not null and payload->>'conversation_id' = $1::text)
+             or ($2::text is not null and payload->>'prospect_id' = $2::text))
+      order by ordre`,
+    [entete.id, entete.prospectId],
   );
+  const etat = { en_attente: "en_file", en_cours: "en_cours", incertaine: "incertain" } as const;
   return {
-    id: c.rows[0].id as string,
-    prospectId: c.rows[0].prospect_id as string | null,
-    nom: c.rows[0].nom as string,
-    sousTitre: c.rows[0].sous_titre as string | null,
-    nonLu: c.rows[0].non_lu as boolean,
-    messages: m.rows.map((x): MessageFil => ({ id: x.id, sens: x.sens, texte: x.texte, envoyeAt: x.envoye_at })),
+    ...entete,
+    messages: [
+      ...m.rows.map((r): MessageFil => ({ id: r.id, sens: r.sens, texte: r.texte, envoyeAt: r.envoye_at, statut: "envoye", lu: r.lu })),
+      ...enFile.rows.map(
+        (r): MessageFil => ({ id: `file-${r.id}`, sens: "sortant", texte: r.texte, envoyeAt: r.quand, statut: etat[r.statut as keyof typeof etat], lu: false }),
+      ),
+    ],
   };
 }
 
 export async function fil(cle: { conversationId?: unknown; prospectId?: unknown }) {
   await exigerUtilisateur();
   return filDepuis(poolServeur(), cle);
+}
+
+// ─── Indicateurs de la liste de prospects ─────────────────────────────────────
+
+export interface StatsProspects {
+  total: number;
+  parStatut: Record<"en_relation" | "en_attente" | "invitation_recue" | "a_inviter", number>;
+  aTraiter: number;
+  relancesDues: number;
+}
+
+export async function statsProspectsDepuis(pool: Pool): Promise<StatsProspects> {
+  const r = await pool.query(
+    `select count(*)::int as total,
+            count(*) filter (where statut_relation = 'en_relation')::int as en_relation,
+            count(*) filter (where statut_relation = 'en_attente')::int as en_attente,
+            count(*) filter (where statut_relation = 'invitation_recue')::int as invitation_recue,
+            count(*) filter (where statut_relation = 'a_inviter')::int as a_inviter,
+            count(*) filter (where prochaine_relance <= (now() at time zone 'Europe/Paris')::date
+                             and etape not in (select code from public.etapes where terminale))::int as relances_dues,
+            (select count(*) from public.conversations c
+              where (select sens from public.messages m where m.conversation_id = c.id order by envoye_at desc limit 1) = 'entrant')::int as a_traiter
+       from public.prospects`,
+  );
+  const x = r.rows[0];
+  return {
+    total: x.total,
+    parStatut: { en_relation: x.en_relation, en_attente: x.en_attente, invitation_recue: x.invitation_recue, a_inviter: x.a_inviter },
+    aTraiter: x.a_traiter,
+    relancesDues: x.relances_dues,
+  };
+}
+
+export async function statsProspects() {
+  await exigerUtilisateur();
+  return statsProspectsDepuis(poolServeur());
+}
+
+// ─── Statistiques : entonnoir par étape, activité par jour ───────────────────
+
+export interface EtapeEntonnoir {
+  code: string;
+  libelle: string;
+  valeur: number;
+}
+
+/**
+ * Entonnoir : étapes non terminales puis la première étape terminale (« Gagné »).
+ * Chaque étape compte les prospects qui l'ont atteinte : étape actuelle, ou plus haute étape
+ * franchie d'après le journal (un prospect « Perdu » après « Connecté » compte jusqu'à « Connecté »).
+ * Les autres étapes terminales (Perdu, Pas intéressé) sont des sorties, comptées à part.
+ */
+export async function entonnoirDepuis(pool: Pool): Promise<{ etapes: EtapeEntonnoir[]; sorties: EtapeEntonnoir[] }> {
+  const r = await pool.query(
+    `with etapes_ordonnees as (
+       select code, libelle, ordre, terminale,
+              not terminale or ordre = (select min(ordre) from public.etapes where terminale) as dans_entonnoir
+         from public.etapes
+     ),
+     entonnoir as (select code, ordre from etapes_ordonnees where dans_entonnoir),
+     atteint as (
+       select p.id,
+              greatest(
+                (select min(ordre) from entonnoir),
+                (select e.ordre from entonnoir e where e.code = p.etape),
+                (select max(e.ordre) from public.actions a join entonnoir e on e.code = a.details->>'vers'
+                  where a.prospect_id = p.id and a.type = 'changement_etape')
+              ) as ordre
+         from public.prospects p
+     )
+     select eo.code, eo.libelle, eo.dans_entonnoir,
+            case when eo.dans_entonnoir
+                 then (select count(*) from atteint where atteint.ordre >= eo.ordre)
+                 else (select count(*) from public.prospects p where p.etape = eo.code)
+            end::int as valeur
+       from etapes_ordonnees eo
+      order by eo.ordre`,
+  );
+  const ligne = (x: { code: string; libelle: string; valeur: number }) => ({ code: x.code, libelle: x.libelle, valeur: x.valeur });
+  return {
+    etapes: r.rows.filter((x) => x.dans_entonnoir).map(ligne),
+    sorties: r.rows.filter((x) => !x.dans_entonnoir).map(ligne),
+  };
+}
+
+export interface JourActivite {
+  jour: string; // AAAA-MM-JJ, heure de Paris
+  total: number;
+  invitations: number;
+  messages: number;
+  lectures: number;
+}
+
+const jourParis = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris" });
+
+/**
+ * Activité de prospection : actions LinkedIn réussies (invitations, messages, lectures de profil)
+ * par jour de Paris, sur `semaines` semaines complètes du lundi au jour courant.
+ * Les synchronisations de liste sont techniques et ne comptent pas.
+ */
+export async function activiteDepuis(pool: Pool, maintenant = new Date(), semaines = 26) {
+  const fin = jourParis.format(maintenant);
+  const d = new Date(`${fin}T00:00:00Z`);
+  const lundi = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000);
+  const debut = new Date(lundi.getTime() - (semaines - 1) * 7 * 86_400_000).toISOString().slice(0, 10);
+  const r = await pool.query(
+    `select to_char((created_at at time zone 'Europe/Paris')::date, 'YYYY-MM-DD') as jour,
+            count(*)::int as total,
+            count(*) filter (where type = 'invitation')::int as invitations,
+            count(*) filter (where type = 'message')::int as messages,
+            count(*) filter (where type = 'lecture_profil')::int as lectures
+       from public.actions
+      where sortante and resultat = 'succes' and type in ('invitation', 'message', 'lecture_profil')
+        and (created_at at time zone 'Europe/Paris')::date between $1::date and $2::date
+      group by 1 order by 1`,
+    [debut, fin],
+  );
+  const jours: JourActivite[] = r.rows;
+  return { debut, fin, jours, joursActifs: jours.length };
+}
+
+export async function statistiques() {
+  await exigerUtilisateur();
+  const pool = poolServeur();
+  const [entonnoir, activite] = await Promise.all([entonnoirDepuis(pool), activiteDepuis(pool)]);
+  return { entonnoir, activite };
+}
+
+// ─── Photos de profil ─────────────────────────────────────────────────────────
+
+/** Adresse de la photo servie par l'outil (version dans l'URL : le cache suit les mises à jour). */
+export function adressePhoto(id: string, maj: Date | string | null): string | null {
+  return maj ? `/api/photos/${id}?v=${new Date(maj).getTime()}` : null;
+}
+
+/** Photo d'un prospect, ou de l'interlocuteur d'une conversation hors CRM (même adresse /api/photos/<id>). */
+export async function photoProspect(id: string): Promise<{ contenu: Buffer; type: string } | null> {
+  await exigerUtilisateur();
+  const r = await poolServeur().query(
+    `select contenu, type_mime from public.photos_prospects where prospect_id = $1
+     union all
+     select contenu, type_mime from public.photos_conversations where conversation_id = $1
+     limit 1`,
+    [id],
+  );
+  return r.rowCount ? { contenu: r.rows[0].contenu, type: r.rows[0].type_mime } : null;
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export async function notifications() {
+  await exigerUtilisateur();
+  return notificationsDepuis(poolServeur());
 }

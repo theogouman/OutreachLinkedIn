@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ACCEPTEES_DEMO, PROSPECTS_DEMO, providerDemo } from "@/server/demo";
 import type { ClientLinkedIn, PersonneListee, ProfilLu } from "./types";
 
@@ -28,6 +28,19 @@ export function creerClientSimule(
   donnees: { relations?: PersonneListee[]; envoyees?: PersonneListee[]; recues?: PersonneListee[] } = LISTES_DEMO,
 ): ClientLinkedIn {
   return {
+    async envoyerMessage(chatId) {
+      // Garde-fou : la simulation n'« envoie » que dans les conversations de démonstration.
+      if (!chatId.startsWith("demo-chat-")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
+      return { ok: true, donnees: { messageId: `demo-msg-${randomUUID()}` } };
+    },
+    async demarrerConversation(providerId) {
+      // Garde-fou : la simulation ne « démarre » de conversation qu'avec un prospect de démonstration.
+      if (!providerId.startsWith("ACoDEMO")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
+      return { ok: true, donnees: { chatId: `demo-chat-${randomUUID()}`, messageId: `demo-msg-${randomUUID()}` } };
+    },
+    async lireConversation() {
+      return { ok: true, donnees: { interlocuteurId: null, nom: null, photoUrl: null } };
+    },
     async lireProfil(identifiant) {
       const demo = PROSPECTS_DEMO.find((p) => p.id === identifiant);
       const profil: ProfilLu = {
@@ -38,12 +51,13 @@ export function creerClientSimule(
         titre: demo ? `${demo.poste} chez ${demo.entreprise}` : null,
         distance: null,
         invitation: null,
+        photoUrl: null,
       };
       return { ok: true, donnees: profil };
     },
     async lireListe(liste) {
       const source = liste === "relations" ? donnees.relations : liste === "invitations_envoyees" ? donnees.envoyees : donnees.recues;
-      return { ok: true, donnees: source ?? [] };
+      return { ok: true, donnees: { personnes: source ?? [], suivant: null } };
     },
   };
 }

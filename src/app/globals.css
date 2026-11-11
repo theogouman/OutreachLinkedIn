@@ -1,15 +1,59 @@
 @import "tailwindcss";
 
-/* Design system : SF Pro Display via la police système (licence Apple : non servie
-   en police web), accent #e0625a, surface #f5f2f2. */
+/*
+ * Système de design de l'outil, aligné sur la DA Notion Club (dépôt Notion-Club/Infrastructure) :
+ * - SF Pro Display (police système), brand #e0625a, page #f5f2f2 à deux taches latérales,
+ *   textes #000 / #52525b / #64748b, bordures #e5e7eb, surfaces relevées #f5f5f5.
+ * - Rayons NC : 12 px (champs), 24 px (cartes), pilule (boutons, navigation).
+ * - Boutons d'action en pilule sombre (#1a1a1a) : contraste 17:1. Le rouge brand sert aux
+ *   accents (indicateurs, focus, sélection) ; sur fond rouge, le texte blanc passe par #b5443d.
+ * - Règles de qualité : ai-design-skills (MIT) et anti-slop (MIT).
+ */
 @theme {
-  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --color-accent: #e0625a;
-  --color-surface: #f5f2f2;
-  --animate-apparition: apparition 180ms ease-out;
+  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* Couleurs (jetons NC) */
+  --color-surface: #f5f2f2; /* surface-page */
+  --color-carte: #ffffff; /* surface-card */
+  --color-creux: #f5f5f5; /* surface-raised */
+  --color-trait: #e5e7eb; /* border-default */
+  --color-trait-fort: #d4d4d8;
+  --color-conversation: #f4f4f5; /* fond de fil pointillé (fiche) */
+  --color-conversation-point: #d4d4d8;
+  --color-bulle: #e4e4e7; /* bulle reçue, posée sur un fil blanc (contraste net avec le fond) */
+  --color-encre: #000000; /* text-primary */
+  --color-encre-2: #52525b; /* text-secondary */
+  --color-encre-3: #64748b; /* text-muted (4,7:1 sur blanc) */
+  --color-accent: #e0625a; /* brand */
+  --color-action: #b5443d; /* brand assombri : texte rouge et fonds rouges sous texte blanc (5,4:1) */
+  --color-action-fonce: #9c3a34;
+  --color-accent-doux: #fef3f2;
+  --color-sombre: #1a1a1a; /* boutons CTA sombres NC */
+
+  --radius-champ: 12px;
+  --radius-carte: 24px;
+
+  /* Mouvement (transitions.dev) */
+  --ease-sortie: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-rebond: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  --animate-apparition: apparition 250ms var(--ease-sortie);
+  --animate-chiffre: chiffre 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes apparition {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Changement de chiffre : fondu et montée de 6 px, sans rebond. */
+@keyframes chiffre {
   from {
     opacity: 0;
     transform: translateY(6px);
@@ -20,11 +64,240 @@
   }
 }
 
-body {
-  font-family: var(--font-sans);
+
+/* ── Styles de texte nommés (ai-design-skills B1) ─────────────────────────── */
+@utility heading-5 {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl--line-height);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+@utility heading-6 {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl--line-height);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+@utility title-2 {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg--line-height);
+  font-weight: 500;
+}
+@utility title-3 {
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
+  font-weight: 500;
+}
+@utility title-4 {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+}
+@utility body-5 {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+}
+@utility body-6 {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 400;
+  text-wrap: pretty;
+}
+@utility button-sm {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 600;
+}
+@utility caption-3 {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 500;
+}
+@utility caption-4 {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 500;
+}
+@utility caption-5 {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 400;
+}
+@utility chiffre-cle {
+  font-size: var(--text-3xl);
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Animations courtes et jamais bloquantes ; supprimées si l'utilisateur le demande. */
+/* ── Composants de base ──────────────────────────────────────────────────── */
+@utility carte {
+  background: var(--color-carte);
+  border: 1px solid rgb(229 231 235 / 0.7);
+  border-radius: var(--radius-carte);
+  box-shadow: rgba(0, 0, 0, 0.06) 0 4px 24px 0, rgba(0, 0, 0, 0.04) 0 1px 2px 0; /* nc-shadow-3 */
+}
+/* Surfaces flottantes (navigation, menus) : nc-shadow-2. */
+@utility flottant {
+  background: var(--color-carte);
+  border: 0.5px solid var(--color-trait);
+  box-shadow: rgba(0, 0, 0, 0.03) 0 -2px 16px -4px, rgba(0, 0, 0, 0.08) 0 16px 40px -8px, rgba(0, 0, 0, 0.04) 0 1px 3px 0;
+}
+
+/* Bouton principal : 8 px × 12 px (ai-design-skills B2), états complets (B9). */
+@utility bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 9999px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+  white-space: nowrap;
+  transition-property: background-color, color, box-shadow, transform, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-sortie);
+  outline: none;
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-carte), 0 0 0 4px var(--color-accent);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+/*
+ * Bouton principal en relief : style « nc-btn-3d » de consultant-notion.fr (dégradé vertical,
+ * reflets intérieurs, ombre portée rouge, enfoncement d'un pixel à l'appui). Dégradé un cran
+ * plus profond que le site (#d9564e → #c4463f → #b8423b) : texte blanc ≥ 4,5:1 (le rouge
+ * d'origine, #e0625a, plafonne à 3,5:1).
+ */
+@utility relief-marque {
+  color: #ffffff;
+  background: linear-gradient(#d9564e, #c4463f 52%, #b8423b);
+  box-shadow: inset 0 1px #ffffff66, inset 0 2px 6px #ffffff30, inset 0 -3px 7px #6b151133, 0 3px 6px #00000029,
+    0 10px 24px -8px #c4463f99;
+  transition:
+    transform 150ms var(--ease-sortie),
+    box-shadow 200ms var(--ease-sortie),
+    filter 200ms var(--ease-sortie);
+  &:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 5px #6b15114d, inset 0 1px #ffffff4d, 0 2px 4px #0000002e;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    filter: saturate(0.7);
+    opacity: 0.65;
+  }
+}
+@utility bouton-plein {
+  border-radius: 12px;
+  font-weight: 600;
+  @apply relief-marque;
+}
+/* Pilule brand (une action forte par écran au plus : arrêt, connexion). */
+@utility bouton-marque {
+  background: var(--color-action);
+  color: white;
+  &:hover:not(:disabled) {
+    background: var(--color-action-fonce);
+  }
+}
+@utility bouton-contour {
+  background: var(--color-carte);
+  color: var(--color-encre);
+  box-shadow: inset 0 0 0 1px var(--color-trait);
+  &:hover:not(:disabled) {
+    background: var(--color-creux);
+  }
+}
+@utility bouton-discret {
+  color: var(--color-encre-2);
+  &:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.04); /* nc-nav-hover-bg */
+    color: var(--color-encre);
+  }
+}
+
+@utility champ {
+  width: 100%;
+  border-radius: var(--radius-champ);
+  background: var(--color-carte);
+  padding: 10px 14px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  color: var(--color-encre);
+  box-shadow: inset 0 0 0 1px var(--color-trait);
+  outline: none;
+  transition: box-shadow 200ms var(--ease-sortie);
+  &::placeholder {
+    color: var(--color-encre-3);
+  }
+  &:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 3px rgb(224 98 90 / 0.12);
+  }
+}
+
+/* nc-skeleton : pulsation douce sur la couleur de bordure. */
+@utility squelette {
+  border-radius: var(--radius-md);
+  background: var(--color-trait);
+  animation: squelette-pulse 1.4s var(--ease-sortie) infinite;
+}
+@keyframes squelette-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Fond d'application : surface unie (unslop : pas de lavis de couleur derrière le contenu). */
+.fond-app {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--color-surface);
+}
+
+::selection {
+  background: rgba(224, 98, 90, 0.24);
+  color: inherit;
+}
+
+/* Apparition échelonnée (nc-content-enter) : --i = rang de l'élément. */
+.entree {
+  animation: apparition 250ms var(--ease-sortie) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+  color: var(--color-encre);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Animations courtes et jamais bloquantes ; remplacées par rien si l'utilisateur le demande. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -33,5 +306,497 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ── PWA iOS (modèle Notion-Club/Infrastructure) ─────────────────────────── */
+/* Fond du canevas = zone révélée par le rebond iOS : même couleur que la surface. */
+html {
+  background-color: var(--color-surface);
+}
+/* Champs à 16 px sur mobile : Safari iOS ne zoome plus au focus, sans bloquer le zoom. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+/* App installée : pas de rebond du document, pas de sélection accidentelle hors champs. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable="true"],
+  .selectionnable {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* ── Graphiques bklit : variables attendues, sur la palette NC ──────────────── */
+@theme inline {
+  --color-chart-label: var(--chart-label);
+  --color-chart-tooltip-background: var(--chart-tooltip-background);
+  --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+  --color-chart-scale-02: var(--chart-scale-02);
+  --color-chart-scale-03: var(--chart-scale-03);
+  --color-chart-scale-04: var(--chart-scale-04);
+  --color-chart-scale-05: var(--chart-scale-05);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: #f5f5f5;
+}
+:root {
+  --foreground: #000000;
+  --background: #ffffff;
+  --muted-foreground: #64748b;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --border: #e5e7eb;
+
+  --chart-1: #e0625a; /* brand */
+  --chart-2: #1a1a1a;
+  --chart-3: #b5443d;
+  --chart-4: #64748b;
+  --chart-5: #000000;
+  --chart-positive: #047857;
+  --chart-negative: #b5443d;
+  --chart-background: #ffffff;
+  --chart-foreground: #000000;
+  --chart-foreground-muted: #64748b;
+  --chart-line-primary: var(--chart-1);
+  --chart-line-secondary: var(--chart-2);
+  --chart-crosshair: #1a1a1a;
+  --chart-grid: #e5e7eb;
+  --chart-brush-border: var(--chart-grid);
+  --chart-tooltip-background: #ffffff;
+  --chart-tooltip-foreground: #000000;
+  --chart-tooltip-muted: #64748b;
+  --chart-marker-background: #f5f5f5;
+  --chart-marker-border: #e5e7eb;
+  --chart-marker-foreground: #000000;
+  --chart-label: #64748b;
+  --chart-scale-mix: #ffffff;
+  --chart-scale-01: #ece7e6; /* jour sans action */
+  --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
+  --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
+  --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
+  --chart-scale-05: var(--chart-1);
+  --chart-scale-pattern-color: #ffffff;
+  --chart-indicator-color: #1a1a1a;
+  --chart-indicator-secondary-color: #e5e7eb;
+  --chart-marker-badge-background: #000000;
+  --chart-marker-badge-foreground: #d6d6d6;
+  --chart-segment-background: rgb(0 0 0 / 0.04);
+  --chart-segment-line: rgb(0 0 0 / 0.25);
+}
+
+/* ══ Transitions.dev (Jakub Antalik, licence Transitions.dev : usage en produit autorisé) ══
+   Fiche prospect : modale, onglets glissants, pages côte à côte, redimension. Valeurs d'origine. */
+
+/* Transitions.dev — Modal open / close */
+:root {
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.t-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-modal.is-closing {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity var(--modal-close-dur) var(--modal-ease);
+}
+/* Fond de la modale : même rythme, arrière-plan légèrement flouté. */
+.t-modal-fond {
+  background: rgb(28 25 23 / 0.18);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--modal-open-dur) var(--modal-ease);
+}
+.t-modal-fond.is-open {
+  opacity: 1;
+}
+.t-modal-fond.is-closing {
+  opacity: 0;
+  transition-duration: var(--modal-close-dur);
+}
+
+/* Transitions.dev — Tabs sliding */
+:root {
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-tabs {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 48px;
+  background: var(--color-creux);
+  box-shadow: inset 0 0 0 1px var(--color-trait);
+}
+.t-tabs.t-tabs-plein {
+  display: flex;
+}
+.t-tabs-plein .t-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+.t-tab {
+  position: relative;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  height: 30px;
+  padding: 4px 12px;
+  color: var(--color-encre-2);
+  cursor: pointer;
+  border-radius: 48px;
+  z-index: 1;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+.t-tab:not([aria-selected="true"]):hover,
+.t-tab[aria-selected="true"] {
+  color: var(--color-encre);
+}
+.t-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.t-tabs-pill {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: 30px;
+  width: 0;
+  background: var(--color-carte);
+  border-radius: 48px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Transitions.dev — Page side-by-side */
+:root {
+  --page-slide-dur: 250ms;
+  --page-fade-dur: 250ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-stagger: 0ms;
+  --page-exit-enabled: 1;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-page-slide {
+  position: relative;
+}
+/* Adaptation : N sections au lieu de deux. Une section placée avant l'active sort vers la gauche,
+   une section placée après sort vers la droite (data-position = avant | actif | apres). */
+.t-page-slide .t-page[data-position="avant"] {
+  --t-page-from-x: calc(var(--page-slide-distance) * -1);
+}
+.t-page-slide .t-page[data-position="apres"] {
+  --t-page-from-x: var(--page-slide-distance);
+}
+/* Adaptation : pages ancrées en haut (pas en bas) pour mesurer leur hauteur réelle. */
+.t-page-slide .t-page {
+  position: absolute;
+  inset: 0 0 auto 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+  filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
+  transition:
+    opacity var(--page-fade-dur) var(--page-fade-ease),
+    transform var(--page-slide-dur) var(--page-slide-ease),
+    filter var(--page-slide-dur) var(--page-slide-ease);
+  will-change: opacity, transform, filter;
+}
+/* Inbox : liste et conversation dans un seul composant sur petit écran (inbox-glissante.tsx),
+   transition « Page side-by-side » (mêmes durées, courbes et flou ; déplacement un peu plus
+   ample pour un vrai glissé). Grand écran : grille côte à côte, sans animation. */
+.inbox-glisse {
+  --inbox-glisse-distance: 28px;
+  display: grid;
+  gap: 16px;
+}
+.inbox-volet {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.inbox-volet > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+@media (min-width: 1024px) {
+  .inbox-glisse {
+    grid-template-columns: 360px 1fr;
+    height: calc(100dvh - 220px);
+    min-height: 520px;
+  }
+}
+@media (max-width: 1023px) {
+  .inbox-glisse {
+    position: relative;
+    display: block;
+    height: calc(100dvh - 300px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 420px;
+  }
+  .inbox-volet {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    transform: translateX(var(--inbox-volet-x, 0px));
+    filter: blur(var(--page-blur));
+    transition:
+      opacity var(--page-fade-dur) var(--page-fade-ease),
+      transform var(--page-slide-dur) var(--page-slide-ease),
+      filter var(--page-slide-dur) var(--page-slide-ease),
+      visibility 0s linear var(--page-slide-dur);
+    will-change: opacity, transform, filter;
+  }
+  .inbox-volet[data-position="avant"] {
+    --inbox-volet-x: calc(var(--inbox-glisse-distance) * -1);
+  }
+  .inbox-volet[data-position="apres"] {
+    --inbox-volet-x: var(--inbox-glisse-distance);
+  }
+  .inbox-volet[data-position="actif"] {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transform: translateX(0);
+    filter: blur(0);
+    transition-delay: 0s;
+  }
+  /* L'encoche recherche + filtres se dissout comme du verre dépoli à l'ouverture d'une conversation. */
+  .inbox-encoche {
+    transition:
+      opacity 200ms var(--page-fade-ease),
+      filter 260ms var(--page-fade-ease),
+      transform 260ms var(--page-slide-ease);
+  }
+  .inbox-glisse[data-vue="conversation"] .inbox-encoche {
+    opacity: 0;
+    filter: blur(10px) saturate(1.4);
+    transform: translateY(-8px) scale(0.97);
+  }
+  /* En-tête de la conversation : bandeau translucide flouté (glassmorphism) qui se pose en arrivant. */
+  .inbox-entete-conversation {
+    background: color-mix(in srgb, var(--color-carte) 72%, transparent);
+    backdrop-filter: blur(14px) saturate(1.6);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    transition:
+      opacity 260ms var(--page-fade-ease) 60ms,
+      transform 260ms var(--page-slide-ease) 60ms;
+  }
+  .inbox-glisse[data-vue="liste"] .inbox-entete-conversation {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inbox-volet,
+  .inbox-encoche,
+  .inbox-entete-conversation {
+    transition: none !important;
+  }
+}
+
+/* Fil de conversation de la fiche : gris clair et grille de petits points, pour détacher les bulles. */
+.fond-conversation {
+  background-color: var(--color-conversation);
+  background-image: radial-gradient(var(--color-conversation-point) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  background-position: 7px 7px;
+}
+
+/* Mode « remplir » (modale à hauteur fixe) : chaque section occupe toute la hauteur
+   disponible et défile à l'intérieur, sans jamais agrandir la modale. */
+.t-page-slide.t-remplir {
+  margin: 0 -4px; /* place pour les anneaux de focus, rognés sinon par le défilement */
+}
+.t-page-slide.t-remplir .t-page {
+  bottom: 0;
+  padding: 0 4px 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.t-page-slide .t-page[data-position="actif"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  filter: blur(0);
+  transition-delay: var(--page-stagger);
+}
+
+/* Transitions.dev — Card resize */
+:root {
+  --resize-dur: 300ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-resize {
+  transition:
+    width var(--resize-dur) var(--resize-ease),
+    height var(--resize-dur) var(--resize-ease);
+  will-change: width, height;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-modal,
+  .t-modal-fond,
+  .t-tabs-pill,
+  .t-tab,
+  .t-page-slide .t-page,
+  .t-resize {
+    transition: none !important;
+  }
+}
+
+/* Transitions.dev — Plus to menu morph (« Dropdown menu morph »). Valeurs d'origine.
+   Adaptations : bouton ancré en haut à gauche (le panneau s'ouvre vers le bas et la droite),
+   taille ouverte mesurée sur le menu (--morph-w / --morph-h posées en ligne par le composant). */
+:root {
+  --morph-open-dur: 350ms;
+  --morph-close-dur: 250ms;
+  --morph-ease: cubic-bezier(0.34, 1.25, 0.64, 1);
+  --morph-close-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --morph-r-closed: 40px;
+  --morph-r-open: 20px;
+  --morph-fade-dur: 200ms;
+  --morph-slide: 40px;
+  --morph-rotate: 45deg;
+  --morph-scale: 0.97;
+  --morph-blur: 2px;
+}
+.t-morph {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--morph-r-closed);
+  overflow: hidden;
+  transition:
+    width var(--morph-close-dur) var(--morph-close-ease),
+    height var(--morph-close-dur) var(--morph-close-ease),
+    border-radius var(--morph-close-dur) var(--morph-close-ease);
+}
+.t-morph[data-open="true"] {
+  width: var(--morph-w, 183px);
+  height: var(--morph-h, 172px);
+  border-radius: var(--morph-r-open);
+  transition:
+    width var(--morph-open-dur) var(--morph-ease),
+    height var(--morph-open-dur) var(--morph-ease),
+    border-radius var(--morph-open-dur) var(--morph-ease);
+}
+.t-morph-plus {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    opacity var(--morph-fade-dur) var(--morph-close-ease),
+    transform var(--morph-open-dur) var(--morph-close-ease),
+    filter var(--morph-fade-dur) var(--morph-close-ease);
+}
+.t-morph-plus svg {
+  transition: transform var(--morph-open-dur) var(--morph-close-ease);
+}
+.t-morph[data-open="true"] .t-morph-plus {
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--morph-slide)));
+  filter: blur(var(--morph-blur));
+  pointer-events: none;
+}
+.t-morph[data-open="true"] .t-morph-plus svg {
+  transform: scale(var(--morph-scale)) rotate(var(--morph-rotate));
+}
+.t-morph-menu {
+  position: absolute;
+  inset: 0 auto auto 0;
+  opacity: 0;
+  transform: translateX(var(--morph-slide)) scale(var(--morph-scale));
+  filter: blur(var(--morph-blur));
+  pointer-events: none;
+  transition:
+    opacity var(--morph-fade-dur) var(--morph-close-ease),
+    transform var(--morph-open-dur) var(--morph-close-ease),
+    filter var(--morph-fade-dur) var(--morph-close-ease);
+}
+.t-morph[data-open="true"] .t-morph-menu {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  filter: blur(0);
+  pointer-events: auto;
+}
+
+/* Fiche en panneau du bas sur téléphone : monte depuis le bas, se ferme en glissant. */
+@media (max-width: 639px) {
+  .t-modal {
+    transform: translateY(100%);
+    opacity: 1;
+    transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .t-modal.is-open {
+    transform: translateY(0);
+  }
+  .t-modal.is-closing {
+    transform: translateY(100%);
+    opacity: 1;
+    transition: transform 260ms cubic-bezier(0.4, 0, 1, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-morph,
+  .t-morph-plus,
+  .t-morph-menu {
+    transition: none !important;
   }
 }

@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import { enregistrerLiens, recalculerStatuts } from "@/server/relations";
+import { avancerEtapesRelations, enregistrerLiens, recalculerStatuts } from "@/server/relations";
 import type { RelationCsv } from "./connections-csv";
 import type { ProspectCsv } from "./prospects-csv";
 
@@ -27,12 +27,14 @@ export async function importerRelations(pool: Pool, relations: RelationCsv[]) {
       relations.map((r) => ({ type: "relation" as const, urlNormalisee: r.urlNormalisee, date: r.date })),
       "csv",
     );
-    const transitions = await recalculerStatuts(c, { urls: relations.map((r) => r.urlNormalisee) });
+    const urls = relations.map((r) => r.urlNormalisee);
+    const transitions = await recalculerStatuts(c, { urls });
+    const etapesAvancees = await avancerEtapesRelations(c, urls);
     await c.query("update public.sync_runs set fin = now(), statut = 'succes', nb_elements = $2 where id = $1", [
       run.rows[0].id,
       relations.length,
     ]);
-    return { relations: relations.length, prospectsMisAJour: transitions.length };
+    return { relations: relations.length, prospectsMisAJour: transitions.length, etapesAvancees };
   });
 }
 
@@ -70,6 +72,7 @@ export async function importerProspects(pool: Pool, prospects: ProspectCsv[], li
       );
     }
     await recalculerStatuts(c, { urls: prospects.map((p) => p.urlNormalisee) });
+    await avancerEtapesRelations(c, prospects.map((p) => p.urlNormalisee));
     await c.query("update public.sync_runs set fin = now(), statut = 'succes', nb_elements = $2 where id = $1", [
       run.rows[0].id,
       ins.rowCount ?? 0,
@@ -77,3 +80,4 @@ export async function importerProspects(pool: Pool, prospects: ProspectCsv[], li
     return { crees: ins.rowCount ?? 0, dejaPresents: prospects.length - (ins.rowCount ?? 0), lecturesEnFile: ins.rowCount ?? 0 };
   });
 }
+

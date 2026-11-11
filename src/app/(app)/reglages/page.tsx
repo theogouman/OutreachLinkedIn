@@ -1,16 +1,31 @@
 import { Suspense } from "react";
 import { etatOutil, reglages } from "@/server/donnees";
+import { EnTetePage } from "@/components/interface/elements";
 import { PanneauDemo } from "./demo";
 import { FormPlafonds, FormReglages } from "./formulaires";
 
 export default function PageReglages() {
   return (
-    <section className="flex max-w-4xl flex-col gap-4">
-      <h1 className="text-xl font-semibold">Réglages</h1>
-      <Suspense fallback={<p className="text-sm text-neutral-500">Chargement…</p>}>
+    <section className="flex max-w-[960px] flex-col gap-6">
+      <EnTetePage titre="Réglages" description="Les limites que la file d'attente respecte, sans exception" />
+      <Suspense fallback={<SqueletteReglages />}>
         <Contenu />
       </Suspense>
     </section>
+  );
+}
+
+function SqueletteReglages() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Chargement">
+      {[0, 1].map((i) => (
+        <div key={i} className="carte flex flex-col gap-4 p-6">
+          <span className="squelette h-4 w-48" />
+          <span className="squelette h-3 w-80" />
+          <span className="squelette h-24 w-full" />
+        </div>
+      ))}
+    </div>
   );
 }
 

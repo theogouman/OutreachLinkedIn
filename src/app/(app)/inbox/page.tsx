@@ -2,26 +2,50 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { BadgeEtape } from "@/components/badges";
 import { FilMessages } from "@/components/fil-messages";
-import { etatOutil, fil, filtreInboxSchema, inbox, referentiels, type FiltreInbox } from "@/server/donnees";
+import { Avatar, EnTetePage, EtatVide } from "@/components/interface/elements";
+import { IconeMessage } from "@/components/icones";
+import { etatOutil, ficheProspect, fil, inbox, referentiels } from "@/server/donnees";
+import { filtresInboxDepuisUrl } from "@/lib/filtres/inbox";
+import { ModaleFiche } from "../fiche";
+import { ListeConversations } from "./liste-conversations";
 import { MarquerLue } from "./marquer-lue";
-
-const FILTRES: { cle: FiltreInbox; libelle: string }[] = [
-  { cle: "tous", libelle: "Toutes" },
-  { cle: "non_lus", libelle: "Non lues" },
-  { cle: "a_traiter", libelle: "Réponses à traiter" },
-  { cle: "hors_crm", libelle: "Hors CRM" },
-];
-
-const fmtCourt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" });
+import { BoutonNouveauMessage } from "./nouveau-message";
+import { InboxGlissante, RetourListe } from "./inbox-glissante";
+import { CarteInterlocuteur } from "./carte-interlocuteur";
+import { RedactionMessage } from "@/components/redaction-message";
 
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Inbox</h1>
-      <Suspense fallback={<p className="text-sm text-neutral-500">Chargement…</p>}>
+    <section className="flex flex-col gap-6">
+      <EnTetePage
+        titre="Inbox"
+        description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent"
+        actions={<BoutonNouveauMessage />}
+      />
+      <Suspense fallback={<SqueletteInbox />}>
         <Contenu searchParams={searchParams} />
       </Suspense>
     </section>
+  );
+}
+
+function SqueletteInbox() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[360px_1fr]" aria-busy="true" aria-label="Chargement">
+      <div className="carte flex flex-col">
+        <div className="h-12 border-b border-trait" />
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex gap-3 border-b border-trait px-4 py-3 last:border-0">
+            <span className="squelette size-9 rounded-full" />
+            <span className="flex flex-1 flex-col gap-2">
+              <span className="squelette h-3 w-32" />
+              <span className="squelette h-3 w-48" />
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="carte hidden min-h-[60vh] lg:block" />
+    </div>
   );
 }
 
@@ -29,101 +53,116 @@ const premier = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] :
 
 async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["searchParams"] }) {
   const sp = await searchParams;
-  const filtre = filtreInboxSchema.parse(premier(sp.filtre) ?? "tous");
-  const [conversations, refs, etat] = await Promise.all([inbox(filtre), referentiels(), etatOutil()]);
-  const idOuvert = premier(sp.conversation) ?? conversations[0]?.id;
-  const ouvert = idOuvert ? await fil({ conversationId: idOuvert }) : null;
+  // Lien direct (?filtre=a_traiter…) : appliqué au chargement, puis les filtres vivent dans la liste.
+  const filtresInitiaux = filtresInboxDepuisUrl(premier(sp.filtre));
+  const idFiche = premier(sp.prospect);
+  const [initial, refs, etat, fiche] = await Promise.all([
+    inbox(filtresInitiaux),
+    referentiels(),
+    etatOutil(),
+    idFiche ? ficheProspect(idFiche) : null,
+  ]);
+  const idDemande = premier(sp.conversation);
+  // Grand écran : la plus récente est ouverte par défaut. Téléphone : la liste d'abord.
+  const idOuvert = idDemande ?? initial.lignes[0]?.id;
+  const [filOuvert, conversationFiche] = await Promise.all([
+    idOuvert ? fil({ conversationId: idOuvert }) : null,
+    fiche ? fil({ prospectId: fiche.id }) : null,
+  ]);
+  // Conversation ouverte : toujours une vraie conversation (id connu).
+  const ouvert = filOuvert?.id ? { ...filOuvert, id: filOuvert.id } : null;
   const libelleEtape = new Map(refs.etapes.map((e) => [e.code, e.libelle]));
-  const lien = (q: Record<string, string>) => `/inbox?${new URLSearchParams({ filtre, ...q })}`;
   const restants = Math.max(0, (etat.quotas.message.plafond.jour ?? 0) - etat.quotas.message.compteur.jour);
+  const etapeOuvert = ouvert?.prospectId ? (initial.lignes.find((x) => x.id === ouvert.id)?.etape ?? null) : null;
 
   return (
-    <div className="grid min-h-[70vh] gap-4 lg:grid-cols-[22rem_1fr]">
-      <aside className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
-        <nav className="flex flex-wrap gap-1 border-b border-neutral-200 p-2 text-xs" aria-label="Filtres">
-          {FILTRES.map((f) => (
-            <Link
-              key={f.cle}
-              href={`/inbox?filtre=${f.cle}`}
-              aria-current={f.cle === filtre ? "page" : undefined}
-              className={`rounded-lg px-2.5 py-1.5 ${f.cle === filtre ? "bg-[#e0625a]/10 font-medium text-[#b5443d]" : "text-neutral-600 hover:bg-neutral-100"}`}
-            >
-              {f.libelle}
-            </Link>
-          ))}
-        </nav>
-        {conversations.length === 0 ? (
-          <p className="p-6 text-center text-sm text-neutral-500">Aucune conversation.</p>
-        ) : (
-          <ul className="divide-y divide-neutral-100 overflow-y-auto">
-            {conversations.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={lien({ conversation: c.id })}
-                  scroll={false}
-                  className={`flex flex-col gap-0.5 px-4 py-3 hover:bg-[#f5f2f2]/70 ${c.id === ouvert?.id ? "bg-[#f5f2f2]" : ""}`}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className={`truncate text-sm ${c.nonLu ? "font-semibold text-neutral-900" : "text-neutral-800"}`}>
-                      {c.nonLu && <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#e0625a]" aria-label="Non lue" />}
-                      {c.nom}
-                    </span>
-                    {c.dernierMessageAt && (
-                      <time className="shrink-0 text-[11px] text-neutral-500">{fmtCourt.format(new Date(c.dernierMessageAt))}</time>
-                    )}
-                  </span>
-                  <span className="truncate text-xs text-neutral-500">
-                    {c.dernierSens === "sortant" ? "Vous : " : ""}
-                    {c.apercu}
-                  </span>
-                  {!c.prospectId && <span className="text-[11px] text-amber-700">Hors CRM</span>}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
-
-      <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
+    <>
+      <InboxGlissante
+        idOuverte={ouvert?.id ?? null}
+        ouverteExplicitement={!!idDemande && !!ouvert}
+        liste={<ListeConversations initial={initial} filtresInitiaux={filtresInitiaux} ouverte={ouvert?.id ?? null} />}
+        conversation={
+      <div className="carte flex flex-col overflow-hidden">
         {ouvert ? (
           <>
             <MarquerLue id={ouvert.id} nonLu={ouvert.nonLu} />
-            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-5 py-3">
-              <div className="min-w-0">
-                <h2 className="truncate font-semibold">{ouvert.nom}</h2>
-                {ouvert.sousTitre && <p className="truncate text-sm text-neutral-500">{ouvert.sousTitre}</p>}
+            <header className="inbox-entete-conversation flex flex-wrap items-center justify-between gap-3 border-b border-trait px-4 py-3 sm:px-5">
+              <div className="flex min-w-0 items-center gap-2">
+                <RetourListe />
+                {ouvert.prospectId ? (
+                  // Photo, nom et poste ouvrent la fiche par-dessus la conversation, sans quitter l'Inbox.
+                  <Link
+                    href={`/inbox?${new URLSearchParams({ conversation: ouvert.id, prospect: ouvert.prospectId })}`}
+                    scroll={false}
+                    aria-label={`Ouvrir la fiche de ${ouvert.nom}`}
+                    className="group -mx-1 flex min-w-0 items-center gap-3 rounded-2xl px-1 py-0.5 outline-none transition-colors duration-150 hover:bg-creux focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
+                    <span className="min-w-0 pr-2">
+                      <h2 className="truncate title-3 text-encre underline-offset-2 group-hover:underline">{ouvert.nom}</h2>
+                      {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
+                    </span>
+                  </Link>
+                ) : (
+                  // Hors CRM : nom et photo ouvrent sa carte d'infos (sans l'ajouter au CRM).
+                  <Link
+                    href={`/inbox?${new URLSearchParams({ conversation: ouvert.id, interlocuteur: "1" })}`}
+                    scroll={false}
+                    aria-label={`Voir la carte de ${ouvert.nom}`}
+                    className="group -mx-1 flex min-w-0 items-center gap-3 rounded-2xl px-1 py-0.5 outline-none transition-colors duration-150 hover:bg-creux focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
+                    <span className="min-w-0 pr-2">
+                      <h2 className="truncate title-3 text-encre underline-offset-2 group-hover:underline">{ouvert.nom}</h2>
+                      {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
+                    </span>
+                  </Link>
+                )}
               </div>
               {ouvert.prospectId ? (
-                <span className="flex items-center gap-3">
-                  {(() => {
-                    const c = conversations.find((x) => x.id === ouvert.id);
-                    return c?.etape ? <BadgeEtape libelle={libelleEtape.get(c.etape) ?? c.etape} /> : null;
-                  })()}
-                  <Link href={`/?prospect=${ouvert.prospectId}`} className="text-sm text-[#b5443d] hover:underline">
-                    Voir la fiche
-                  </Link>
-                </span>
+                etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />
               ) : (
-                <span className="text-xs text-amber-700">Hors CRM · ajout au CRM en phase 2</span>
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM</span>
               )}
             </header>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              <FilMessages messages={ouvert.messages} nom={ouvert.nom} />
+            <div className="min-h-0 flex-1 overflow-y-auto bg-carte px-5 py-5">
+              <FilMessages messages={ouvert.messages} nom={ouvert.nom} photo={ouvert.photo} />
             </div>
-            <footer className="border-t border-neutral-200 px-5 py-3">
-              <textarea
-                disabled
-                rows={2}
-                placeholder="L'envoi de messages arrive en phase 2 : chaque message rejoindra la file d'attente, sous quota."
-                className="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500"
+            <footer className="border-t border-trait px-4 py-3">
+              <RedactionMessage
+                key={ouvert.id}
+                cible={{ conversationId: ouvert.id }}
+                destinataire={ouvert.nom}
+                restants={restants}
+                bloque={etat.modeSimule && !ouvert.demo ? "Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message" : undefined}
               />
-              <p className="mt-1 text-xs text-neutral-500">{restants} message{restants > 1 ? "s" : ""} restant{restants > 1 ? "s" : ""} aujourd&apos;hui</p>
             </footer>
           </>
         ) : (
-          <p className="m-auto p-8 text-sm text-neutral-500">Sélectionne une conversation.</p>
+          <EtatVide icone={<IconeMessage taille={20} />} titre="Aucune conversation ouverte" texte="Choisis une conversation dans la liste" />
         )}
       </div>
-    </div>
+        }
+      />
+
+      {ouvert && !ouvert.prospectId && premier(sp.interlocuteur) === "1" && (
+        <CarteInterlocuteur
+          nom={ouvert.nom}
+          titre={ouvert.sousTitre}
+          photo={ouvert.photo}
+          lienLinkedIn={ouvert.lienLinkedIn}
+          identifie={!!ouvert.lienLinkedIn}
+        />
+      )}
+      {fiche && (
+        <ModaleFiche
+          fiche={fiche}
+          libelleEtape={libelleEtape.get(fiche.etape) ?? fiche.etape}
+          conversation={conversationFiche}
+          restants={restants}
+          modeSimule={etat.modeSimule}
+        />
+      )}
+    </>
   );
 }

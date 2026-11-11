@@ -108,3 +108,132 @@ export async function marquerLue(pool: Pool, id: unknown): Promise<boolean> {
   const r = await pool.query("update public.conversations set non_lu = false where id = $1 and non_lu", [idSchema.parse(id)]);
   return (r.rowCount ?? 0) > 0;
 }
+
+// ─── Messages : un seul chemin d'envoi, la file d'attente ─────────────────────
+
+/** Refus explicable à l'utilisateur (message affiché tel quel). */
+export class EnvoiRefuse extends Error {}
+
+export const messageSchema = z
+  .object({
+    /** Conversation existante… */
+    conversationId: z.uuid().optional(),
+    /** …ou prospect à qui écrire (premier message s'il n'y a pas encore de conversation). */
+    prospectId: z.uuid().optional(),
+    texte: z
+      .string()
+      .transform((t) => t.trim())
+      .pipe(z.string().min(1, "Message vide").max(8000, "Message trop long (8 000 caractères au plus)")),
+    /** Identifiant de rédaction, généré par le navigateur : un double clic n'envoie qu'une fois. */
+    cle: z.uuid(),
+  })
+  .refine((m) => !!m.conversationId !== !!m.prospectId, "Une conversation ou un prospect, pas les deux");
+
+export const REFUS_PAS_EN_RELATION =
+  "Pas encore en relation de 1er degré : LinkedIn bloquerait ce message. Il pourra être écrit une fois l'invitation acceptée.";
+
+async function insererTacheMessage(pool: Pool, prospectId: string | null, payload: Record<string, string>, cleRedaction: string) {
+  const cle = `message:${cleRedaction}`;
+  const r = await pool.query(
+    `insert into public.taches (type_action, prospect_id, payload, cle_idempotence)
+     values ('message', $1, $2, $3) on conflict (cle_idempotence) do nothing returning id`,
+    [prospectId, payload, cle],
+  );
+  if (r.rowCount) return { tacheId: r.rows[0].id as string, nouveau: true };
+  const existante = await pool.query("select id from public.taches where cle_idempotence = $1", [cle]);
+  return { tacheId: existante.rows[0].id as string, nouveau: false };
+}
+
+/**
+ * Met un message en file d'attente. Il partira sous les quotas, dans les plages horaires et
+ * après le délai entre actions, comme toute action LinkedIn (le worker ne fait jamais d'exception).
+ * - Conversation existante : message dans cette conversation.
+ * - Prospect sans conversation : premier message (message normal, jamais d'InMail), accepté
+ *   seulement pour une relation de 1er degré ; la relation est revérifiée à l'envoi.
+ * Tant qu'Unipile n'est pas branché, seules les données de démonstration sont acceptées.
+ */
+export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { modeSimule: boolean }) {
+  const m = messageSchema.parse(entree);
+  const horsDemo = "Unipile n'est pas encore branché : seules les données de démonstration peuvent recevoir un message.";
+
+  let conv: { id: string; unipile_chat_id: string | null; prospect_id: string | null; demo: boolean } | null = null;
+  if (m.conversationId) {
+    const r = await pool.query("select id, unipile_chat_id, prospect_id, demo from public.conversations where id = $1", [m.conversationId]);
+    if (!r.rowCount) throw new EnvoiRefuse("Conversation introuvable.");
+    conv = r.rows[0];
+  } else {
+    // Conversation déjà ouverte avec ce prospect : on y écrit.
+    const r = await pool.query(
+      `select id, unipile_chat_id, prospect_id, demo from public.conversations
+        where prospect_id = $1 order by dernier_message_at desc nulls last limit 1`,
+      [m.prospectId],
+    );
+    conv = r.rows[0] ?? null;
+  }
+
+  if (conv?.unipile_chat_id) {
+    if (opts.modeSimule && !conv.demo) throw new EnvoiRefuse(horsDemo);
+    return insererTacheMessage(pool, conv.prospect_id, { conversation_id: conv.id, chat_id: conv.unipile_chat_id, texte: m.texte }, m.cle);
+  }
+
+  // Pas de chat Unipile (nouveau prospect, ou conversation reprise de l'archive LinkedIn) :
+  // le message passe par le démarrage de conversation, qui exige une relation de 1er degré.
+  const prospectId = m.prospectId ?? conv?.prospect_id ?? null;
+  if (!prospectId) throw new EnvoiRefuse("Cette conversation n'est pas encore reliée à LinkedIn : réponds-y depuis LinkedIn pour l'instant.");
+  const p = await pool.query("select statut_relation, demo from public.prospects where id = $1", [prospectId]);
+  if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+  if (p.rows[0].statut_relation !== "en_relation") throw new EnvoiRefuse(REFUS_PAS_EN_RELATION);
+  if (opts.modeSimule && !p.rows[0].demo) throw new EnvoiRefuse(horsDemo);
+  return insererTacheMessage(pool, prospectId, { prospect_id: prospectId, texte: m.texte }, m.cle);
+}
+
+
+// ─── Notes du prospect ────────────────────────────────────────────────────────
+
+export const notesSchema = z.object({
+  prospectId: z.uuid(),
+  notes: z
+    .string()
+    .max(4000, "Notes trop longues (4 000 caractères au plus)")
+    .transform((t) => t.trim()),
+});
+
+/** Notes libres de la fiche (vide = aucune note). */
+export async function majNotes(pool: Pool, entree: unknown) {
+  const n = notesSchema.parse(entree);
+  const r = await pool.query("update public.prospects set notes = $2, updated_at = now() where id = $1", [n.prospectId, n.notes || null]);
+  if (!r.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+}
+
+// ─── Suppression d'un prospect ────────────────────────────────────────────────
+
+/**
+ * Supprime un prospect et ses données : fiche, notes, informations de liste, photo, conversations
+ * et messages, file d'attente, journal (étapes, acceptations, réponses), liens LinkedIn connus.
+ * Seules les actions envoyées à LinkedIn restent, anonymisées (sans prospect) : elles comptent
+ * dans les quotas, que LinkedIn applique quoi qu'il arrive. Refusé si une action est en cours.
+ */
+export async function supprimerProspect(pool: Pool, id: unknown) {
+  const prospectId = idSchema.parse(id);
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    const p = await c.query("select url_normalisee, provider_id from public.prospects where id = $1 for update", [prospectId]);
+    if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+    const enCours = await c.query("select 1 from public.taches where prospect_id = $1 and statut = 'en_cours' limit 1", [prospectId]);
+    if (enCours.rowCount) throw new EnvoiRefuse("Une action LinkedIn est en cours pour ce prospect : réessaie dans une minute.");
+    const { url_normalisee: url, provider_id: providerId } = p.rows[0];
+
+    await c.query("delete from public.actions where prospect_id = $1 and not sortante", [prospectId]);
+    await c.query("delete from public.conversations where prospect_id = $1", [prospectId]); // messages : en cascade
+    await c.query("delete from public.liens_linkedin where url_normalisee = $1 or ($2::text is not null and provider_id = $2)", [url, providerId]);
+    // Fiche, photo et file d'attente partent en cascade ; actions envoyées détachées (prospect_id → null).
+    await c.query("delete from public.prospects where id = $1", [prospectId]);
+    await c.query("commit");
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}

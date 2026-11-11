@@ -51,7 +51,19 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      // PWA (modèle Notion-Club/Infrastructure) : le service worker n'est jamais servi depuis un
+      // cache, sinon une nouvelle version peut mettre des heures à arriver après un déploiement.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+      { source: "/manifest.webmanifest", headers: [{ key: "Cache-Control", value: "public, max-age=3600, must-revalidate" }] },
+    ];
   },
 };
 

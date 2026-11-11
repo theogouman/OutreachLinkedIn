@@ -5,10 +5,23 @@ Composants adaptés à partir de dépôts sous licence MIT (inventaire et choix 
 | Fichier | Source | Licence |
 |---|---|---|
 | `src/components/interface/jauge.tsx` | interior — `components/interior/progress-bar.tsx` | MIT, © 2026 ozzy |
-| `src/components/interface/panneau.tsx` | interior — `components/interior/drawer.tsx` | MIT, © 2026 ozzy |
+| `src/components/interface/modale.tsx`, `sections-glissantes.tsx`, classes `.t-*` de `globals.css` | Transitions.dev — Modal open/close, Tabs sliding, Page side-by-side, Card resize, Dropdown menu morph (`menu-filtres.tsx`) | Licence Transitions.dev (usage en produit autorisé), © 2026 Jakub Antalik |
 | `src/components/interface/toasts.tsx` | ui-components — `components/motion/animated-toast-stack.tsx` | MIT, © 2026 Saurabh Chauhan |
 | `src/components/interface/zone-fichier.tsx` | ui-components — `components/motion/file-upload.tsx` | MIT, © 2026 Saurabh Chauhan |
-| Icônes SVG en ligne | Phosphor Icons | MIT |
+| `src/components/interface/table-triable.tsx` | interior — `components/interior/sortable-table.tsx` | MIT, © 2026 ozzy |
+| `src/components/icones.tsx` et icônes SVG en ligne | Phosphor Icons (`@phosphor-icons/core` 2.1.1) | MIT, © 2020 Phosphor Icons |
+| `src/components/charts/`, `src/components/shimmering-text.tsx`, `src/lib/utils.ts` | bklit-ui (registre shadcn @bklit : funnel-chart, heatmap-chart et dépendances) | MIT, © bklit. Modifications : libellés et formats de date en français (heatmap-utils, heatmap-x-axis, heatmap-legend, chart-formatters, libellés de chargement) |
+| `src/components/charts/patterns/` | visx (via bklit) | MIT, voir `LICENSE-visx-pattern` |
+| `public/logo-glow.svg`, `src/app/icon.svg`, icônes PWA | Logo fourni par l'utilisateur | Propriété de l'utilisateur |
+| `src/components/logos.tsx` (logo LinkedIn) | homarr-labs/dashboard-icons — `svg/linkedin.svg` | Apache License 2.0 |
+| `src/components/logos.tsx` (logo Google) | selfhst/icons — `svg/google.svg` | CC BY 4.0, © selfh.st |
+| Jetons, fond, navigation en pilule, carte de connexion (`globals.css`, `navigation.tsx`, `login/`) | Notion-Club/Infrastructure (dépôt de l'utilisateur) | Usage interne |
+| Bouton en relief (`relief-marque`, `globals.css`) | consultant-notion.fr, classe `nc-btn-3d` (projet de l'utilisateur) | Usage interne |
+| `src/components/icones-pages.tsx` (icônes des pages) | SF Symbols, Apple, fournies par l'utilisateur dans `public/icons` | Licence Apple SF Symbols (usage prévu pour les plateformes Apple) |
+| `src/components/interface/texte-saisie-anime.tsx` (effet « Blur Out Up ») | pixel-point/animate-text — paramètres publiés de l'effet (durées, courbes, décalages) ; code réécrit, rien de copié | Aucune licence trouvée dans le dépôt : seuls des paramètres d'animation sont repris |
+| `public/emojis/croix.webp` (emoji animé « Cross Mark », réduit à 128 px) | Tarikul-Islam-Anik/Telegram-Animated-Emojis (emojis animés de Telegram), choisi par l'utilisateur | Aucune licence publiée dans le dépôt ; illustrations d'origine Telegram |
+| Règles de typographie, d'espacement et d'états (`src/app/globals.css`) | ai-design-skills, anti-slop (© 2026 Miqdad Badjuber) | MIT |
+| Passes de finition (texte, graisses, couleur, icônes, mouvement) | unslop, Damir Sokolovsky (@heydamir) | CC BY 4.0 |
 
 Texte de la licence MIT :
 
@@ -25,4 +38,4 @@ Texte de la licence MIT :
 > COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 > OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Aucun composant de rare-ui (licence avec Commons Clause et attribution) ni de transitions.dev n'est copié.
+Aucun code de rare-ui (licence avec Commons Clause et attribution) n'est copié : le compteur −/+ (`compteur.tsx`), l'apparition des chiffres et les squelettes de chargement en reprennent seulement l'idée, réécrite.

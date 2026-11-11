@@ -19,6 +19,7 @@ describe("client Unipile v2", () => {
       last_name: "Doe",
       description: "CEO chez Acme",
       display_name: "Jane Doe",
+      public_picture_url: "https://media.licdn.com/dms/image/jane.jpg",
       specifics: { network_distance: "FIRST_DEGREE" },
     });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireProfil("jane-doe");
@@ -32,6 +33,7 @@ describe("client Unipile v2", () => {
         titre: "CEO chez Acme",
         distance: "FIRST_DEGREE",
         invitation: null,
+        photoUrl: "https://media.licdn.com/dms/image/jane.jpg",
       },
     });
     const [url, init] = f.mock.calls[0]!;
@@ -52,20 +54,59 @@ describe("client Unipile v2", () => {
     expect(String(f.mock.calls[0]![0])).toContain("/users/..%2F..%2Faccounts?");
   });
 
-  it("lit la première page des relations (provider id de la personne, pas de la relation)", async () => {
+  it("lit une page des relations (provider id de la personne, photo, curseur suivant)", async () => {
     const f = fetchFactice(200, {
-      data: [{ id: "rel_1", object: "UserRelation", created_at: "2026-11-01T10:00:00Z", user: { id: "ACoU1", public_identifier: "bob", display_name: "Bob" } }],
+      data: [
+        {
+          id: "rel_1",
+          object: "UserRelation",
+          created_at: "2026-11-01T10:00:00Z",
+          user: { id: "ACoU1", public_identifier: "bob", display_name: "Bob", public_picture_url: "https://media.licdn.com/b.jpg", description: null },
+        },
+      ],
       next_cursor: "abc",
     });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 50);
-    expect(r).toEqual({ ok: true, donnees: [{ providerId: "ACoU1", publicIdentifier: "bob", date: new Date("2026-11-01T10:00:00Z") }] });
+    expect(r).toEqual({
+      ok: true,
+      donnees: {
+        personnes: [{ providerId: "ACoU1", publicIdentifier: "bob", date: new Date("2026-11-01T10:00:00Z"), photoUrl: "https://media.licdn.com/b.jpg", nom: "Bob" }],
+        suivant: "abc",
+      },
+    });
     expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=50");
   });
 
+  it("passe le curseur de la page demandée et plafonne la taille de page", async () => {
+    const f = fetchFactice(200, { data: [], next_cursor: null });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 5000, "c/2+");
+    expect(r).toEqual({ ok: true, donnees: { personnes: [], suivant: null } });
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=100&cursor=c%2F2%2B");
+  });
+
   it("lit les invitations envoyées / reçues", async () => {
-    const f = fetchFactice(200, { data: [{ id: "req1", object: "RelationRequest", type: "sent", user: { id: "ACoU2" } }, { id: "req2", type: "sent" }] });
-    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500);
-    expect(r).toEqual({ ok: true, donnees: [{ providerId: "ACoU2", publicIdentifier: null, date: null }] });
+    const f = fetchFactice(200, {
+      data: [
+        { id: "req1", object: "RelationRequest", type: "sent", user: { id: "ACoU2", first_name: "Léa", last_name: "Martin" } },
+        { id: "req2", type: "sent" },
+        // Identifiant public absent : repris de l'URL du profil, sauf si elle ne contient que l'identifiant interne.
+        { id: "req3", type: "sent", user: { id: "ACoU3", display_name: "Tom", profile_url: "https://www.linkedin.com/in/tom-d" } },
+        { id: "req4", type: "sent", user: { id: "ACoU4", profile_url: "https://www.linkedin.com/in/ACoU4" } },
+      ],
+    });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500, undefined, 100);
+    expect(r).toEqual({
+      ok: true,
+      donnees: {
+        personnes: [
+          { providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null, nom: "Léa Martin" },
+          { providerId: "ACoU3", publicIdentifier: "tom-d", date: null, photoUrl: null, nom: "Tom" },
+          { providerId: "ACoU4", publicIdentifier: null, date: null, photoUrl: null, nom: null },
+        ],
+        suivant: null,
+      },
+    });
+    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100&offset=100");
     expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100");
   });
 
@@ -95,5 +136,61 @@ describe("client Unipile v2", () => {
 
   it("refuse un identifiant de compte mal formé", () => {
     expect(() => creerClientUnipileV2({ ...OPTS, accountId: "../x" })).toThrow();
+  });
+
+  it("envoie un message dans une conversation existante : POST JSON, réponse MessageSent", async () => {
+    const f = fetchFactice(200, { object: "MessageSent", message_id: "msg_42" });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).envoyerMessage("chat/1", "Bonjour Camille");
+    expect(r).toEqual({ ok: true, donnees: { messageId: "msg_42" } });
+    const [url, init] = f.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.example.test/v2/acc_test/chats/chat%2F1/messages/send");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ text: "Bonjour Camille" });
+    expect((init?.headers as Record<string, string>)["content-type"]).toBe("application/json");
+  });
+
+  it("message : identifiant en tableau ou absent, réponse inattendue, refus de LinkedIn", async () => {
+    const c = (status: number, corps: unknown) => creerClientUnipileV2({ ...OPTS, fetch: fetchFactice(status, corps) as unknown as typeof fetch });
+    expect(await c(200, { object: "MessageSent", message_id: ["a", "b"] }).envoyerMessage("x", "t")).toEqual({ ok: true, donnees: { messageId: "a" } });
+    expect(await c(200, { object: "MessageSent", message_id: null }).envoyerMessage("x", "t")).toEqual({ ok: true, donnees: { messageId: null } });
+    expect(await c(200, { object: "Autre" }).envoyerMessage("x", "t")).toMatchObject({ ok: false, erreur: { type: "reponse_inattendue" } });
+    expect(await c(422, { type: "provider/unprocessable_entity" }).envoyerMessage("x", "t")).toMatchObject({
+      ok: false,
+      erreur: { status: 422, type: "provider/unprocessable_entity" },
+    });
+  });
+
+  it("premier message : démarre une conversation depuis la boîte LinkedIn classique, sans InMail", async () => {
+    const f = fetchFactice(200, { object: "ChatStarted", chat_id: "chat_9", message_id: "msg_1" });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).demarrerConversation("ACoAAB12cd", "Bonjour Camille");
+    expect(r).toEqual({ ok: true, donnees: { chatId: "chat_9", messageId: "msg_1" } });
+    const [url, init] = f.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.example.test/v2/acc_test/inboxes/CLASSIC_PRIMARY/chats/send");
+    expect(init?.method).toBe("POST");
+    // Corps strict : aucune option `specifics` (donc jamais d'InMail).
+    expect(JSON.parse(String(init?.body))).toEqual({ text: "Bonjour Camille", users_ids: "ACoAAB12cd" });
+  });
+
+  it("premier message : identifiant invalide refusé sans appel, réponse inattendue rejetée", async () => {
+    const f = fetchFactice(200, {});
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).demarrerConversation("../accounts", "t");
+    expect(r).toMatchObject({ ok: false, erreur: { type: "identifiant_invalide" } });
+    expect(f).not.toHaveBeenCalled();
+    const c = (status: number, corps: unknown) => creerClientUnipileV2({ ...OPTS, fetch: fetchFactice(status, corps) as unknown as typeof fetch });
+    expect(await c(200, { object: "MessageSent", message_id: "x" }).demarrerConversation("ACoAAB12cd", "t")).toMatchObject({
+      ok: false,
+      erreur: { type: "reponse_inattendue" },
+    });
+    expect(await c(200, { object: "ChatStarted", chat_id: "c", message_id: ["m1", "m2"] }).demarrerConversation("ACoAAB12cd", "t")).toEqual({
+      ok: true,
+      donnees: { chatId: "c", messageId: "m1" },
+    });
+  });
+
+  it("lit l'interlocuteur et le nom d'une conversation à deux (Get a Chat)", async () => {
+    const f = fetchFactice(200, { object: "Chat", id: "chat_1", user_id: "ACoLEA", name: " Léa Martin ", public_picture_url: "https://media.licdn.com/p.jpg" });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireConversation("chat_1");
+    expect(r).toEqual({ ok: true, donnees: { interlocuteurId: "ACoLEA", nom: "Léa Martin", photoUrl: "https://media.licdn.com/p.jpg" } });
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/chats/chat_1");
   });
 });

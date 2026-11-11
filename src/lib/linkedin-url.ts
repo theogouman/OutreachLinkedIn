@@ -48,3 +48,12 @@ export function identifiantVersProfil(publicIdentifier: string): ProfilLinkedIn 
   if (!IDENTIFIANT.test(id)) return null;
   return { urlNormalisee: `linkedin.com/in/${id}`, publicIdentifier: id };
 }
+
+/**
+ * Lien cliquable vers un profil : reconstruit depuis l'identifiant validé, jamais repris tel quel
+ * (aucun autre domaine ni schéma possible). null si l'entrée n'est pas un profil LinkedIn.
+ */
+export function lienProfilLinkedIn(entree: unknown): string | null {
+  const profil = normaliserUrlLinkedIn(entree);
+  return profil ? `https://www.linkedin.com/in/${encodeURIComponent(profil.publicIdentifier)}/` : null;
+}

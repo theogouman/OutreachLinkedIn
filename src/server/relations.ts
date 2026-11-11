@@ -8,7 +8,7 @@ export interface LienLinkedIn {
   date?: Date | null;
 }
 
-export type SourceLien = "csv" | "sync" | "webhook";
+export type SourceLien = "csv" | "sync" | "webhook" | "notion";
 
 /** Enregistre (ou rafraîchit) des liens connus. Par lots, requêtes paramétrées. */
 export async function enregistrerLiens(c: PoolClient, liens: LienLinkedIn[], source: SourceLien, maintenant = new Date()) {
@@ -109,4 +109,54 @@ export async function traiterAcceptations(c: PoolClient, transitions: Transition
     }
   }
   return acceptes.length;
+}
+
+/**
+ * Après un import (archive LinkedIn, CSV de prospects, CRM Notion) : un prospect déjà en relation
+ * qui en est encore à « À contacter » ou « Invitation envoyée » passe à « Connecté ».
+ * Daté de la connexion connue (« Connected On » de l'archive), sinon de maintenant.
+ * Une invitation envoyée devenue relation est aussi notée « acceptation » au journal
+ * (non comptée dans les quotas, une seule fois par prospect). Indépendant de l'ordre des imports.
+ */
+export async function avancerEtapesRelations(c: PoolClient, urls: string[], maintenant = new Date()) {
+  if (urls.length === 0) return 0;
+  const maj = await c.query(
+    `with cibles as (
+       select p.id, p.etape as avant,
+              coalesce((select max(l.date_lien) from public.liens_linkedin l
+                         where l.type = 'relation' and l.url_normalisee = p.url_normalisee), $2) as quand
+         from public.prospects p
+        where p.url_normalisee = any($1::text[])
+          and p.statut_relation = 'en_relation'
+          and p.etape in ('a_contacter', 'invitation_envoyee')
+     )
+     update public.prospects p
+        set etape = 'connecte', updated_at = $2
+       from cibles
+      where p.id = cibles.id
+     returning p.id, cibles.avant, cibles.quand`,
+    [urls, maintenant],
+  );
+  if (!maj.rowCount) return 0;
+  const ids = maj.rows.map((r) => r.id as string);
+  const avant = maj.rows.map((r) => r.avant as string);
+  const quand = maj.rows.map((r) => r.quand as Date);
+  await c.query(
+    `insert into public.actions (prospect_id, type, sortante, resultat, details, created_at)
+     select x.id, 'acceptation', false, 'succes', '{"source": "import"}'::jsonb, x.quand
+       from unnest($1::uuid[], $2::text[], $3::timestamptz[]) as x(id, avant, quand)
+      where x.avant = 'invitation_envoyee'
+        and not exists (select 1 from public.actions a where a.prospect_id = x.id and a.type = 'acceptation')`,
+    [ids, avant, quand],
+  );
+  await c.query(
+    `insert into public.actions (prospect_id, type, sortante, resultat, details, created_at)
+     select x.id, 'changement_etape', false, 'succes',
+            jsonb_build_object('vers', 'connecte',
+                               'cause', case when x.avant = 'invitation_envoyee' then 'acceptation' else 'relation_existante' end),
+            x.quand
+       from unnest($1::uuid[], $2::text[], $3::timestamptz[]) as x(id, avant, quand)`,
+    [ids, avant, quand],
+  );
+  return maj.rowCount;
 }

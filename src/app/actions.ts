@@ -7,9 +7,13 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, majPlafonds, majReglages, marquerLue, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
+import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
+import { filtresProspectsSchema } from "@/lib/filtres/prospects";
+import { filtresInboxSchema } from "@/lib/filtres/inbox";
+import { clesPush, enregistrerAbonnement, marquerNotificationsLues, supprimerAbonnement } from "@/server/notifications";
 
 /**
  * Server Actions de l'interface. Chacune vérifie l'utilisateur, valide l'entrée
@@ -27,9 +31,9 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
     refresh();
     return { ok: true, message };
   } catch (e) {
-    if (e instanceof ErreurImport || e instanceof DemoDejaChargee) return { ok: false, message: e.message };
+    if (e instanceof ErreurImport || e instanceof DemoDejaChargee || e instanceof EnvoiRefuse) return { ok: false, message: e.message };
     if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
-    console.error(`[action:${nom}]`, e);
+    console.error("[action:%s]", nom, e);
     return { ok: false, message: ERREUR };
   }
 }
@@ -46,7 +50,7 @@ export async function actionImporterRelations(formData: FormData): Promise<Retou
   return executer("importer-relations", async () => {
     const lecture = lireConnectionsCsv(await lireFichier(formData));
     const r = await importerRelations(poolServeur(), lecture.relations);
-    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes ignorées` : ""}.`;
+    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour, ${r.etapesAvancees} passés à « Connecté »${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL ignorées` : ""}.`;
   });
 }
 
@@ -110,4 +114,92 @@ export async function actionPurgerDemo(): Promise<Retour> {
 
 export async function actionMarquerLue(id: string): Promise<Retour> {
   return executer("marquer-lue", async () => ((await marquerLue(poolServeur(), id)) ? "Conversation marquée comme lue." : ""));
+}
+
+/** Message rédigé dans l'outil : mis en file, jamais envoyé directement. */
+export async function actionEnvoyerMessage(entree: unknown): Promise<Retour> {
+  return executer("envoyerMessage", async () => {
+    const r = await mettreMessageEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
+    return r.nouveau ? "Message mis en file d'attente." : "Ce message est déjà en file d'attente.";
+  });
+}
+
+/** Notes de la fiche : enregistrées sans recharger la page (la fiche reste ouverte). */
+export async function actionModifierNotes(entree: unknown): Promise<Retour> {
+  await exigerUtilisateur();
+  try {
+    await majNotes(poolServeur(), entree);
+    return { ok: true, message: "Notes enregistrées." };
+  } catch (e) {
+    if (e instanceof EnvoiRefuse) return { ok: false, message: e.message };
+    if (e instanceof z.ZodError) return { ok: false, message: e.issues[0]?.message ?? "Valeurs invalides." };
+    console.error("[action:%s]", "notes", e);
+    return { ok: false, message: ERREUR };
+  }
+}
+
+export async function actionSupprimerProspect(id: unknown): Promise<Retour> {
+  return executer("supprimer-prospect", async () => {
+    await supprimerProspect(poolServeur(), id);
+    return "Prospect supprimé, avec toutes ses données.";
+  });
+}
+
+// ─── Notifications et Push ────────────────────────────────────────────────────
+
+export async function actionNotificationsLues(): Promise<Retour> {
+  return executer("notifications-lues", async () => {
+    await marquerNotificationsLues(poolServeur());
+    return "Notifications lues.";
+  });
+}
+
+/** Clé publique VAPID (publique par nature) pour abonner cet appareil. */
+export async function actionClePush(): Promise<string> {
+  await exigerUtilisateur();
+  return (await clesPush(poolServeur())).publique;
+}
+
+export async function actionAbonnerPush(abonnement: unknown): Promise<Retour> {
+  return executer("abonner-push", async () => {
+    await enregistrerAbonnement(poolServeur(), abonnement);
+    return "Notifications activées sur cet appareil.";
+  });
+}
+
+export async function actionDesabonnerPush(endpoint: unknown): Promise<Retour> {
+  return executer("desabonner-push", async () => {
+    await supprimerAbonnement(poolServeur(), endpoint);
+    return "Notifications désactivées sur cet appareil.";
+  });
+}
+
+// ─── Listes filtrées (standard : src/lib/filtres) ─────────────────────────────
+// Lecture seule, sans refresh() ni changement d'URL : le client garde ses filtres en état
+// et remplace la liste par la réponse.
+
+export type ResultatListe<L> = { ok: true; lignes: L[]; total: number } | { ok: false; message: string };
+
+export async function actionListerProspects(entree: unknown): Promise<ResultatListe<LigneProspect>> {
+  await exigerUtilisateur();
+  const filtres = filtresProspectsSchema.safeParse(entree);
+  if (!filtres.success) return { ok: false, message: "Filtres invalides." };
+  try {
+    return { ok: true, ...(await prospectsDepuis(poolServeur(), filtres.data)) };
+  } catch (e) {
+    console.error("[action:listerProspects]", e);
+    return { ok: false, message: ERREUR };
+  }
+}
+
+export async function actionListerConversations(entree: unknown): Promise<ResultatListe<LigneConversation>> {
+  await exigerUtilisateur();
+  const filtres = filtresInboxSchema.safeParse(entree);
+  if (!filtres.success) return { ok: false, message: "Filtres invalides." };
+  try {
+    return { ok: true, ...(await inboxDepuis(poolServeur(), filtres.data)) };
+  } catch (e) {
+    console.error("[action:listerConversations]", e);
+    return { ok: false, message: ERREUR };
+  }
 }

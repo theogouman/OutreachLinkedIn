@@ -40,8 +40,9 @@ describe.skipIf(!TEST_DATABASE_URL)("webhook Unipile", () => {
   it("relation.new : invitation acceptée → « En relation », étape « Connecté »", async () => {
     const corps = relationNew("evt_1");
     expect(await traiterWebhookUnipile(db.pool, corps, signer(corps), OPTS)).toEqual({ status: 200, corps: { ok: true } });
-    const p = await db.pool.query("select statut_relation, etape from public.prospects where id = $1", [prospectId]);
-    expect(p.rows[0]).toEqual({ statut_relation: "en_relation", etape: "connecte" });
+    const p = await db.pool.query("select statut_relation, etape, provider_id from public.prospects where id = $1", [prospectId]);
+    // L'identifiant LinkedIn est enregistré au passage (premier message possible sans lecture de profil).
+    expect(p.rows[0]).toEqual({ statut_relation: "en_relation", etape: "connecte", provider_id: "ACoEVA" });
   });
 
   it("un même événement reçu deux fois n'a qu'un effet", async () => {
@@ -62,5 +63,20 @@ describe.skipIf(!TEST_DATABASE_URL)("webhook Unipile", () => {
     expect((await traiterWebhookUnipile(db.pool, "pas du json", signer("pas du json"), OPTS)).status).toBe(400);
     const gros = "x".repeat(1024 * 1024 + 1);
     expect((await traiterWebhookUnipile(db.pool, gros, signer(gros), OPTS)).status).toBe(413);
+  });
+
+  it("secret absent ou faux : le secret lu chez Unipile est essayé ; une signature fausse reste refusée", async () => {
+    const corps = relationNew("evt_secours");
+    const secours = async () => ["autre-secret-1234567", SECRET];
+    expect((await traiterWebhookUnipile(db.pool, corps, signer(corps), { ...OPTS, secret: undefined, secretsSecours: secours })).status).toBe(200);
+    const corps2 = relationNew("evt_secours_2");
+    expect((await traiterWebhookUnipile(db.pool, corps2, signer(corps2), { ...OPTS, secret: "faux-secret-123456789", secretsSecours: secours })).status).toBe(200);
+    const corps3 = relationNew("evt_secours_3");
+    const r = await traiterWebhookUnipile(db.pool, corps3, signer(corps3), { ...OPTS, secret: undefined, secretsSecours: async () => ["mauvais-1234567890"] });
+    expect(r.status).toBe(401);
+    // Sans en-tête de signature, on n'interroge même pas Unipile.
+    let appels = 0;
+    await traiterWebhookUnipile(db.pool, corps3, null, { ...OPTS, secretsSecours: async () => (appels++, [SECRET]) });
+    expect(appels).toBe(0);
   });
 });

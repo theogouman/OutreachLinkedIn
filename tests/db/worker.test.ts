@@ -179,6 +179,24 @@ describe.skipIf(!TEST_DATABASE_URL)("worker de la file d'attente", () => {
       expect(appels.map((a) => a.id)).toEqual([msgAutre, inv, msgP]);
     });
 
+    it("un message écrit passe devant les lectures de fond déjà en file", async () => {
+      const lectures = [await tache("lecture_profil", await prospect("m1")), await tache("lecture_profil", await prospect("m2"))];
+      const msg = await tache("message", await prospect("m3"), { texte: "bonjour" });
+      const { executeur, appels } = fauxUnipile();
+      for (let i = 0; i < 3; i++) await tour(minutes(JEUDI_10H, i * 10), executeur);
+      expect(appels.map((a) => a.id)).toEqual([msg, ...lectures]);
+    });
+
+    it("la lecture de profil dont dépend un premier message passe avant les autres lectures", async () => {
+      const autre = await tache("lecture_profil", await prospect("n1"));
+      const p = await prospect("n2");
+      const lectureP = await tache("lecture_profil", p);
+      const msgP = await tache("message", p, { texte: "bonjour" });
+      const { executeur, appels } = fauxUnipile();
+      for (let i = 0; i < 3; i++) await tour(minutes(JEUDI_10H, i * 10), executeur);
+      expect(appels.map((a) => a.id)).toEqual([lectureP, msgP, autre]);
+    });
+
     it("une invitation gelée ne bloque pas les messages des autres prospects", async () => {
       await db.pool.query("update public.quotas set gel_jusqu_a = $1 where type_quota = 'invitation'", [minutes(JEUDI_10H, 600)]);
       await tache("invitation", await prospect("j"));

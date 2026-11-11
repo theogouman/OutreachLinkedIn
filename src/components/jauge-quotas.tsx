@@ -2,38 +2,49 @@ import type { EtatOutil } from "@/server/donnees";
 import { LIBELLES_QUOTA, TYPES_QUOTA } from "@/lib/plafonds";
 import { Jauge } from "./interface/jauge";
 
-const ETAT_FILE = {
-  en_cours: { libelle: "File active", classe: "bg-emerald-500" },
-  en_pause: { libelle: "File en pause", classe: "bg-neutral-400" },
-  gele: { libelle: "Action gelée", classe: "bg-amber-500" },
+export const ETAT_FILE = {
+  en_cours: { libelle: "File active", point: "bg-emerald-500", halo: "bg-emerald-500/30" },
+  en_pause: { libelle: "File en pause", point: "bg-encre-3", halo: "" },
+  gele: { libelle: "Action gelée 24 h", point: "bg-amber-500", halo: "bg-amber-500/30" },
 } as const;
 
 const UNITE = { jour: "j", semaine: "sem.", mois: "mois" } as const;
 
-/** Jauge de quotas toujours visible : consommé / plafond sur la période la plus courte. */
+/** État de la file et jauges de quotas (menu Statuts de la barre de navigation). */
 export function JaugeQuotas({ etat }: { etat: EtatOutil }) {
+  const f = ETAT_FILE[etat.etatFile];
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700">
-        <span className={`h-2 w-2 rounded-full ${ETAT_FILE[etat.etatFile].classe}`} aria-hidden />
-        {ETAT_FILE[etat.etatFile].libelle}
-        {etat.enAttente > 0 && <span className="text-neutral-500">· {etat.enAttente} en attente</span>}
-        {etat.incertaines > 0 && <span className="text-amber-700">· {etat.incertaines} à vérifier</span>}
-      </span>
-      {TYPES_QUOTA.map((t) => {
-        const q = etat.quotas[t];
-        const periode = q.plafond.jour !== null ? "jour" : q.plafond.semaine !== null ? "semaine" : "mois";
-        return (
-          <Jauge
-            key={t}
-            libelle={LIBELLES_QUOTA[t]}
-            valeur={q.compteur[periode]}
-            max={q.plafond[periode] ?? 0}
-            unite={UNITE[periode]}
-            gele={q.gele}
-          />
-        );
-      })}
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2.5">
+        <span className="relative flex size-2.5" aria-hidden>
+          {f.halo && <span className={`absolute inline-flex size-full animate-ping rounded-full ${f.halo}`} />}
+          <span className={`relative inline-flex size-2.5 rounded-full ${f.point}`} />
+        </span>
+        <div className="leading-tight">
+          <p className="title-4 text-encre">{f.libelle}</p>
+          <p className="caption-5 text-encre-3">
+            {etat.enAttente} en attente
+            {etat.incertaines > 0 && <span className="text-amber-700"> · {etat.incertaines} à vérifier</span>}
+          </p>
+        </div>
+      </div>
+      <div className="h-px bg-trait" aria-hidden />
+      <div className="grid grid-cols-1 gap-y-3">
+        {TYPES_QUOTA.map((t) => {
+          const q = etat.quotas[t];
+          const periode = q.plafond.jour !== null ? "jour" : q.plafond.semaine !== null ? "semaine" : "mois";
+          return (
+            <Jauge
+              key={t}
+              libelle={LIBELLES_QUOTA[t]}
+              valeur={q.compteur[periode]}
+              max={q.plafond[periode] ?? 0}
+              unite={UNITE[periode]}
+              gele={q.gele}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

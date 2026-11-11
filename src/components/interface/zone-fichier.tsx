@@ -75,11 +75,11 @@ export function ZoneFichier({
           entreeRef.current.files = dt.files;
           choisir(f);
         }}
-        className="flex w-full items-center gap-4 rounded-2xl border border-dashed border-neutral-300 bg-[#f5f2f2]/50 p-5 text-left outline-none transition-[border-color,transform] duration-200 hover:border-neutral-500 focus-visible:ring-2 focus-visible:ring-[#b5443d] active:scale-[0.99] data-[survol=true]:border-[#e0625a] data-[survol=true]:bg-[#e0625a]/5"
+        className="flex w-full items-center gap-4 rounded-2xl border border-dashed border-trait-fort bg-creux p-5 text-left outline-none transition-[border-color,transform] duration-200 hover:border-encre-3 focus-visible:ring-2 focus-visible:ring-action active:scale-[0.99] data-[survol=true]:border-accent data-[survol=true]:bg-accent-doux"
       >
         <motion.span
           aria-hidden
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-[#b5443d] ring-1 ring-neutral-200"
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-carte text-action ring-1 ring-trait"
           animate={reduit ? undefined : { y: survol ? -2 : 0 }}
           transition={RAPIDE}
         >
@@ -88,8 +88,8 @@ export function ZoneFichier({
           </svg>
         </motion.span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-neutral-900">{fichier ? fichier.name : titre}</span>
-          <span id={aideId} className="mt-0.5 block text-xs text-neutral-500">
+          <span className="block title-4 text-encre">{fichier ? fichier.name : titre}</span>
+          <span id={aideId} className="mt-0.5 block caption-5 text-encre-3">
             {fichier ? `${Math.max(1, Math.round(fichier.size / 1024))} Ko · cliquer pour changer` : "Glisser-déposer ou cliquer · .csv, 5 Mo maximum"}
           </span>
         </span>

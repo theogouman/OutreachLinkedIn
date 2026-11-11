@@ -18,8 +18,8 @@ describe.skipIf(!TEST_DATABASE_URL)("exécution des lectures LinkedIn (client si
     await db.pool.query("update public.reglages set prochaine_action_possible_a = null");
   });
 
-  const tour = (client: ClientLinkedIn) =>
-    executerUnTour({ pool: db.pool, executeur: creerExecuteur(client), appliquerEffets: appliquerEffetsUnipile, maintenant: () => JEUDI_10H, aleatoire: () => 0 });
+  const tour = (client: ClientLinkedIn, deps: Parameters<typeof creerExecuteur>[1] = {}) =>
+    executerUnTour({ pool: db.pool, executeur: creerExecuteur(client, deps), appliquerEffets: appliquerEffetsUnipile, maintenant: () => JEUDI_10H, aleatoire: () => 0 });
 
   async function prospectAvecLecture(id: string) {
     const p = await db.pool.query(
@@ -47,12 +47,46 @@ describe.skipIf(!TEST_DATABASE_URL)("exécution des lectures LinkedIn (client si
       ...creerClientSimule(),
       lireProfil: async () => ({
         ok: true,
-        donnees: { providerId: "ACoB", publicIdentifier: "bruno", prenom: null, nom: null, titre: null, distance: "FIRST_DEGREE", invitation: null },
+        donnees: { providerId: "ACoB", publicIdentifier: "bruno", prenom: null, nom: null, titre: null, distance: "FIRST_DEGREE", invitation: null, photoUrl: null },
       }),
     };
     await tour(client);
     const r = await db.pool.query("select statut_relation from public.prospects where id = $1", [id]);
     expect(r.rows[0].statut_relation).toBe("en_relation");
+  });
+
+  it("la lecture de profil enregistre la photo, servie ensuite par l'outil", async () => {
+    const id = await prospectAvecLecture("dora");
+    const vus: string[] = [];
+    const client: ClientLinkedIn = {
+      ...creerClientSimule(),
+      lireProfil: async () => ({
+        ok: true,
+        donnees: { providerId: "ACoD", publicIdentifier: "dora", prenom: null, nom: null, titre: null, distance: null, invitation: null, photoUrl: "https://media.licdn.com/p.jpg" },
+      }),
+    };
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 9, 9]);
+    await tour(client, { telechargerPhoto: async (u) => (vus.push(u), { contenu: jpeg, type: "image/jpeg" }) });
+    expect(vus).toEqual(["https://media.licdn.com/p.jpg"]);
+    const r = await db.pool.query(
+      "select f.contenu, f.type_mime, p.photo_maj is not null as a_photo from public.photos_prospects f join public.prospects p on p.id = f.prospect_id where p.id = $1",
+      [id],
+    );
+    expect(r.rows[0]).toEqual({ contenu: jpeg, type_mime: "image/jpeg", a_photo: true });
+  });
+
+  it("sans photo téléchargeable, la lecture réussit quand même", async () => {
+    const id = await prospectAvecLecture("emil");
+    const client: ClientLinkedIn = {
+      ...creerClientSimule(),
+      lireProfil: async () => ({
+        ok: true,
+        donnees: { providerId: "ACoE", publicIdentifier: "emil", prenom: null, nom: null, titre: null, distance: null, invitation: null, photoUrl: "https://media.licdn.com/p.jpg" },
+      }),
+    };
+    expect(await tour(client, { telechargerPhoto: async () => null })).toMatchObject({ resultat: "succes" });
+    const r = await db.pool.query("select provider_id, photo_maj from public.prospects where id = $1", [id]);
+    expect(r.rows[0]).toEqual({ provider_id: "ACoE", photo_maj: null });
   });
 
   it("un doublon de provider_id n'écrase pas une autre fiche", async () => {

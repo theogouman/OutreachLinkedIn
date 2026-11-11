@@ -1,14 +1,29 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Papa from "papaparse";
 import { actionImporterProspects, actionImporterRelations } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { ZoneFichier } from "@/components/interface/zone-fichier";
+import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 
-const carte = "flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm";
-const champ = "rounded-lg border border-neutral-300 px-3 py-1.5 text-sm";
-const bouton = "self-start rounded-lg bg-[#b5443d] px-4 py-2 text-sm font-medium text-white hover:bg-[#9c3a34] disabled:opacity-60";
+const carte = "carte flex flex-col gap-5 p-6";
+const champ = "champ";
+const bouton = "bouton bouton-plein self-start";
+
+function Etape({ numero, titre, children }: { numero: number; titre: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-4">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-creux caption-3 text-encre-2 ring-1 ring-trait" aria-hidden>
+        {numero}
+      </span>
+      <div className="min-w-0">
+        <h2 className="title-2 text-encre">{titre}</h2>
+        <div className="mt-1 body-6 text-encre-3">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export function ImportRelations() {
   const [enCours, demarrer] = useTransition();
@@ -18,14 +33,13 @@ export function ImportRelations() {
       className={carte}
       action={(fd) => demarrer(async () => retourner(await actionImporterRelations(fd)))}
     >
-      <div>
-        <h2 className="font-semibold">1. Relations LinkedIn (archive)</h2>
-        <p className="text-sm text-neutral-600">
-          Fichier <code>Connections.csv</code> de l&apos;archive LinkedIn (Préférences → Confidentialité des données →
+      <Etape numero={1} titre="Relations LinkedIn (archive)">
+        <p>
+          Fichier <code className="rounded bg-creux px-1 py-0.5 caption-4 text-encre-2">Connections.csv</code> de l&apos;archive LinkedIn (Préférences → Confidentialité des données →
           Obtenir une copie de vos données). Met à jour les statuts sans aucun appel LinkedIn. Seules l&apos;URL et la
           date de connexion sont conservées.
         </p>
-      </div>
+      </Etape>
       <ZoneFichier name="fichier" titre="Choisir Connections.csv" />
       <button type="submit" disabled={enCours} className={bouton}>
         {enCours ? "Import en cours…" : "Importer les relations"}
@@ -49,6 +63,7 @@ export function ImportProspects() {
   const retourner = useRetour();
   const [colonnes, setColonnes] = useState<string[]>([]);
   const [choix, setChoix] = useState<Partial<Record<Champ, string>>>({});
+  const [liste, setListe] = useState("");
 
   async function lireEnTetes(fichier: File | undefined) {
     setColonnes([]);
@@ -75,21 +90,21 @@ export function ImportProspects() {
         demarrer(async () => retourner(await actionImporterProspects(fd)));
       }}
     >
-      <div>
-        <h2 className="font-semibold">2. Prospects (export CSV d&apos;une base Notion)</h2>
-        <p className="text-sm text-neutral-600">
+      <Etape numero={2} titre="Prospects (export CSV d'une base Notion)">
+        <p>
           Dans Notion : ⋯ → Exporter → Markdown &amp; CSV. Chaque nouveau prospect reçoit une lecture de profil mise en
           file, sous le quota de lecture (un gros import s&apos;étale sur plusieurs jours).
         </p>
-      </div>
+      </Etape>
       <ZoneFichier name="fichier" titre="Choisir l'export CSV Notion" onFichier={(f) => void lireEnTetes(f)} />
       {colonnes.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <fieldset className="grid animate-apparition gap-3 rounded-xl bg-creux p-4 ring-1 ring-trait sm:grid-cols-2">
+          <legend className="sr-only">Correspondance des colonnes</legend>
           {CHAMPS.map((c) => (
-            <label key={c.cle} className="flex flex-col gap-1 text-sm">
-              <span className="text-neutral-600">
+            <label key={c.cle} className="flex flex-col gap-1.5">
+              <span className="caption-4 text-encre-2">
                 {c.libelle}
-                {c.requis && " *"}
+                {c.requis && <span className="text-action"> *</span>}
               </span>
               <select
                 className={champ}
@@ -104,11 +119,12 @@ export function ImportProspects() {
               </select>
             </label>
           ))}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="text-neutral-600">Liste d&apos;origine (pour filtrer et mesurer)</span>
-            <input name="liste" maxLength={100} placeholder="ex. Salon Novembre 2026" className={champ} />
+          <label className="relative flex flex-col gap-1.5 sm:col-span-2">
+            <span className="caption-4 text-encre-2">Liste d&apos;origine (pour filtrer et mesurer)</span>
+            <input name="liste" maxLength={100} value={liste} onChange={(e) => setListe(e.target.value)} className={champ} />
+            <TexteSaisieAnime valeur={liste} placeholder="Salon novembre 2026" />
           </label>
-        </div>
+        </fieldset>
       )}
       <button type="submit" disabled={enCours || !choix.url} className={bouton}>
         {enCours ? "Import en cours…" : "Importer les prospects"}
@@ -116,3 +132,4 @@ export function ImportProspects() {
     </form>
   );
 }
+

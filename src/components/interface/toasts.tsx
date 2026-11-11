@@ -24,7 +24,7 @@ type Entree = Omit<Toast, "id" | "duree" | "statut"> & { statut?: StatutToast; d
 
 const ToastsContexte = createContext<((t: Entree) => void) | null>(null);
 
-const RESSORT: Transition = { type: "spring", stiffness: 420, damping: 34, mass: 0.75 };
+const RESSORT: Transition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] };
 const SORTIE = { duration: 0.15, ease: [0.22, 1, 0.36, 1] } as const;
 
 const ICONES: Record<StatutToast, ReactNode> = {
@@ -46,9 +46,9 @@ const ICONES: Record<StatutToast, ReactNode> = {
 };
 
 const COULEUR: Record<StatutToast, string> = {
-  info: "bg-neutral-100 text-neutral-600",
+  info: "bg-creux text-encre-2",
   succes: "bg-emerald-50 text-emerald-700",
-  erreur: "bg-[#e0625a]/10 text-[#b5443d]",
+  erreur: "bg-accent-doux text-action",
 };
 
 let graine = 0;
@@ -107,7 +107,7 @@ export function useRetour() {
 function Pile({ toasts, fermer }: { toasts: Toast[]; fermer: (id: string) => void }) {
   const reduit = useReducedMotion();
   return (
-    <ol aria-live="polite" className="pointer-events-none fixed bottom-6 right-4 z-[90] flex w-[calc(100vw-2rem)] max-w-sm flex-col-reverse gap-2">
+    <ol aria-live="polite" className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] right-4 z-[90] md:bottom-6 flex w-[calc(100vw-2rem)] max-w-sm flex-col-reverse gap-2">
       <AnimatePresence initial={false} mode="popLayout">
         {toasts.map((t, i) => (
           <motion.li
@@ -121,19 +121,19 @@ function Pile({ toasts, fermer }: { toasts: Toast[]; fermer: (id: string) => voi
             className="pointer-events-auto"
             style={{ zIndex: 20 - i }}
           >
-            <div className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+            <div className="flex items-start gap-3 rounded-2xl border border-trait bg-carte/95 p-3 shadow-[0_16px_40px_-16px_rgb(28_25_23/0.35)] backdrop-blur">
               <span className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${COULEUR[t.statut]}`}>
                 {ICONES[t.statut]}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium leading-5 text-neutral-900">{t.titre}</p>
-                {t.description && <p className="mt-0.5 text-xs leading-4 text-neutral-600">{t.description}</p>}
+                <p className="title-4 text-encre">{t.titre}</p>
+                {t.description && <p className="mt-0.5 caption-5 text-encre-2">{t.description}</p>}
               </div>
               <button
                 type="button"
                 onClick={() => fermer(t.id)}
                 aria-label="Fermer la notification"
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-encre-3 hover:bg-creux"
               >
                 <svg viewBox="0 0 256 256" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={20} strokeLinecap="round" aria-hidden>
                   <path d="M200 56 56 200M200 200 56 56" />

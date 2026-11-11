@@ -74,4 +74,17 @@ describe.skipIf(!TEST_DATABASE_URL)("modifications depuis l'interface", () => {
     expect((await prospectsDepuis(db.pool, { recherche: "%", page: 1 })).total).toBe(1);
     expect((await prospectsDepuis(db.pool, { page: 1 })).total).toBe(2);
   });
+
+  it("recherche de prospects : mêmes règles que le filtrage instantané (mots dans le désordre, sans accents)", async () => {
+    await db.pool.query(
+      `insert into public.prospects (linkedin_url, url_normalisee, prenom, nom, entreprise, poste) values
+       ('https://linkedin.com/in/hd','linkedin.com/in/hd','Hélène','Durand','Société Générale','Directrice des opérations')`,
+    );
+    const total = async (recherche: string) => (await prospectsDepuis(db.pool, { recherche, page: 1 })).total;
+    expect(await total("helene")).toBe(1);
+    expect(await total("DURAND hélène")).toBe(1);
+    expect(await total("societe operations")).toBe(1);
+    expect(await total("helene martin")).toBe(0);
+    expect(await total("   ")).toBe(3);
+  });
 });

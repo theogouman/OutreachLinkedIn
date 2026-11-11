@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { creerClientNavigateur } from "@/lib/supabase/client";
 import { cheminDeRetourSur } from "@/lib/redirection";
+import { LogoGoogle } from "@/components/logos";
 
 const MESSAGES: Record<string, string> = {
   acces: "Ce compte Google n'est pas autorisé à utiliser l'outil.",
@@ -37,7 +38,7 @@ export function BoutonGoogle() {
   return (
     <div className="flex flex-col gap-4">
       {message && (
-        <p role="alert" className="rounded-lg bg-white px-4 py-3 text-sm text-[#b3403a]">
+        <p role="alert" className="rounded-[12px] bg-accent-doux px-4 py-3 body-6 text-action">
           {message}
         </p>
       )}
@@ -45,8 +46,9 @@ export function BoutonGoogle() {
         type="button"
         onClick={seConnecter}
         disabled={enCours}
-        className="rounded-lg bg-[#b5443d] px-5 py-3 font-medium text-white transition hover:bg-[#9c3a34] disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-3 rounded-full border border-dashed border-trait bg-creux px-5 py-3 text-[15px] font-medium text-encre outline-none transition-[background-color,transform,opacity] duration-200 ease-[var(--ease-sortie)] hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
       >
+        <LogoGoogle taille={20} />
         {enCours ? "Redirection vers Google…" : "Se connecter avec Google"}
       </button>
     </div>

@@ -10,9 +10,15 @@ Architecture et décisions : @docs/architecture.md
 - `npm run build` : build de production.
 - `npm test` : Vitest (fichiers `*.test.ts` dans `src/` et `tests/`).
 
+## Déploiement — règle absolue
+- Toute modification est déployée directement en production : commit puis push sur la branche
+  `claude/confident-ritchie-6v4383`, branche de production de Vercel (https://outreach.gouman.fr).
+- Pas de pull request, pas de preview à valider. `main` n'est pas utilisée.
+- Avant chaque push : `npm run check` vert (tests sur Postgres compris), build OK, Semgrep sans résultat.
+- Migration de base : l'appliquer au projet Supabase AVANT de pousser le code qui l'utilise.
+
 ## Méthode
-- Une tâche = une branche = une PR. Jamais de push sur `main`.
-- Cycle : spec (avec rubrique sécurité, ASVS niveau 1) → plan validé par l'utilisateur → tâches courtes → test qui échoue d'abord → code → relecture critique → PR.
+- Cycle : spec (avec rubrique sécurité, ASVS niveau 1) → plan validé par l'utilisateur → tâches courtes → test qui échoue d'abord → code → relecture critique → push (déploiement).
 - Tester aussi les cas refusés : utilisateur non connecté, autre utilisateur que le propriétaire.
 
 ## Sécurité — règles non négociables
@@ -24,7 +30,7 @@ Architecture et décisions : @docs/architecture.md
 - Supabase : RLS activée sur chaque table, avec des politiques testées. La clé secrète ne sert qu'à du code serveur qui en a strictement besoin.
 - Requêtes en base paramétrées ou via le client Supabase. Jamais de concaténation de chaînes.
 - Ne pas réinventer l'auth, la crypto ou les sessions : utiliser Supabase Auth.
-- Avant d'ajouter une dépendance : vérifier qu'elle existe, qu'elle est maintenue et très utilisée. La signaler dans la PR.
+- Avant d'ajouter une dépendance : vérifier qu'elle existe, qu'elle est maintenue et très utilisée. La signaler dans le message de commit.
 - Messages d'erreur génériques côté utilisateur, détails dans les logs serveur uniquement.
 - Marquer d'un `TODO(security)` tout point incertain plutôt que de deviner.
 - Ne pas modifier `.claude/`, `.github/` ni `.pre-commit-config.yaml` sans demande explicite : ce sont les garde-fous du projet.

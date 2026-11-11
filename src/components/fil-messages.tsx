@@ -1,26 +1,78 @@
 import type { MessageFil } from "@/server/donnees";
+import { Avatar } from "./interface/elements";
+import { IconeCoche, IconeDoubleCoche } from "./icones";
 
 const fmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" });
 
+const ETAT: Record<Exclude<MessageFil["statut"], "envoye">, string> = {
+  en_file: "En file · départ estimé",
+  en_cours: "Envoi en cours",
+  incertain: "Envoi à vérifier dans la file",
+};
+
 /** Fil de messages LinkedIn. Contenu tiers : rendu en texte brut uniquement. */
-export function FilMessages({ messages, nom }: { messages: MessageFil[]; nom: string }) {
-  if (messages.length === 0) return <p className="text-sm text-neutral-500">Aucun message.</p>;
+export function FilMessages({
+  messages,
+  nom,
+  photo = null,
+  surMotif = false,
+}: {
+  messages: MessageFil[];
+  nom: string;
+  /** Photo de l'interlocuteur (null : initiales). */
+  photo?: string | null;
+  /** Posé sur le fond pointillé (.fond-conversation) : bulles reçues blanches, légendes plus foncées. */
+  surMotif?: boolean;
+}) {
+  const legende = surMotif ? "text-encre-2" : "text-encre-3";
+  if (messages.length === 0) return <p className={`body-6 ${legende}`}>Aucun message.</p>;
   return (
-    <ol className="flex flex-col gap-3" aria-label={`Conversation avec ${nom}`}>
+    <ol className="flex flex-col gap-4" aria-label={`Conversation avec ${nom}`}>
       {messages.map((m) => {
         const moi = m.sens === "sortant";
+        const attente = m.statut !== "envoye";
         return (
-          <li key={m.id} className={`flex flex-col gap-1 ${moi ? "items-end" : "items-start"}`}>
-            <p
-              className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-                moi ? "rounded-br-md bg-[#b5443d] text-white" : "rounded-bl-md bg-[#f5f2f2] text-neutral-900 ring-1 ring-inset ring-neutral-200"
-              }`}
-            >
-              {m.texte}
-            </p>
-            <time dateTime={new Date(m.envoyeAt).toISOString()} className="px-1 text-[11px] text-neutral-500">
-              {moi ? "Vous" : nom.split(" ")[0]} · {fmt.format(new Date(m.envoyeAt))}
-            </time>
+          <li key={m.id} className={`flex animate-apparition items-end gap-2 ${moi ? "flex-row-reverse" : ""}`}>
+            {!moi && <Avatar nom={nom} taille={28} photo={photo} />}
+            <div className={`flex max-w-[80%] flex-col gap-1 ${moi ? "items-end" : "items-start"}`}>
+              <p
+                className={`selectionnable whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 body-6 ${
+                  moi
+                    ? attente
+                      ? "rounded-br-md border border-dashed border-action/50 bg-accent-doux text-encre"
+                      : "rounded-br-md bg-action text-white"
+                    : surMotif
+                      ? "rounded-bl-md bg-carte text-encre shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.05)]"
+                      : "rounded-bl-md bg-bulle text-encre"
+                }`}
+              >
+                {m.texte}
+              </p>
+              <span className={`flex items-center gap-1 px-1 caption-5 ${legende}`}>
+                <time dateTime={new Date(m.envoyeAt).toISOString()}>
+                  {m.statut === "envoye"
+                    ? moi
+                      ? fmt.format(new Date(m.envoyeAt))
+                      : `${nom.split(" ")[0]} · ${fmt.format(new Date(m.envoyeAt))}`
+                    : m.statut === "en_file"
+                      ? `${ETAT.en_file} ${fmt.format(new Date(m.envoyeAt))}`
+                      : ETAT[m.statut]}
+                </time>
+                {/* Accusé de lecture : double coche colorée quand l'interlocuteur a lu, coche simple sinon. */}
+                {moi && m.statut === "envoye" &&
+                  (m.lu ? (
+                    <span className="inline-flex items-center gap-0.5 text-action" title="Lu">
+                      <IconeDoubleCoche taille={14} />
+                      <span className="sr-only">Lu</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex" title="Envoyé">
+                      <IconeCoche taille={12} />
+                      <span className="sr-only">Envoyé, pas encore lu</span>
+                    </span>
+                  ))}
+              </span>
+            </div>
           </li>
         );
       })}

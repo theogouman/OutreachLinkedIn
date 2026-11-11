@@ -7,15 +7,15 @@ import { useRetour } from "@/components/interface/toasts";
 export function ActionsTache({ id, statut }: { id: string; statut: string }) {
   const [enCours, demarrer] = useTransition();
   const retourner = useRetour();
-  const bouton = "rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ring-inset disabled:opacity-50";
+  const petit = "bouton px-2.5 py-1 caption-3";
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex flex-wrap gap-2 sm:justify-end">
       {statut === "en_attente" && (
         <button
           type="button"
           disabled={enCours}
-          className={`${bouton} text-neutral-700 ring-neutral-300 hover:bg-neutral-50`}
+          className={`${petit} bouton-discret`}
           onClick={() => demarrer(async () => retourner(await actionAnnulerTache(id)))}
         >
           Annuler
@@ -27,7 +27,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
             type="button"
             disabled={enCours}
             title="L'action est bien partie (vérifié sur LinkedIn)"
-            className={`${bouton} text-emerald-700 ring-emerald-300 hover:bg-emerald-50`}
+            className={`${petit} bg-emerald-700 text-white hover:bg-emerald-800`}
             onClick={() => demarrer(async () => retourner(await actionTrancher(id, "faite")))}
           >
             C&apos;est parti
@@ -36,7 +36,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
             type="button"
             disabled={enCours}
             title="L'action n'est pas partie : la renvoyer (risque de doublon si elle était partie)"
-            className={`${bouton} text-amber-700 ring-amber-300 hover:bg-amber-50`}
+            className={`${petit} bouton-contour`}
             onClick={() => {
               if (window.confirm("Renvoyer cette action ? Si elle était déjà partie, le prospect la recevra deux fois.")) {
                 demarrer(async () => retourner(await actionTrancher(id, "remettre")));
@@ -48,7 +48,7 @@ export function ActionsTache({ id, statut }: { id: string; statut: string }) {
           <button
             type="button"
             disabled={enCours}
-            className={`${bouton} text-neutral-700 ring-neutral-300 hover:bg-neutral-50`}
+            className={`${petit} bouton-discret`}
             onClick={() => demarrer(async () => retourner(await actionTrancher(id, "abandonner")))}
           >
             Abandonner
