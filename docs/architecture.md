@@ -7,7 +7,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - Next.js 16, App Router, TypeScript strict, Tailwind 4, `cacheComponents` activé. Node 22 (`.nvmrc`, `engines`).
 - Supabase (projet `qmweywmldehnsjhqexbl`, Postgres 17) : base, Auth (Google OAuth), plus tard Realtime et pg_cron.
 - Validation : Zod 4. Tests : Vitest, dont tests sur un vrai Postgres (`tests/db/`, `TEST_DATABASE_URL`).
-- Hébergement : Vercel. Branche de production : `claude/confident-ritchie-6v4383` ; chaque push part en production, sans PR.
+- Hébergement : Vercel. Branche unique et de production : `main` ; chaque push part en production, sans PR.
 
 ## Arborescence
 - `src/app/` : routes. `login/` (bouton Google), `auth/callback/` (échange PKCE), `page.tsx` (accueil protégé).
@@ -76,6 +76,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 | Revue IA | `.github/workflows/security-review.yml` | Non, commentaires |
 
 ## Décisions
+- 2026-11-11 — Branches fusionnées : `main` redevient la branche unique, de production, en push direct (garde-fou `guard-bash.mjs` adapté : push autorisé, suppression interdite). L'ancienne branche `claude/confident-ritchie-6v4383` est supprimée.
 - 2026-11-10 — Identifiants et photos des prospects pris dans les listes LinkedIn (relations, invitations envoyées, lues en entier une fois) plutôt que par une visite de profil chacun : quelques appels au lieu de 216 visites, sans toucher au quota de lectures de profil. Les prospects jamais contactés ne sont plus visités en fond : leur lecture se fera avant leur invitation.
 - 2026-11-10 — Priorité dans la file : messages écrits d'abord, puis les tâches dont un message dépend (lecture de profil d'un premier message), puis les lectures de fond, chacun dans l'ordre de demande ; l'ordre strict par prospect reste. Les 420 lectures de l'import retardaient sinon des messages de plusieurs heures.
 - 2026-11-09 — Historique des messages repris de l'archive LinkedIn (conversations à deux avec un prospect du CRM) plutôt que par lecture Unipile : aucune lecture LinkedIn, et la documentation Unipile ne donne ni limite ni mode (direct ou synchronisé) pour la liste des conversations. Étapes avancées d'après les échanges depuis le 1er octobre 2026 ; invitations en attente de l'archive datées et ajoutées à l'historique (comptées dans les quotas).
@@ -89,7 +90,7 @@ Plan et décisions produit : [plan-v1.md](plan-v1.md).
 - 2026-11-08 — Composants bklit copiés à la main depuis le registre plutôt que via la CLI shadcn, qui aurait réécrit `globals.css` avec ses propres variables.
 - 2026-11-07 — Service worker limité aux fichiers statiques : contrairement au modèle NC, les pages HTML ne sont pas mises en cache (aucune donnée de prospect conservée sur l'appareil après déconnexion). Zoom laissé actif (accessibilité) ; l'auto-zoom iOS est évité par des champs à 16 px sur mobile.
 - 2026-11-07 — Lien « Ouvrir son LinkedIn » reconstruit par `lienProfilLinkedIn()` depuis l'identifiant validé (jamais l'URL stockée telle quelle) : aucun autre domaine ni schéma possible.
-- 2026-11-07 — Règle de l'utilisateur : déploiement direct en production à chaque push, pas de PR. `main` n'est plus utilisée.
+- 2026-11-07 — Règle de l'utilisateur : déploiement direct en production à chaque push, pas de PR.
 - 2026-11-06 — CodeGuard installé comme skill (chargé à la demande) plutôt que dans `.claude/rules/` (≈100 Ko chargés à chaque session).
 - 2026-11-06 — CSP sans nonce : compatible avec le rendu statique et `cacheComponents`. Passer à une CSP à nonce si l'app charge des scripts tiers.
 - 2026-11-06 — `overrides` sur `minimatch` (^11.0.5) sous `@typescript-eslint/typescript-estree` pour corriger GHSA-g3hv-75wg-m249 (dev uniquement). À retirer quand typescript-eslint l'intègre.

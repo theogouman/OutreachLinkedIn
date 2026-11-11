@@ -13,7 +13,12 @@ const bashCases: [string, boolean][] = [
   ["sudo apt install x", true],
   ["git push --force origin feat", true],
   ["git push -f", true],
-  ["git push origin main", true],
+  // main est la branche de production, en push direct (choix de l'utilisateur, 2026-11-11).
+  ["git push origin main", false],
+  ["git push -u origin main", false],
+  ["git push origin --delete main", true],
+  ["git push origin :main", true],
+  ["git push -d origin master", true],
   ["git push -u origin feat/login", false],
   ["git push -n origin feat", false],
   ["git commit -m x --no-verify", true],

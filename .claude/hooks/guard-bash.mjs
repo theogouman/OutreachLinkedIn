@@ -29,8 +29,12 @@ const rules = [
     reason: "Push forcé interdit. Crée un nouveau commit à la place.",
   },
   {
-    test: (s) => /^git\s+push\b/.test(s) && /\b(main|master)\b/.test(s),
-    reason: "Push direct sur main interdit : passe par une branche et une PR.",
+    // main est la branche de production, en push direct (choix de l'utilisateur, 2026-11-11).
+    // Sa suppression reste interdite.
+    test: (s) =>
+      /^git\s+push\b/.test(s) &&
+      ((/(\s--delete\b|\s-d\b)/.test(s) && /\b(main|master)\b/.test(s)) || /\s:(main|master)\b/.test(s)),
+    reason: "Suppression de main interdite.",
   },
   {
     // -n vaut --no-verify pour commit (y compris groupé : -nm), mais --dry-run pour push.

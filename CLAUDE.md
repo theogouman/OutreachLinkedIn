@@ -11,9 +11,9 @@ Architecture et décisions : @docs/architecture.md
 - `npm test` : Vitest (fichiers `*.test.ts` dans `src/` et `tests/`).
 
 ## Déploiement — règle absolue
-- Toute modification est déployée directement en production : commit puis push sur la branche
-  `claude/confident-ritchie-6v4383`, branche de production de Vercel (https://outreach.gouman.fr).
-- Pas de pull request, pas de preview à valider. `main` n'est pas utilisée.
+- Toute modification est déployée directement en production : commit puis push sur `main`,
+  branche unique et branche de production de Vercel (https://outreach.gouman.fr).
+- Pas de pull request, pas de preview à valider, pas d'autre branche de travail.
 - Avant chaque push : `npm run check` vert (tests sur Postgres compris), build OK, Semgrep sans résultat.
 - Migration de base : l'appliquer au projet Supabase AVANT de pousser le code qui l'utilise.
 
