@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { ErreurAppel } from "@/server/queue/politique";
 import { normaliserUrlLinkedIn } from "@/lib/linkedin-url";
-import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu, Resultat } from "./types";
+import { messageUnipileSchema, type MessageUnipile } from "@/server/conversations";
+import type { ClientLinkedIn, ConversationListee, Liste, PersonneListee, ProfilLu, Resultat } from "./types";
 
 /**
  * Client Unipile API v2 (https://developer.unipile.com/v2.0). Schémas vérifiés
@@ -83,10 +84,35 @@ const conversationSchema = z.object({
   public_picture_url: z.string().max(2000).nullish(),
 });
 
+/** Pages de la messagerie (List all Chats, List all Chat Messages) : éléments validés un par un. */
+const pageBruteSchema = z.object({ data: z.array(z.unknown()).max(1000), next_cursor: curseurSchema });
+const chatListeSchema = z
+  .object({
+    id: z.string().min(1).max(300),
+    name: z.string().max(300).nullish(),
+    type: z.string().max(20).nullish(),
+    is_1to1: z.boolean().nullish(),
+    is_group: z.boolean().nullish(),
+    unread_count: z.number().nullish(),
+    last_message_timestamp: z.string().max(60).nullish(),
+    updated_at: z.string().max(60).nullish(),
+    user_id: z.string().max(300).nullish(),
+    user: utilisateurSchema.passthrough().nullish(),
+    public_picture_url: z.string().max(2000).nullish(),
+  })
+  .passthrough();
+
 export const BOITE_LINKEDIN_CLASSIQUE = "CLASSIC_PRIMARY";
 const PROVIDER_ID = /^[A-Za-z0-9_-]{5,200}$/;
 
 const erreurSchema = z.object({ type: z.string().optional(), detail: z.string().optional() }).passthrough();
+
+function pagination(limite: number, curseur?: string, offset?: number): Record<string, string> {
+  const p: Record<string, string> = { limit: String(Math.min(Math.max(Math.trunc(limite), 1), 100)) };
+  if (curseur) p.cursor = curseur;
+  else if (offset && offset > 0) p.offset = String(Math.trunc(offset));
+  return p;
+}
 
 /** Page plus grande que le repli refusée comme paramètre invalide : à redemander par 100. */
 function refusTaille(e: ErreurAppel, params: Record<string, string>): boolean {
@@ -204,6 +230,43 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
         photoUrl: p.public_picture_url ?? null,
       };
       return { ok: true, donnees: profil };
+    },
+
+    async listerConversations(limite, curseur, offset) {
+      const r = await appeler("/chats", pagination(limite, curseur, offset), pageBruteSchema);
+      if (!r.ok) return r;
+      const conversations: ConversationListee[] = [];
+      for (const brut of r.donnees.data) {
+        const c = chatListeSchema.safeParse(brut);
+        if (!c.success) continue;
+        const u = c.data.user;
+        const aDeux = c.data.is_1to1 ?? (c.data.type === "1to1" || (!c.data.is_group && !!c.data.user_id));
+        conversations.push({
+          chatId: c.data.id,
+          aDeux,
+          nonLues: c.data.unread_count ?? 0,
+          dernierMessageA: date(c.data.last_message_timestamp ?? c.data.updated_at ?? undefined),
+          interlocuteur: {
+            providerId: u?.id ?? c.data.user_id ?? null,
+            publicIdentifier: u?.public_identifier || normaliserUrlLinkedIn(u?.profile_url)?.publicIdentifier || null,
+            nom: (u?.display_name || [u?.first_name, u?.last_name].filter(Boolean).join(" ") || c.data.name || "").trim().slice(0, 200) || null,
+            titre: u?.description?.slice(0, 300) ?? null,
+            photoUrl: u?.public_picture_url ?? (aDeux ? (c.data.public_picture_url ?? null) : null),
+          },
+        });
+      }
+      return { ok: true, donnees: { conversations, lus: r.donnees.data.length, suivant: r.donnees.next_cursor ?? null } };
+    },
+
+    async listerMessages(chatId, limite, curseur, offset) {
+      const r = await appeler(`/chats/${encodeURIComponent(chatId)}/messages`, pagination(limite, curseur, offset), pageBruteSchema);
+      if (!r.ok) return r;
+      const messages: MessageUnipile[] = [];
+      for (const brut of r.donnees.data) {
+        const m = messageUnipileSchema.safeParse(brut);
+        if (m.success) messages.push(m.data);
+      }
+      return { ok: true, donnees: { messages, lus: r.donnees.data.length, suivant: r.donnees.next_cursor ?? null } };
     },
 
     async lireListe(liste: Liste, limite, curseur, offset) {

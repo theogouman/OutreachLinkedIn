@@ -1,4 +1,5 @@
 import type { ErreurAppel } from "@/server/queue/politique";
+import type { MessageUnipile } from "@/server/conversations";
 
 export type Resultat<T> = { ok: true; donnees: T } | { ok: false; erreur: ErreurAppel };
 
@@ -35,6 +36,28 @@ export interface PageListe {
 
 export type Liste = "relations" | "invitations_envoyees" | "invitations_recues";
 
+/** Conversation de la messagerie LinkedIn, lue chez Unipile (synchronisation de la messagerie). */
+export interface ConversationListee {
+  chatId: string;
+  /** Conversation à deux (les groupes ne sont pas repris). */
+  aDeux: boolean;
+  nonLues: number;
+  dernierMessageA: Date | null;
+  interlocuteur: { providerId: string | null; publicIdentifier: string | null; nom: string | null; titre: string | null; photoUrl: string | null };
+}
+
+/** Une page : `lus` = éléments reçus (y compris ceux écartés car mal formés), pour la pagination. */
+export interface PageConversations {
+  conversations: ConversationListee[];
+  lus: number;
+  suivant: string | null;
+}
+export interface PageMessages {
+  messages: MessageUnipile[];
+  lus: number;
+  suivant: string | null;
+}
+
 /** Opérations LinkedIn utilisées par l'outil (lectures, messages, premier message). */
 export interface ClientLinkedIn {
   /** Message dans une conversation existante (chat Unipile). Jamais appelé hors de la file. */
@@ -52,4 +75,8 @@ export interface ClientLinkedIn {
    * initiale ; ensuite, première page seulement (recommandation Unipile : pas de parcours répété).
    */
   lireListe(liste: Liste, limite: number, curseur?: string, offset?: number): Promise<Resultat<PageListe>>;
+  /** Lecture de la messagerie (copie tenue par Unipile, hors quotas LinkedIn) : conversations, plus récentes d'abord. */
+  listerConversations(limite: number, curseur?: string, offset?: number): Promise<Resultat<PageConversations>>;
+  /** Messages d'une conversation, plus récents d'abord. */
+  listerMessages(chatId: string, limite: number, curseur?: string, offset?: number): Promise<Resultat<PageMessages>>;
 }

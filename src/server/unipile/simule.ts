@@ -55,6 +55,12 @@ export function creerClientSimule(
       };
       return { ok: true, donnees: profil };
     },
+    async listerConversations() {
+      return { ok: true, donnees: { conversations: [], lus: 0, suivant: null } };
+    },
+    async listerMessages() {
+      return { ok: true, donnees: { messages: [], lus: 0, suivant: null } };
+    },
     async lireListe(liste) {
       const source = liste === "relations" ? donnees.relations : liste === "invitations_envoyees" ? donnees.envoyees : donnees.recues;
       return { ok: true, donnees: { personnes: source ?? [], suivant: null } };

@@ -147,6 +147,56 @@ describe("client Unipile v2", () => {
     expect(r).toMatchObject({ ok: false, erreur: { status: 400, type: "reponse_inattendue" } });
   });
 
+  it("liste les conversations : interlocuteur, non lues, dernière activité ; ignore les éléments mal formés", async () => {
+    const f = fetchFactice(200, {
+      data: [
+        {
+          object: "Chat", id: "chat_1", name: "Léa Martin", type: "1to1", is_1to1: true, is_group: false, unread_count: 2,
+          last_message_timestamp: "2026-11-10T09:00:00.000Z", user_id: "ACoL",
+          user: { id: "ACoL", object: "User", type: "individual", display_name: "Léa Martin", public_identifier: "lea-martin",
+            description: "CEO", public_picture_url: "https://media.licdn.com/l.jpg" },
+        },
+        { object: "Chat", id: "chat_g", name: "Groupe", type: "group", is_1to1: false, is_group: true, unread_count: 0 },
+        { pas: "une conversation" },
+      ],
+      next_cursor: null,
+    });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).listerConversations(100, undefined, 200);
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/chats?limit=100&offset=200");
+    expect(r).toEqual({
+      ok: true,
+      donnees: {
+        conversations: [
+          {
+            chatId: "chat_1", aDeux: true, nonLues: 2, dernierMessageA: new Date("2026-11-10T09:00:00.000Z"),
+            interlocuteur: { providerId: "ACoL", publicIdentifier: "lea-martin", nom: "Léa Martin", titre: "CEO", photoUrl: "https://media.licdn.com/l.jpg" },
+          },
+          {
+            chatId: "chat_g", aDeux: false, nonLues: 0, dernierMessageA: null,
+            interlocuteur: { providerId: null, publicIdentifier: null, nom: "Groupe", titre: null, photoUrl: null },
+          },
+        ],
+        lus: 3,
+        suivant: null,
+      },
+    });
+  });
+
+  it("liste les messages d'une conversation (curseur), en ignorant les éléments mal formés", async () => {
+    const f = fetchFactice(200, {
+      data: [
+        { object: "Message", id: "m2", chat_id: "chat_1", text: "Merci !", timestamp: "2026-11-10T09:00:00.000Z", is_sender: false, sender_id: "ACoL" },
+        { object: "Message", id: "m1" },
+      ],
+      next_cursor: "c2",
+    });
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).listerMessages("chat/1", 100, "c1");
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/chats/chat%2F1/messages?limit=100&cursor=c1");
+    expect(r.ok && r.donnees.messages.map((m) => m.id)).toEqual(["m2"]);
+    expect(r.ok && r.donnees.lus).toBe(2);
+    expect(r.ok && r.donnees.suivant).toBe("c2");
+  });
+
   it("refuse un identifiant de compte mal formé", () => {
     expect(() => creerClientUnipileV2({ ...OPTS, accountId: "../x" })).toThrow();
   });
