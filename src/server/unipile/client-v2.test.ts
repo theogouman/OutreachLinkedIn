@@ -162,7 +162,7 @@ describe("client Unipile v2", () => {
       next_cursor: null,
     });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).listerConversations(100, undefined, 200);
-    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/chats?limit=100&offset=200");
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/inboxes/CLASSIC_PRIMARY/chats?limit=100&offset=200");
     expect(r).toEqual({
       ok: true,
       donnees: {

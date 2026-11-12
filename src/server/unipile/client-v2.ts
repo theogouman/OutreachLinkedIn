@@ -233,7 +233,8 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
     },
 
     async listerConversations(limite, curseur, offset) {
-      const r = await appeler("/chats", pagination(limite, curseur, offset), pageBruteSchema);
+      // LinkedIn : « List all Chats » répond 501 not_implemented (constaté le 2026-11-12) ; liste par boîte de réception.
+      const r = await appeler(`/inboxes/${BOITE_LINKEDIN_CLASSIQUE}/chats`, pagination(limite, curseur, offset), pageBruteSchema);
       if (!r.ok) return r;
       const conversations: ConversationListee[] = [];
       for (const brut of r.donnees.data) {
