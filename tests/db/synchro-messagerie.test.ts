@@ -181,12 +181,12 @@ describe.skipIf(!TEST_DATABASE_URL)("synchronisation complète de la messagerie"
   it("erreur Unipile : notée, rien de cassé, reprise au tour suivant", async () => {
     const d: DependancesSynchro = {
       client: {
-        listerConversations: async () => ({ ok: false, erreur: { status: 429, type: "api/too_many_requests" } }),
+        listerConversations: async () => ({ ok: false, erreur: { status: 429, type: "api/too_many_requests", detail: "slow down" } }),
         listerMessages: async () => ({ ok: true, donnees: { messages: [], lus: 0, suivant: null } }),
       },
     };
     await synchroniserMessagerie(db.pool, d);
     const e = await db.pool.query("select derniere_erreur, offset_conversations from public.synchro_messagerie");
-    expect(e.rows[0]).toEqual({ derniere_erreur: "429 api/too_many_requests", offset_conversations: 0 });
+    expect(e.rows[0]).toEqual({ derniere_erreur: "429 api/too_many_requests slow down", offset_conversations: 0 });
   });
 });

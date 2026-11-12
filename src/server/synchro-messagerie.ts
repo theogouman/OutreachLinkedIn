@@ -29,7 +29,8 @@ export const MESSAGES_PAR_PAGE = 100;
 /** Garde-fou : messages lus au plus par conversation (les plus récents d'abord). */
 export const MESSAGES_MAX = 2000;
 
-const code = (e: ErreurAppel) => [e.status ?? "sans_reponse", e.type].filter(Boolean).join(" ").slice(0, 500);
+/** Statut, type et détail d'Unipile (diagnostic : quel paramètre est refusé), bornés. */
+const code = (e: ErreurAppel) => [e.status ?? "sans_reponse", e.type, e.detail?.slice(0, 300)].filter(Boolean).join(" ").slice(0, 500);
 
 async function noterErreur(pool: Pool, e: ErreurAppel) {
   await pool.query("update public.synchro_messagerie set derniere_erreur = $1, maj = now() where id", [code(e)]);
