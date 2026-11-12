@@ -7,7 +7,7 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, mettreMessageEnFile, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreMessageEnFile, supprimerConversation, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
 import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
@@ -114,6 +114,20 @@ export async function actionPurgerDemo(): Promise<Retour> {
 
 export async function actionMarquerLue(id: string): Promise<Retour> {
   return executer("marquer-lue", async () => ((await marquerLue(poolServeur(), id)) ? "Conversation marquée comme lue." : ""));
+}
+
+export async function actionMarquerNonLue(id: unknown): Promise<Retour> {
+  return executer("marquer-non-lue", async () =>
+    (await marquerNonLue(poolServeur(), id)) ? "Conversation marquée comme non lue." : "Cette conversation est déjà non lue.",
+  );
+}
+
+/** Suppression dans l'outil seulement : rien n'est effacé sur LinkedIn. */
+export async function actionSupprimerConversation(id: unknown): Promise<Retour> {
+  return executer("supprimer-conversation", async () => {
+    await supprimerConversation(poolServeur(), id);
+    return "Conversation supprimée.";
+  });
 }
 
 /** Message rédigé dans l'outil : mis en file, jamais envoyé directement. */

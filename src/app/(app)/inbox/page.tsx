@@ -9,6 +9,7 @@ import { filtresInboxDepuisUrl } from "@/lib/filtres/inbox";
 import { ModaleFiche } from "../fiche";
 import { ListeConversations } from "./liste-conversations";
 import { MarquerLue } from "./marquer-lue";
+import { ActionsConversation } from "./actions-conversation";
 import { BoutonNouveauMessage } from "./nouveau-message";
 import { InboxGlissante, RetourListe } from "./inbox-glissante";
 import { CarteInterlocuteur } from "./carte-interlocuteur";
@@ -86,8 +87,8 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
         {ouvert ? (
           <>
             <MarquerLue id={ouvert.id} nonLu={ouvert.nonLu} />
-            <header className="inbox-entete-conversation flex flex-wrap items-center justify-between gap-3 border-b border-trait px-4 py-3 sm:px-5">
-              <div className="flex min-w-0 items-center gap-2">
+            <header className="inbox-entete-conversation flex items-center justify-between gap-3 border-b border-trait px-4 py-3 sm:px-5">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <RetourListe />
                 {ouvert.prospectId ? (
                   // Photo, nom et poste ouvrent la fiche par-dessus la conversation, sans quitter l'Inbox.
@@ -119,11 +120,14 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                   </Link>
                 )}
               </div>
-              {ouvert.prospectId ? (
-                etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />
-              ) : (
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM</span>
-              )}
+              <div className="flex shrink-0 items-center gap-2">
+                {ouvert.prospectId ? (
+                  etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />
+                ) : (
+                  <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM</span>
+                )}
+                <ActionsConversation key={ouvert.id} id={ouvert.id} nonLu={ouvert.nonLu} nom={ouvert.nom} />
+              </div>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto bg-carte px-5 py-5">
               <FilMessages messages={ouvert.messages} nom={ouvert.nom} photo={ouvert.photo} />

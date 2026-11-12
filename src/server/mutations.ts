@@ -109,6 +109,53 @@ export async function marquerLue(pool: Pool, id: unknown): Promise<boolean> {
   return (r.rowCount ?? 0) > 0;
 }
 
+/** Remet une conversation en non lue, pour se rappeler d'y répondre. */
+export async function marquerNonLue(pool: Pool, id: unknown): Promise<boolean> {
+  const r = await pool.query("update public.conversations set non_lu = true where id = $1 and not non_lu", [idSchema.parse(id)]);
+  return (r.rowCount ?? 0) > 0;
+}
+
+/**
+ * Supprime une conversation de l'outil (rien n'est supprimé sur LinkedIn) : conversation et
+ * messages effacés, prospect conservé. Le chat Unipile est mémorisé (`conversations_supprimees`)
+ * pour qu'une synchronisation ne fasse pas revenir les anciens messages. Refusé si un message
+ * est en file ou en cours d'envoi dans cette conversation.
+ */
+export async function supprimerConversation(pool: Pool, id: unknown) {
+  const conversationId = idSchema.parse(id);
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    const conv = await c.query("select unipile_chat_id from public.conversations where id = $1 for update", [conversationId]);
+    if (!conv.rowCount) throw new EnvoiRefuse("Conversation introuvable.");
+    const enFile = await c.query(
+      `select 1 from public.taches
+        where type_action = 'message' and statut in ('en_attente', 'en_cours', 'incertaine')
+          and payload ->> 'conversation_id' = $1::text
+        limit 1`,
+      [conversationId],
+    );
+    if (enFile.rowCount) {
+      throw new EnvoiRefuse("Un message est en file pour cette conversation : annule-le dans la file d'attente ou attends son envoi.");
+    }
+    const chat: string | null = conv.rows[0].unipile_chat_id;
+    if (chat) {
+      await c.query(
+        `insert into public.conversations_supprimees (unipile_chat_id) values ($1)
+         on conflict (unipile_chat_id) do update set supprimee_le = now()`,
+        [chat],
+      );
+    }
+    await c.query("delete from public.conversations where id = $1", [conversationId]); // messages : en cascade
+    await c.query("commit");
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
 // ─── Messages : un seul chemin d'envoi, la file d'attente ─────────────────────
 
 /** Refus explicable à l'utilisateur (message affiché tel quel). */
