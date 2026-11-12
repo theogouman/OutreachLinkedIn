@@ -2,6 +2,7 @@ import "server-only";
 import type { Pool } from "pg";
 import { z } from "zod";
 import { detailsAffichables } from "@/lib/listes";
+import { profilAffichable, type ProfilLinkedIn } from "@/lib/profil-linkedin";
 import { lienProfilLinkedIn } from "@/lib/linkedin-url";
 import { notificationsDepuis } from "./notifications";
 import { exigerUtilisateur } from "./auth";
@@ -178,6 +179,8 @@ export interface FicheProspect extends LigneProspect {
   /** Informations propres à la liste d'origine, déjà filtrées et revalidées (src/lib/listes.ts). */
   informationsListe: ReturnType<typeof detailsAffichables>;
   historique: EvenementHistorique[];
+  /** Profil LinkedIn issu d'un enrichissement externe, revalidé (src/lib/profil-linkedin.ts). */
+  profil: ProfilLinkedIn | null;
 }
 
 export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<FicheProspect | null> {
@@ -198,8 +201,14 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
      order by 1 desc limit 100`,
     [parse.data],
   );
+  const profil = await pool.query(
+    `select lu_le, titre, localisation, a_propos, email, relations, abonnes, entreprise, experiences, formation, avant
+       from public.profils_linkedin where prospect_id = $1`,
+    [parse.data],
+  );
   const x = p.rows[0];
   return {
+    profil: profilAffichable(profil.rows[0] ?? null),
     id: x.id,
     prenom: x.prenom,
     nom: x.nom,

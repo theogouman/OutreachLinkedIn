@@ -15,6 +15,7 @@ import { Avatar } from "@/components/interface/elements";
 import { LogoLinkedIn } from "@/components/logos";
 import { lienProfilLinkedIn } from "@/lib/linkedin-url";
 import { NotesProspect } from "./notes-prospect";
+import { OngletProfil } from "./onglet-profil";
 import { useOrdreFiches } from "@/components/ordre-fiches";
 import { IconeCorbeille, IconeFlecheDroite } from "@/components/icones-pages";
 import { actionSupprimerProspect } from "@/app/actions";
@@ -195,6 +196,9 @@ export function ModaleFiche({
                 </div>
               ),
             },
+            ...(fiche.profil
+              ? [{ id: "profil", libelle: "Profil", contenu: <OngletProfil profil={fiche.profil} /> }]
+              : []),
             {
               id: "conversation",
               libelle: "Conversation",
@@ -338,7 +342,7 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
 function EnTeteFiche({ fiche, nom, nav }: { fiche: FicheProspect; nom: string; nav: Navigation }) {
   const { fermer, titreId } = useModale();
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
-  const sousTitre = [fiche.poste, fiche.entreprise].filter(Boolean).join(" · ");
+  const sousTitre = [fiche.poste, fiche.entreprise, fiche.profil?.localisation].filter(Boolean).join(" · ");
   return (
     <header className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-5 sm:px-8 sm:pt-7">
       <div className="flex items-start justify-between gap-4">
