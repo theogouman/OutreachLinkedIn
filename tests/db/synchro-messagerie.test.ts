@@ -48,7 +48,7 @@ describe.skipIf(!TEST_DATABASE_URL)("synchronisation complète de la messagerie"
   beforeEach(async () => {
     await db.pool.query("truncate public.prospects, public.conversations, public.conversations_supprimees cascade");
     await db.pool.query(
-      "update public.synchro_messagerie set active = true, offset_conversations = 0, curseur = null, premier_vu = null, liste_terminee_le = null, derniere_erreur = null",
+      "update public.synchro_messagerie set active = true, offset_conversations = 0, curseur = null, premier_vu = null, reprendre_apres = null, liste_terminee_le = null, derniere_erreur = null",
     );
   });
 
@@ -205,6 +205,31 @@ describe.skipIf(!TEST_DATABASE_URL)("synchronisation complète de la messagerie"
     await synchroniserMessagerie(db.pool, d);
     expect(appels).toEqual(["chats@0", "chats@2"]);
     expect((await db.pool.query("select liste_terminee_le is not null as fin from public.synchro_messagerie")).rows[0].fin).toBe(true);
+  });
+
+  it("limite de fréquence Unipile (429) : pause du délai demandé, puis reprise", async () => {
+    const appels: string[] = [];
+    let limite = true;
+    const d: DependancesSynchro = {
+      client: {
+        listerConversations: async (_l, _c, offset = 0) => {
+          appels.push(`chats@${offset}`);
+          return limite
+            ? { ok: false, erreur: { status: 429, type: "api/too_many_requests", retryAfterS: 120 } }
+            : { ok: true, donnees: { conversations: [], lus: 0, suivant: null } };
+        },
+        listerMessages: async () => ({ ok: true, donnees: { messages: [], lus: 0, suivant: null } }),
+      },
+    };
+    await synchroniserMessagerie(db.pool, d);
+    const pause = (await db.pool.query("select reprendre_apres from public.synchro_messagerie")).rows[0].reprendre_apres as Date;
+    expect(pause.getTime() - Date.now()).toBeGreaterThan(100_000);
+    limite = false;
+    await synchroniserMessagerie(db.pool, d); // en pause : aucun appel
+    expect(appels).toEqual(["chats@0"]);
+    await db.pool.query("update public.synchro_messagerie set reprendre_apres = now() - interval '1 second'");
+    await synchroniserMessagerie(db.pool, d);
+    expect(appels).toEqual(["chats@0", "chats@0"]);
   });
 
   it("erreur Unipile : notée, rien de cassé, reprise au tour suivant", async () => {

@@ -32,14 +32,27 @@ export const MESSAGES_MAX = 2000;
 /** Statut, type et détail d'Unipile (diagnostic : quel paramètre est refusé), bornés. */
 const code = (e: ErreurAppel) => [e.status ?? "sans_reponse", e.type, e.detail?.slice(0, 300)].filter(Boolean).join(" ").slice(0, 500);
 
+/** Délai par défaut quand Unipile limite la fréquence sans préciser de délai. */
+export const PAUSE_PAR_DEFAUT_S = 300;
+
 async function noterErreur(pool: Pool, e: ErreurAppel) {
-  await pool.query("update public.synchro_messagerie set derniere_erreur = $1, maj = now() where id", [code(e)]);
+  // Limite de fréquence (429) : pause du délai demandé (retry-after), sinon 5 minutes.
+  const pauseS = e.status === 429 ? (e.retryAfterS && e.retryAfterS > 0 ? Math.min(e.retryAfterS, 3600) : PAUSE_PAR_DEFAUT_S) : 0;
+  await pool.query(
+    "update public.synchro_messagerie set derniere_erreur = $1, reprendre_apres = case when $2 > 0 then now() + $2 * interval '1 second' end, maj = now() where id",
+    [code(e), pauseS],
+  );
 }
 
 /** Un tour de synchronisation. Toujours au moins une page de conversations tant que la liste n'est pas finie. */
 export async function synchroniserMessagerie(pool: Pool, deps: DependancesSynchro, budgetMs = 15_000) {
-  const etat = (await pool.query("select active, offset_conversations, curseur, premier_vu, liste_terminee_le from public.synchro_messagerie where id")).rows[0];
-  if (!etat?.active) return { conversations: 0, historiques: 0 };
+  const etat = (
+    await pool.query(
+      `select active, offset_conversations, curseur, premier_vu, liste_terminee_le, reprendre_apres > now() as en_pause
+         from public.synchro_messagerie where id`,
+    )
+  ).rows[0];
+  if (!etat?.active || etat.en_pause) return { conversations: 0, historiques: 0 };
   const fin = Date.now() + budgetMs;
   const telecharger = deps.telechargerPhoto ?? telechargerPhotoLinkedIn;
   let conversations = 0;
