@@ -197,6 +197,23 @@ describe("client Unipile v2", () => {
     expect(r.ok && r.donnees.suivant).toBe("c2");
   });
 
+  it("messagerie : taille de page refusée (Invalid querystring) → un nouvel essai sans taille, par défaut Unipile", async () => {
+    const f = vi.fn<(url: URL | RequestInfo, init?: RequestInit) => Promise<Response>>(async (url) =>
+      String(url).includes("limit=")
+        ? new Response(JSON.stringify({ type: "api/invalid_parameters", detail: "Invalid querystring" }), { status: 400 })
+        : new Response(JSON.stringify({ data: [], next_cursor: null }), { status: 200 }),
+    );
+    const client = creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch });
+    expect((await client.listerConversations(50, undefined, 40)).ok).toBe(true);
+    expect((await client.listerMessages("c1", 100)).ok).toBe(true);
+    expect(f.mock.calls.map((c) => String(c[0]))).toEqual([
+      "https://api.example.test/v2/acc_test/inboxes/CLASSIC_PRIMARY/chats?limit=50&offset=40",
+      "https://api.example.test/v2/acc_test/inboxes/CLASSIC_PRIMARY/chats?offset=40",
+      "https://api.example.test/v2/acc_test/chats/c1/messages?limit=100",
+      "https://api.example.test/v2/acc_test/chats/c1/messages",
+    ]);
+  });
+
   it("refuse un identifiant de compte mal formé", () => {
     expect(() => creerClientUnipileV2({ ...OPTS, accountId: "../x" })).toThrow();
   });

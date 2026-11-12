@@ -182,6 +182,16 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
     return { ok: true, donnees: parse.data };
   }
 
+  /**
+   * Page de la messagerie. Taille de page refusée (« Invalid querystring », constaté le 2026-11-12
+   * pour LinkedIn) : un nouvel essai sans `limit`, à la taille par défaut d'Unipile.
+   */
+  async function appelerPage(chemin: string, params: Record<string, string>) {
+    const r = await appeler(chemin, params, pageBruteSchema);
+    if (r.ok || r.erreur.status !== 400 || r.erreur.type !== "api/invalid_parameters" || !params.limit) return r;
+    return appeler(chemin, Object.fromEntries(Object.entries(params).filter(([cle]) => cle !== "limit")), pageBruteSchema);
+  }
+
   return {
     async envoyerMessage(chatId, texte) {
       const r = await appeler(`/chats/${encodeURIComponent(chatId)}/messages/send`, {}, messageEnvoyeSchema, { text: texte });
@@ -234,7 +244,7 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
 
     async listerConversations(limite, curseur, offset) {
       // LinkedIn : « List all Chats » répond 501 not_implemented (constaté le 2026-11-12) ; liste par boîte de réception.
-      const r = await appeler(`/inboxes/${BOITE_LINKEDIN_CLASSIQUE}/chats`, pagination(limite, curseur, offset), pageBruteSchema);
+      const r = await appelerPage(`/inboxes/${BOITE_LINKEDIN_CLASSIQUE}/chats`, pagination(limite, curseur, offset));
       if (!r.ok) return r;
       const conversations: ConversationListee[] = [];
       for (const brut of r.donnees.data) {
@@ -260,7 +270,7 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
     },
 
     async listerMessages(chatId, limite, curseur, offset) {
-      const r = await appeler(`/chats/${encodeURIComponent(chatId)}/messages`, pagination(limite, curseur, offset), pageBruteSchema);
+      const r = await appelerPage(`/chats/${encodeURIComponent(chatId)}/messages`, pagination(limite, curseur, offset));
       if (!r.ok) return r;
       const messages: MessageUnipile[] = [];
       for (const brut of r.donnees.data) {

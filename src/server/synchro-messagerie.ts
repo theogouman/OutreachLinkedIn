@@ -38,7 +38,7 @@ async function noterErreur(pool: Pool, e: ErreurAppel) {
 
 /** Un tour de synchronisation. Toujours au moins une page de conversations tant que la liste n'est pas finie. */
 export async function synchroniserMessagerie(pool: Pool, deps: DependancesSynchro, budgetMs = 15_000) {
-  const etat = (await pool.query("select active, offset_conversations, curseur, liste_terminee_le from public.synchro_messagerie where id")).rows[0];
+  const etat = (await pool.query("select active, offset_conversations, curseur, premier_vu, liste_terminee_le from public.synchro_messagerie where id")).rows[0];
   if (!etat?.active) return { conversations: 0, historiques: 0 };
   const fin = Date.now() + budgetMs;
   const telecharger = deps.telechargerPhoto ?? telechargerPhotoLinkedIn;
@@ -48,6 +48,7 @@ export async function synchroniserMessagerie(pool: Pool, deps: DependancesSynchr
   // 1. Liste des conversations.
   let offset: number = etat.offset_conversations;
   let curseur: string | null = etat.curseur;
+  let premierVu: string | null = etat.premier_vu;
   let listeFinie = !!etat.liste_terminee_le;
   while (!listeFinie) {
     const r = await deps.client.listerConversations(CONVERSATIONS_PAR_PAGE, curseur ?? undefined, curseur ? undefined : offset);
@@ -55,20 +56,28 @@ export async function synchroniserMessagerie(pool: Pool, deps: DependancesSynchr
       await noterErreur(pool, r.erreur);
       return { conversations, historiques };
     }
-    for (const conv of r.donnees.conversations) {
-      if (!conv.aDeux) continue;
-      const photo = (await photoUtile(pool, conv)) ? await telecharger(conv.interlocuteur.photoUrl!).catch(() => null) : null;
-      await dansTransaction(pool, (c) => enregistrerConversation(c, conv, photo));
-      conversations++;
+    const premier = r.donnees.conversations[0]?.chatId ?? null;
+    // Fin : page vide, ou page identique à la précédente (décalage ignoré). Jamais sur une page
+    // seulement plus courte que demandé : le fournisseur peut imposer sa propre taille de page.
+    const identique = !curseur && premier !== null && premier === premierVu;
+    if (!identique) {
+      for (const conv of r.donnees.conversations) {
+        if (!conv.aDeux) continue;
+        const photo = (await photoUtile(pool, conv)) ? await telecharger(conv.interlocuteur.photoUrl!).catch(() => null) : null;
+        await dansTransaction(pool, (c) => enregistrerConversation(c, conv, photo));
+        conversations++;
+      }
     }
     offset += r.donnees.lus;
     curseur = r.donnees.suivant;
-    listeFinie = !r.donnees.suivant && r.donnees.lus < CONVERSATIONS_PAR_PAGE;
+    premierVu = premier;
+    listeFinie = identique || (!r.donnees.suivant && r.donnees.lus === 0);
     await pool.query(
       `update public.synchro_messagerie
-          set offset_conversations = $1, curseur = $2, liste_terminee_le = case when $3 then now() end, derniere_erreur = null, maj = now()
+          set offset_conversations = $1, curseur = $2, premier_vu = $4, liste_terminee_le = case when $3 then now() end,
+              derniere_erreur = null, maj = now()
         where id`,
-      [offset, curseur, listeFinie],
+      [offset, curseur, listeFinie, premierVu],
     );
     if (Date.now() >= fin) return { conversations, historiques };
   }
@@ -226,13 +235,19 @@ async function lireHistorique(client: DependancesSynchro["client"], chatId: stri
   const messages: MessageUnipile[] = [];
   let curseur: string | undefined;
   let offset = 0;
+  let premierPrecedent: string | null = null;
   for (;;) {
     const r = await client.listerMessages(chatId, MESSAGES_PAR_PAGE, curseur, curseur ? undefined : offset);
     if (!r.ok) return { ok: false as const, erreur: r.erreur };
+    const premier = r.donnees.messages[0]?.id ?? null;
+    // Page identique à la précédente (décalage ignoré) : fin, sans doubler les messages.
+    if (!curseur && offset > 0 && premier !== null && premier === premierPrecedent) break;
+    premierPrecedent = premier;
     messages.push(...r.donnees.messages);
     if (messages.length >= MESSAGES_MAX) break;
+    // Fin sur une page vide seulement : le fournisseur peut imposer une taille de page plus petite.
     if (r.donnees.suivant) curseur = r.donnees.suivant;
-    else if (r.donnees.lus >= MESSAGES_PAR_PAGE) offset += r.donnees.lus;
+    else if (r.donnees.lus > 0) offset += r.donnees.lus;
     else break;
   }
   return { ok: true as const, messages };

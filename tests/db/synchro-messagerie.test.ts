@@ -47,7 +47,9 @@ describe.skipIf(!TEST_DATABASE_URL)("synchronisation complète de la messagerie"
   afterAll(async () => db?.drop());
   beforeEach(async () => {
     await db.pool.query("truncate public.prospects, public.conversations, public.conversations_supprimees cascade");
-    await db.pool.query("update public.synchro_messagerie set active = true, offset_conversations = 0, curseur = null, liste_terminee_le = null, derniere_erreur = null");
+    await db.pool.query(
+      "update public.synchro_messagerie set active = true, offset_conversations = 0, curseur = null, premier_vu = null, liste_terminee_le = null, derniere_erreur = null",
+    );
   });
 
   const prospect = async (id: string, extra: { provider_id?: string } = {}) =>
@@ -176,6 +178,33 @@ describe.skipIf(!TEST_DATABASE_URL)("synchronisation complète de la messagerie"
     expect(appels.filter((a) => a.startsWith("chats"))).toEqual(["chats@0", "chats@50"]);
     const n = await db.pool.query("select count(*)::int as n from public.conversations");
     expect(n.rows[0].n).toBe(100);
+  });
+
+  it("pages plus courtes que demandé (taille imposée par Unipile) : la liste continue jusqu'à une page vide", async () => {
+    const liste = Array.from({ length: 45 }, (_, i) => conv(`d${String(i).padStart(3, "0")}`, { providerId: `ACoD${i}` }));
+    const appels: string[] = [];
+    const d = deps(liste, {}, appels);
+    // Le fournisseur sert 20 conversations par page quoi qu'on demande.
+    const lister = d.client.listerConversations;
+    d.client.listerConversations = (_limite, curseur, offset) => lister(20, curseur, offset);
+    await synchroniserMessagerie(db.pool, d);
+    expect(appels.filter((a) => a.startsWith("chats"))).toEqual(["chats@0", "chats@20", "chats@40", "chats@45"]);
+    expect((await db.pool.query("select count(*)::int as n from public.conversations")).rows[0].n).toBe(45);
+    expect((await db.pool.query("select liste_terminee_le is not null as fin from public.synchro_messagerie")).rows[0].fin).toBe(true);
+  });
+
+  it("page identique à la précédente (décalage ignoré) : la liste s'arrête au lieu de boucler", async () => {
+    const appels: string[] = [];
+    const page = [conv("e1", { providerId: "ACoE1" }), conv("e2", { providerId: "ACoE2" })];
+    const d: DependancesSynchro = {
+      client: {
+        listerConversations: async (_l, _c, offset = 0) => (appels.push(`chats@${offset}`), { ok: true, donnees: { conversations: page, lus: 2, suivant: null } }),
+        listerMessages: async () => ({ ok: true, donnees: { messages: [], lus: 0, suivant: null } }),
+      },
+    };
+    await synchroniserMessagerie(db.pool, d);
+    expect(appels).toEqual(["chats@0", "chats@2"]);
+    expect((await db.pool.query("select liste_terminee_le is not null as fin from public.synchro_messagerie")).rows[0].fin).toBe(true);
   });
 
   it("erreur Unipile : notée, rien de cassé, reprise au tour suivant", async () => {
