@@ -14,6 +14,13 @@ describe("informations propres aux listes", () => {
     expect(detailsAffichables(null, details)).toEqual([]);
   });
 
+  it("liste « Réseau 1ᵉʳ degré » : type de cible et date de connexion", () => {
+    expect(detailsAffichables("Réseau 1ᵉʳ degré", { typeCible: "Décisionnaire", dateConnexion: "18 oct. 2025", requete: "x" })).toEqual([
+      { cle: "typeCible", libelle: "Type de cible", type: "texte", valeur: "Décisionnaire" },
+      { cle: "dateConnexion", libelle: "En relation depuis", type: "texte", valeur: "18 oct. 2025" },
+    ]);
+  });
+
   it("ignore les valeurs vides ou d'un mauvais type", () => {
     expect(detailsAffichables("Page Notion Publique", { requete: "  ", usageNotion: 42, pageNotion: null })).toEqual([]);
     expect(detailsAffichables("Page Notion Publique", null)).toEqual([]);

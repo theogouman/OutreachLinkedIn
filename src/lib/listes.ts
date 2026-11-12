@@ -15,6 +15,11 @@ export const CHAMPS_PAR_LISTE: Readonly<Record<string, readonly ChampListe[]>> =
     { cle: "requete", libelle: "Requête", type: "texte" },
     { cle: "usageNotion", libelle: "Usage Notion", type: "texte" },
   ],
+  // Relations LinkedIn qualifiées dans la base Notion « Réseau 1ᵉʳ degré ».
+  "Réseau 1ᵉʳ degré": [
+    { cle: "typeCible", libelle: "Type de cible", type: "texte" },
+    { cle: "dateConnexion", libelle: "En relation depuis", type: "texte" },
+  ],
 };
 
 export const LONGUEUR_MAX_DETAIL = 1000;
