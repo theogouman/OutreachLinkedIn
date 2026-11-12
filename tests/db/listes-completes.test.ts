@@ -137,6 +137,32 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
     expect(journal.rows.map((x) => x.details)).toEqual([{ vers: "a_contacter", cause: "invitation_disparue" }]);
   });
 
+  it("page de 500 demandée, 100 reçues sans curseur (plafond du fournisseur) : la suite est lue, rien ne redescend", async () => {
+    const partie = await prospect("partie3", "en_attente");
+    await db.pool.query("update public.prospects set provider_id = 'ACopartie3' where id = $1", [partie]);
+    await db.pool.query(
+      "insert into public.liens_linkedin (type, url_normalisee, source, vu_le) values ('invitation_envoyee', 'linkedin.com/in/partie3', 'csv', '2026-10-01')",
+    );
+    await db.pool.query(
+      `insert into public.taches (type_action, payload, cle_idempotence, executer_apres) values ('lecture_liste', $1, 'complete:inv500', '2026-11-01')`,
+      [{ liste: "invitations_envoyees", limite: 500, complete: true, page: 1 }],
+    );
+    const cent = Array.from({ length: 100 }, (_, i) => ({ providerId: `ACoX${i}`, publicIdentifier: null, date: null }));
+    const offsets: (number | undefined)[] = [];
+    const client: ClientLinkedIn = {
+      ...creerClientSimule(),
+      lireListe: async (_l, _limite, _c, offset) => {
+        offsets.push(offset);
+        return { ok: true, donnees: { personnes: offset ? [{ providerId: "ACopartie3", publicIdentifier: null, date: null }] : cent, suivant: null } };
+      },
+    };
+    await tour(client);
+    expect((await db.pool.query("select statut_relation from public.prospects where id = $1", [partie])).rows[0].statut_relation).toBe("en_attente");
+    await tour(client);
+    expect(offsets).toEqual([undefined, 100]);
+    expect((await db.pool.query("select statut_relation from public.prospects where id = $1", [partie])).rows[0].statut_relation).toBe("en_attente");
+  });
+
   it("parcours des invitations interrompu (page suivante en attente) : aucun statut ne redescend", async () => {
     const partie = await prospect("partie2", "en_attente");
     await db.pool.query("update public.prospects set provider_id = 'ACopartie2' where id = $1", [partie]);

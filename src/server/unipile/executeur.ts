@@ -48,6 +48,12 @@ type PayloadLectureListe = z.infer<typeof payloadLectureListe>;
 
 /** Pages au plus par parcours complet (garde-fou contre une boucle de curseurs). */
 export const PAGES_MAX = 200;
+/**
+ * Page considérée pleine (suite par décalage) dès 100 personnes : le fournisseur peut plafonner une
+ * page de 500 à 100 sans curseur (constaté le 2026-11-12 sur les invitations). Une page plus courte
+ * est la dernière ; seule une vraie dernière page autorise à conclure (invitations disparues).
+ */
+const PAGE_PLEINE = 100;
 /** Écart entre deux pages d'un parcours complet : 4 appels par heure au plus (documentation Unipile v2). */
 export const ESPACEMENT_PAGES_MS = 15 * 60 * 1000;
 
@@ -352,7 +358,7 @@ async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, 
   // Suite : curseur d'Unipile ; à défaut, page pleine → décalage.
   const suite: { curseur?: string; offset?: number } | null = d.suivant
     ? { curseur: d.suivant }
-    : d.personnes.length >= d.payload.limite
+    : d.personnes.length >= Math.min(d.payload.limite, PAGE_PLEINE)
       ? { offset: (d.payload.offset ?? 0) + d.personnes.length }
       : null;
   if (!suite) return finParcours(c, d.liste, debut);
