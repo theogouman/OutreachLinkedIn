@@ -103,7 +103,7 @@ function Recherche() {
         <TexteSaisieAnime valeur={texte} placeholder="Nom, poste ou entreprise" />
       </label>
       {erreur && (
-        <p role="alert" className="rounded-xl bg-accent-doux px-3 py-2 caption-5 text-action">
+        <p role="alert" className="rounded-xl bg-accent-doux px-3 py-2 caption-5 text-rouge">
           {erreur}
         </p>
       )}

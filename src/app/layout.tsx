@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Fournisseurs } from "@/components/interface/fournisseurs";
 import { EnregistrementServiceWorker } from "@/components/pwa/enregistrement-service-worker";
-import { COULEUR_SURFACE, SPLASH_IOS } from "@/lib/pwa-ios";
+import { COULEUR_SURFACE, COULEUR_SURFACE_SOMBRE, SPLASH_IOS } from "@/lib/pwa-ios";
 
 // Métadonnées PWA (modèle : Notion-Club/Infrastructure) : installation depuis l'écran
 // d'accueil iOS en mode plein écran, icône, nom, barre d'état.
@@ -37,7 +37,11 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: COULEUR_SURFACE,
+  // Barre du navigateur et barre d'état : couleur de la surface, claire ou sombre selon l'appareil.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: COULEUR_SURFACE },
+    { media: "(prefers-color-scheme: dark)", color: COULEUR_SURFACE_SOMBRE },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

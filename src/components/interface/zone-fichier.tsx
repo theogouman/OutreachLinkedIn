@@ -75,11 +75,11 @@ export function ZoneFichier({
           entreeRef.current.files = dt.files;
           choisir(f);
         }}
-        className="flex w-full items-center gap-4 rounded-2xl border border-dashed border-trait-fort bg-creux p-5 text-left outline-none transition-[border-color,transform] duration-200 hover:border-encre-3 focus-visible:ring-2 focus-visible:ring-action active:scale-[0.99] data-[survol=true]:border-accent data-[survol=true]:bg-accent-doux"
+        className="flex w-full items-center gap-4 rounded-2xl border border-dashed border-trait-fort bg-creux p-5 text-left outline-none transition-[border-color,transform] duration-200 hover:border-encre-3 focus-visible:ring-2 focus-visible:ring-rouge active:scale-[0.99] data-[survol=true]:border-accent data-[survol=true]:bg-accent-doux"
       >
         <motion.span
           aria-hidden
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-carte text-action ring-1 ring-trait"
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-carte text-rouge ring-1 ring-trait"
           animate={reduit ? undefined : { y: survol ? -2 : 0 }}
           transition={RAPIDE}
         >

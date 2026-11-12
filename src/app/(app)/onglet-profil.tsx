@@ -24,7 +24,7 @@ function Lien({ href, libelle }: { href: string; libelle: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-action underline-offset-2 outline-none hover:underline focus-visible:underline"
+      className="inline-flex items-center gap-1 text-rouge underline-offset-2 outline-none hover:underline focus-visible:underline"
     >
       <span className="break-all">{libelle}</span>
       <IconeLienExterne taille={11} />
@@ -50,7 +50,7 @@ function Lignes({ lignes }: { lignes: { t: string; d: React.ReactNode }[] }) {
 export function OngletProfil({ profil }: { profil: ProfilLinkedIn }) {
   const e = profil.entreprise;
   const contact = [
-    profil.email && { t: "E-mail", d: <a className="text-action underline-offset-2 hover:underline" href={`mailto:${profil.email}`}>{profil.email}</a> },
+    profil.email && { t: "E-mail", d: <a className="text-rouge underline-offset-2 hover:underline" href={`mailto:${profil.email}`}>{profil.email}</a> },
     profil.localisation && { t: "Localisation", d: profil.localisation },
     (profil.relations !== null || profil.abonnes !== null) && {
       t: "Audience",

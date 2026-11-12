@@ -175,7 +175,7 @@ export function ModaleFiche({
                                   href={info.valeur}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-action underline-offset-2 outline-none hover:underline focus-visible:underline"
+                                  className="inline-flex items-center gap-1 text-rouge underline-offset-2 outline-none hover:underline focus-visible:underline"
                                 >
                                   <span className="break-all">{new URL(info.valeur).hostname}</span>
                                   <IconeLienExterne taille={11} />
@@ -293,7 +293,7 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
         aria-expanded={confirmer}
         aria-label="Supprimer ce prospect"
         title="Supprimer ce prospect"
-        className="grid size-9 place-items-center rounded-full text-encre-3 outline-none transition-colors duration-150 hover:bg-accent-doux hover:text-action focus-visible:ring-2 focus-visible:ring-accent aria-expanded:bg-accent-doux aria-expanded:text-action"
+        className="grid size-9 place-items-center rounded-full text-encre-3 outline-none transition-colors duration-150 hover:bg-accent-doux hover:text-rouge focus-visible:ring-2 focus-visible:ring-accent aria-expanded:bg-accent-doux aria-expanded:text-rouge"
       >
         <IconeCorbeille taille={16} />
       </button>
@@ -490,7 +490,7 @@ function OngletConversation({
       {existante && (
         <Link
           href={`/inbox?conversation=${existante}`}
-          className="bouton bouton-discret shrink-0 self-start px-3 py-1.5 caption-3 text-action"
+          className="bouton bouton-discret shrink-0 self-start px-3 py-1.5 caption-3 text-rouge"
         >
           Ouvrir dans l&apos;Inbox
         </Link>

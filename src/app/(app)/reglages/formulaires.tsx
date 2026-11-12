@@ -164,7 +164,7 @@ export function FormReglages({ initial }: { initial: Reglages }) {
             {r.plages.creneaux.length < 6 && (
               <button
                 type="button"
-                className="bouton bouton-discret self-start px-2 py-1 caption-3 text-action"
+                className="bouton bouton-discret self-start px-2 py-1 caption-3 text-rouge"
                 onClick={() => setR((s) => ({ ...s, plages: { ...s.plages, creneaux: [...s.plages.creneaux, { debut: "14:00", fin: "17:00" }] } }))}
               >
                 + Ajouter un créneau

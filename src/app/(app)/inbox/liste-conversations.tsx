@@ -87,7 +87,7 @@ export function ListeConversations({
                     type="button"
                     onClick={() => l.changer("recherche", "")}
                     aria-label="Effacer la recherche"
-                    className="grid size-6 place-items-center rounded-full text-encre-3 outline-none hover:bg-black/[0.05] hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
+                    className="grid size-6 place-items-center rounded-full text-encre-3 outline-none hover:bg-encre/[0.05] hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <IconeFermer taille={12} />
                   </button>
@@ -99,7 +99,7 @@ export function ListeConversations({
       </div>
 
       {l.erreur && (
-        <p role="alert" className="mx-3 mt-3 rounded-xl bg-accent-doux px-3 py-2 caption-5 text-action">
+        <p role="alert" className="mx-3 mt-3 rounded-xl bg-accent-doux px-3 py-2 caption-5 text-rouge">
           {l.erreur}
         </p>
       )}
@@ -128,7 +128,7 @@ export function ListeConversations({
                     <span className="flex items-center justify-between gap-2">
                       <span className={`truncate ${c.nonLu ? "title-4 text-encre" : "body-6 text-encre"}`}>{c.nom}</span>
                       {c.dernierMessageAt && (
-                        <time className={`shrink-0 caption-5 tabular-nums ${c.nonLu ? "text-action" : "text-encre-3"}`}>{quand(c.dernierMessageAt)}</time>
+                        <time className={`shrink-0 caption-5 tabular-nums ${c.nonLu ? "text-rouge" : "text-encre-3"}`}>{quand(c.dernierMessageAt)}</time>
                       )}
                     </span>
                     <span className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export function ListeConversations({
                       </span>
                       {c.nonLu && <span className="ml-auto size-2 shrink-0 rounded-full bg-accent" aria-label="Non lue" />}
                     </span>
-                    {!c.prospectId && <span className="mt-0.5 self-start rounded-full bg-amber-50 px-1.5 caption-4 text-amber-800">Hors CRM</span>}
+                    {!c.prospectId && <span className="mt-0.5 self-start rounded-full bg-amber-50 dark:bg-amber-400/15 px-1.5 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>}
                   </span>
                 </Link>
               </li>

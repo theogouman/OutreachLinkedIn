@@ -47,8 +47,8 @@ const ICONES: Record<StatutToast, ReactNode> = {
 
 const COULEUR: Record<StatutToast, string> = {
   info: "bg-creux text-encre-2",
-  succes: "bg-emerald-50 text-emerald-700",
-  erreur: "bg-accent-doux text-action",
+  succes: "bg-emerald-50 dark:bg-emerald-400/15 text-emerald-700 dark:text-emerald-300",
+  erreur: "bg-accent-doux text-rouge",
 };
 
 let graine = 0;

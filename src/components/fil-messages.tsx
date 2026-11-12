@@ -39,7 +39,7 @@ export function FilMessages({
                 className={`selectionnable whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 body-6 ${
                   moi
                     ? attente
-                      ? "rounded-br-md border border-dashed border-action/50 bg-accent-doux text-encre"
+                      ? "rounded-br-md border border-dashed border-rouge/50 bg-accent-doux text-encre"
                       : "rounded-br-md bg-action text-white"
                     : surMotif
                       ? "rounded-bl-md bg-carte text-encre shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.05)]"
@@ -61,7 +61,7 @@ export function FilMessages({
                 {/* Accusé de lecture : double coche colorée quand l'interlocuteur a lu, coche simple sinon. */}
                 {moi && m.statut === "envoye" &&
                   (m.lu ? (
-                    <span className="inline-flex items-center gap-0.5 text-action" title="Lu">
+                    <span className="inline-flex items-center gap-0.5 text-rouge" title="Lu">
                       <IconeDoubleCoche taille={14} />
                       <span className="sr-only">Lu</span>
                     </span>

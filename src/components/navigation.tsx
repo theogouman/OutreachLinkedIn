@@ -71,7 +71,7 @@ export function Navigation({ comptes, variante }: { comptes: Comptes; variante: 
         <span
           ref={pilule}
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 rounded-full bg-black/[0.07] opacity-0 transition-[transform,width,height] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+          className="pointer-events-none absolute left-0 top-0 rounded-full bg-encre/[0.07] opacity-0 transition-[transform,width,height] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         />
         {LIENS.map(({ href, libelle, Icone, compte }) => {
           const actif = estActif(href);
@@ -84,7 +84,7 @@ export function Navigation({ comptes, variante }: { comptes: Comptes; variante: 
                 aria-label={n > 0 ? `${libelle} (${n})` : undefined}
                 className={`relative flex items-center rounded-full whitespace-nowrap outline-none transition-colors duration-150 focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] ${
                   bas ? "flex-col gap-0.5 px-2 py-1.5 text-[11px]" : "gap-2 px-4 py-2 text-sm"
-                } font-medium ${actif ? "text-encre" : "text-encre-2 hover:bg-black/[0.04] hover:text-encre"}`}
+                } font-medium ${actif ? "text-encre" : "text-encre-2 hover:bg-encre/[0.04] hover:text-encre"}`}
               >
                 <span className="relative">
                   <Icone taille={bas ? 20 : 17} />
@@ -96,7 +96,7 @@ export function Navigation({ comptes, variante }: { comptes: Comptes; variante: 
                 </span>
                 <span>{libelle}</span>
                 {n > 0 && !bas && (
-                  <span className={`min-w-5 rounded-full px-1.5 text-center caption-3 tabular-nums ${compte === "nonLus" ? "bg-action text-white" : "bg-black/[0.06] text-encre-2"}`}>
+                  <span className={`min-w-5 rounded-full px-1.5 text-center caption-3 tabular-nums ${compte === "nonLus" ? "bg-action text-white" : "bg-encre/[0.06] text-encre-2"}`}>
                     {n}
                   </span>
                 )}

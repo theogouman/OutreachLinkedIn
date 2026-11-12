@@ -124,7 +124,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                 {ouvert.prospectId ? (
                   etapeOuvert && <BadgeEtape libelle={libelleEtape.get(etapeOuvert) ?? etapeOuvert} />
                 ) : (
-                  <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM</span>
+                  <span className="whitespace-nowrap rounded-full bg-amber-50 dark:bg-amber-400/15 px-2.5 py-1 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>
                 )}
                 <ActionsConversation key={ouvert.id} id={ouvert.id} nonLu={ouvert.nonLu} nom={ouvert.nom} />
               </div>

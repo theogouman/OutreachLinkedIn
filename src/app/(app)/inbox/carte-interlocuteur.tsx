@@ -37,7 +37,7 @@ export function CarteInterlocuteur({
       <div className="flex flex-col gap-4 px-6 pb-6 sm:px-8 sm:pb-8">
         {titre && <p className="body-6 text-encre-2">{titre}</p>}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-amber-50 px-2.5 py-1 caption-4 text-amber-800">Hors CRM</span>
+          <span className="rounded-full bg-amber-50 dark:bg-amber-400/15 px-2.5 py-1 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>
           {!identifie && <span className="caption-5 text-encre-3">Profil en cours d&apos;identification</span>}
         </div>
         {lienLinkedIn && (

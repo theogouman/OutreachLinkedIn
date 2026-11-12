@@ -72,7 +72,7 @@ export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof ty
         aria-label={`Statuts : ${p.libelle}${alerte ? ", à vérifier" : ""}`}
         title="Statuts"
         onClick={() => setOuvert((o) => !o)}
-        className="relative grid h-9 w-11 place-items-center rounded-xl bg-black/[0.05] outline-none transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-black/[0.08] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent aria-expanded:bg-black/[0.08]"
+        className="relative grid h-9 w-11 place-items-center rounded-xl bg-encre/[0.05] outline-none transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-encre/[0.08] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent aria-expanded:bg-encre/[0.08]"
       >
         <span className="relative flex size-2.5" aria-hidden>
           <span className={`absolute inline-flex size-full rounded-full ${p.halo} ${etatFile === "en_pause" ? "" : "animate-ping"}`} />

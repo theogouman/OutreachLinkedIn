@@ -25,7 +25,8 @@
   --color-encre-2: #52525b; /* text-secondary */
   --color-encre-3: #64748b; /* text-muted (4,7:1 sur blanc) */
   --color-accent: #e0625a; /* brand */
-  --color-action: #b5443d; /* brand assombri : texte rouge et fonds rouges sous texte blanc (5,4:1) */
+  --color-action: #b5443d; /* brand assombri : fonds rouges sous texte blanc (5,4:1) */
+  --color-rouge: #b5443d; /* texte rouge : même teinte en clair, éclaircie en sombre */
   --color-action-fonce: #9c3a34;
   --color-accent-doux: #fef3f2;
   --color-sombre: #1a1a1a; /* boutons CTA sombres NC */
@@ -137,7 +138,7 @@
 /* ── Composants de base ──────────────────────────────────────────────────── */
 @utility carte {
   background: var(--color-carte);
-  border: 1px solid rgb(229 231 235 / 0.7);
+  border: 1px solid color-mix(in oklab, var(--color-trait) 70%, transparent);
   border-radius: var(--radius-carte);
   box-shadow: rgba(0, 0, 0, 0.06) 0 4px 24px 0, rgba(0, 0, 0, 0.04) 0 1px 2px 0; /* nc-shadow-3 */
 }
@@ -230,7 +231,7 @@
 @utility bouton-discret {
   color: var(--color-encre-2);
   &:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.04); /* nc-nav-hover-bg */
+    background: color-mix(in oklab, var(--color-encre) 4%, transparent); /* nc-nav-hover-bg */
     color: var(--color-encre);
   }
 }
@@ -352,7 +353,7 @@ html {
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --color-muted-foreground: var(--muted-foreground);
-  --color-muted: #f5f5f5;
+  --color-muted: var(--color-creux);
 }
 :root {
   --foreground: #000000;
@@ -398,6 +399,62 @@ html {
   --chart-segment-background: rgb(0 0 0 / 0.04);
   --chart-segment-line: rgb(0 0 0 / 0.25);
 }
+
+/*
+ * Mode sombre : suit le réglage de l'appareil (prefers-color-scheme). Mêmes jetons, valeurs
+ * sombres ; contrastes AA : texte principal 15:1, secondaire 9:1, atténué 6:1 sur les cartes,
+ * texte rouge éclairci (#f2867f, 6,6:1) ; les fonds rouges sous texte blanc restent #b5443d.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-surface: #0f0f10;
+    --color-carte: #1a1a1c;
+    --color-creux: #242427;
+    --color-trait: #2f2f34;
+    --color-trait-fort: #45454c;
+    --color-conversation: #141416;
+    --color-conversation-point: #2f2f34;
+    --color-bulle: #2c2c30;
+    --color-encre: #f4f4f5;
+    --color-encre-2: #c8c8d0;
+    --color-encre-3: #9a9aa6;
+    --color-rouge: #f2867f;
+    --color-accent-doux: #3a1d1b;
+    --color-sombre: #f4f4f5;
+
+    --foreground: #f4f4f5;
+    --background: #1a1a1c;
+    --muted-foreground: #9a9aa6;
+    --popover: #1a1a1c;
+    --popover-foreground: #f4f4f5;
+    --border: #2f2f34;
+    --chart-2: #f4f4f5;
+    --chart-5: #f4f4f5;
+    --chart-background: #1a1a1c;
+    --chart-foreground: #f4f4f5;
+    --chart-foreground-muted: #9a9aa6;
+    --chart-crosshair: #f4f4f5;
+    --chart-grid: #2f2f34;
+    --chart-tooltip-background: #242427;
+    --chart-tooltip-foreground: #f4f4f5;
+    --chart-tooltip-muted: #9a9aa6;
+    --chart-marker-background: #242427;
+    --chart-marker-border: #2f2f34;
+    --chart-marker-foreground: #f4f4f5;
+    --chart-label: #9a9aa6;
+    --chart-scale-mix: #1a1a1c;
+    --chart-scale-01: #26221f;
+    --chart-scale-pattern-color: #1a1a1c;
+    --chart-indicator-color: #f4f4f5;
+    --chart-indicator-secondary-color: #2f2f34;
+    --chart-marker-badge-background: #f4f4f5;
+    --chart-marker-badge-foreground: #1a1a1c;
+    --chart-segment-background: rgb(255 255 255 / 0.05);
+    --chart-segment-line: rgb(255 255 255 / 0.3);
+  }
+}
+
 
 /* ══ Transitions.dev (Jakub Antalik, licence Transitions.dev : usage en produit autorisé) ══
    Fiche prospect : modale, onglets glissants, pages côte à côte, redimension. Valeurs d'origine. */

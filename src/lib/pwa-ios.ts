@@ -28,3 +28,5 @@ export const SPLASH_IOS = APPAREILS_IOS.map(([l, h, d]) => ({
 
 /** Couleur de la surface : manifest, barre d'état, splash. */
 export const COULEUR_SURFACE = "#f5f2f2";
+/** Surface en mode sombre (même valeur que --color-surface sous prefers-color-scheme: dark). */
+export const COULEUR_SURFACE_SOMBRE = "#0f0f10";

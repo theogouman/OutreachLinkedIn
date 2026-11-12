@@ -59,7 +59,7 @@ export function NotesProspect({ prospectId, initiales }: { prospectId: string; i
         <label htmlFor={`notes-${prospectId}`} className="caption-4 text-encre-3">
           Notes
         </label>
-        <span role="status" className={`caption-5 ${etat === "erreur" ? "text-action" : "text-encre-3"}`}>
+        <span role="status" className={`caption-5 ${etat === "erreur" ? "text-rouge" : "text-encre-3"}`}>
           {libelles[etat]}
         </span>
       </div>

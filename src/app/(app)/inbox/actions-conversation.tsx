@@ -39,7 +39,7 @@ export function ActionsConversation({ id, nonLu, nom }: { id: string; nonLu: boo
         aria-expanded={confirmer}
         aria-label="Supprimer la conversation"
         title="Supprimer la conversation"
-        className={`${BOUTON} hover:bg-accent-doux hover:text-action aria-expanded:bg-accent-doux aria-expanded:text-action`}
+        className={`${BOUTON} hover:bg-accent-doux hover:text-rouge aria-expanded:bg-accent-doux aria-expanded:text-rouge`}
       >
         <IconeCorbeille taille={16} />
       </button>

@@ -20,7 +20,7 @@ export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: numb
         width={taille}
         height={taille}
         unoptimized
-        className="shrink-0 rounded-full bg-creux object-cover ring-1 ring-black/5"
+        className="shrink-0 rounded-full bg-creux object-cover ring-1 ring-encre/5"
         style={{ width: taille, height: taille }}
       />
     );
@@ -35,7 +35,7 @@ export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: numb
   return (
     <span
       aria-hidden
-      className="inline-grid shrink-0 place-items-center rounded-full caption-3 text-encre ring-1 ring-black/5"
+      className="inline-grid shrink-0 place-items-center rounded-full caption-3 text-encre ring-1 ring-encre/5"
       style={{ width: taille, height: taille, background: teinte(nom), fontSize: taille < 32 ? 11 : undefined }}
     >
       {initiales}

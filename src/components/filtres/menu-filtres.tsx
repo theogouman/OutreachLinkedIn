@@ -111,7 +111,7 @@ export function MenuFiltres<C extends string>({
                 setOuvert(false);
                 bouton.current?.focus();
               }}
-              className="caption-3 text-action outline-none hover:underline focus-visible:underline disabled:text-encre-3 disabled:no-underline"
+              className="caption-3 text-rouge outline-none hover:underline focus-visible:underline disabled:text-encre-3 disabled:no-underline"
             >
               Tout afficher
             </button>
@@ -129,7 +129,7 @@ export function MenuFiltres<C extends string>({
             setOuvert((v) => !v);
           }}
         >
-          <Icone taille={20} className={actifs > 0 ? "text-action" : "text-encre-2"} />
+          <Icone taille={20} className={actifs > 0 ? "text-rouge" : "text-encre-2"} />
         </button>
       </div>
     </div>

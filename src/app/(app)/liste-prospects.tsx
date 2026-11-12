@@ -72,7 +72,7 @@ export function ListeProspects({
     <>
       <span className="body-6 text-encre-2">{c.libelle}</span>
       <span className="flex items-baseline gap-2">
-        <Chiffre valeur={c.valeur} className={`chiffre-cle ${c.accent ? "text-action" : "text-encre"}`} />
+        <Chiffre valeur={c.valeur} className={`chiffre-cle ${c.accent ? "text-rouge" : "text-encre"}`} />
         <span className="caption-5 text-encre-3">{c.aide}</span>
       </span>
     </>
@@ -126,7 +126,7 @@ export function ListeProspects({
                   type="button"
                   onClick={() => l.changer("recherche", "")}
                   aria-label="Effacer la recherche"
-                  className="grid size-6 place-items-center rounded-full text-encre-3 outline-none hover:bg-black/[0.05] hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
+                  className="grid size-6 place-items-center rounded-full text-encre-3 outline-none hover:bg-encre/[0.05] hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <IconeFermer taille={12} />
                 </button>
@@ -173,7 +173,7 @@ export function ListeProspects({
       </div>
 
       {l.erreur && (
-        <p role="alert" className="rounded-xl bg-accent-doux px-4 py-3 body-6 text-action">
+        <p role="alert" className="rounded-xl bg-accent-doux px-4 py-3 body-6 text-rouge">
           {l.erreur}
         </p>
       )}
@@ -237,7 +237,7 @@ export function TableProspects({ lignes, etapes, vide }: { lignes: LigneProspect
       valeur: (p) => p.prochaineRelance,
       cellule: (p) => {
         const r = libelleRelance(p.prochaineRelance);
-        return <span className={`caption-4 ${r.retard ? "text-action" : "text-encre-3"}`}>{r.texte}</span>;
+        return <span className={`caption-4 ${r.retard ? "text-rouge" : "text-encre-3"}`}>{r.texte}</span>;
       },
     },
     { id: "liste", entete: "Liste", largeur: "minmax(120px, 1fr)", valeur: (p) => p.listeOrigine, cellule: (p) => <span className="block truncate caption-5 text-encre-3">{p.listeOrigine ?? "—"}</span> },

@@ -129,7 +129,7 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
         aria-expanded={ouvert}
         aria-haspopup="dialog"
         aria-label={nonLues ? `Notifications (${nonLues} non lue${nonLues > 1 ? "s" : ""})` : "Notifications"}
-        className={`relative grid h-9 w-11 place-items-center rounded-xl outline-none transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent ${alerte ? "bg-accent-doux text-action" : "bg-black/[0.05] text-encre-2 hover:bg-black/[0.08]"}`}
+        className={`relative grid h-9 w-11 place-items-center rounded-xl outline-none transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent ${alerte ? "bg-accent-doux text-rouge" : "bg-encre/[0.05] text-encre-2 hover:bg-encre/[0.08]"}`}
       >
         <IconeCloche taille={18} />
         {nonLues > 0 && (
@@ -152,7 +152,7 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
                 type="button"
                 disabled={enCours}
                 onClick={() => demarrer(async () => void (await actionNotificationsLues()))}
-                className="caption-3 text-action outline-none hover:underline focus-visible:underline"
+                className="caption-3 text-rouge outline-none hover:underline focus-visible:underline"
               >
                 Tout marquer comme lu
               </button>
@@ -168,7 +168,7 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
                     className={`mt-1.5 size-2 shrink-0 rounded-full ${n.lue ? "bg-transparent" : n.niveau === "alerte" ? "bg-action" : "bg-accent"}`}
                   />
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className={`body-6 ${n.niveau === "alerte" ? "text-action" : "text-encre"}`}>{n.titre}</span>
+                    <span className={`body-6 ${n.niveau === "alerte" ? "text-rouge" : "text-encre"}`}>{n.titre}</span>
                     {n.corps && <span className="caption-5 text-encre-2">{n.corps}</span>}
                     <time dateTime={new Date(n.creeeLe).toISOString()} className="caption-5 text-encre-3">
                       {fmt.format(new Date(n.creeeLe))}

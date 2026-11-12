@@ -104,7 +104,7 @@ export function ImportProspects() {
             <label key={c.cle} className="flex flex-col gap-1.5">
               <span className="caption-4 text-encre-2">
                 {c.libelle}
-                {c.requis && <span className="text-action"> *</span>}
+                {c.requis && <span className="text-rouge"> *</span>}
               </span>
               <select
                 className={champ}
