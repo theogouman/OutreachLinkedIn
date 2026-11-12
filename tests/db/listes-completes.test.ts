@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { executerUnTour } from "@/server/queue/worker";
-import { appliquerEffetsUnipile, creerExecuteur, photosManquantesDepuis } from "@/server/unipile/executeur";
+import { appliquerEffetsUnipile, creerExecuteur, ESPACEMENT_PAGES_MS, photosManquantesDepuis } from "@/server/unipile/executeur";
 import { creerClientSimule } from "@/server/unipile/simule";
 import type { ClientLinkedIn, Liste, PageListe } from "@/server/unipile/types";
 
@@ -14,7 +14,9 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
     db = await createTestDb();
   });
   afterAll(async () => db?.drop());
+  let tours = 0;
   beforeEach(async () => {
+    tours = 0;
     await db.pool.query(
       "truncate public.actions, public.taches, public.prospects, public.liens_linkedin, public.sync_runs, public.conversations cascade",
     );
@@ -40,9 +42,11 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
         telechargerPhoto: async () => ({ contenu: JPEG, type: "image/jpeg" }),
       }),
       appliquerEffets: appliquerEffetsUnipile,
-      maintenant: () => JEUDI_10H,
+      // Chaque tour un quart d'heure après le précédent : rythme des pages d'un parcours complet.
+      maintenant: () => new Date(JEUDI_10H.getTime() + tours * ESPACEMENT_PAGES_MS),
       aleatoire: () => 0,
     }).then(async (b) => {
+      tours++;
       await db.pool.query("update public.reglages set prochaine_action_possible_a = null");
       return b;
     });
@@ -87,6 +91,62 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
     // Tous les prospects en relation sont identifiés : pas de page 3 (inutile de parcourir des milliers de relations).
     const suite = await db.pool.query("select count(*)::int as n from public.taches where type_action = 'lecture_liste' and statut = 'en_attente'");
     expect(suite.rows[0].n).toBe(0);
+  });
+
+  it("pages d'un parcours complet espacées d'un quart d'heure (4 appels par heure au plus)", async () => {
+    await prospect("finn");
+    await lancer("relations");
+    const appels: { liste: Liste; curseur?: string }[] = [];
+    const client = clientPagine({ debut: { personnes: [personne("autre")], suivant: "p2" }, p2: { personnes: [], suivant: null } }, appels);
+    await tour(client);
+    const suite = await db.pool.query("select executer_apres from public.taches where type_action = 'lecture_liste' and statut = 'en_attente'");
+    expect(suite.rows[0].executer_apres).toEqual(new Date(JEUDI_10H.getTime() + ESPACEMENT_PAGES_MS));
+    expect(ESPACEMENT_PAGES_MS).toBeGreaterThanOrEqual(15 * 60 * 1000);
+  });
+
+  it("fin du parcours des invitations : une invitation disparue (prospect identifié) redescend, les autres restent", async () => {
+    const vue = await prospect("vue", "en_attente");
+    const partie = await prospect("partie", "en_attente");
+    const inconnu = await prospect("inconnu-sans-id", "en_attente");
+    const acceptee = await prospect("acceptee", "en_attente");
+    await db.pool.query("update public.prospects set provider_id = 'ACo' || public_identifier, etape = 'invitation_envoyee' where id = any($1)", [
+      [vue, partie, acceptee],
+    ]);
+    await db.pool.query("update public.prospects set etape = 'invitation_envoyee' where id = $1", [inconnu]);
+    for (const id of ["vue", "partie", "inconnu-sans-id", "acceptee"]) {
+      await db.pool.query(
+        "insert into public.liens_linkedin (type, url_normalisee, source, vu_le) values ('invitation_envoyee', $1, 'csv', '2026-10-01')",
+        [`linkedin.com/in/${id}`],
+      );
+    }
+    await db.pool.query("insert into public.liens_linkedin (type, url_normalisee, source) values ('relation', 'linkedin.com/in/acceptee', 'webhook')");
+    await lancer("invitations_envoyees");
+    // Une seule page, sans suite : le parcours est complet. Personne « vue » listée sans URL (identifiant seulement).
+    await tour(clientPagine({ debut: { personnes: [{ providerId: "ACovue", publicIdentifier: null, date: null }], suivant: null } }, []));
+
+    const r = await db.pool.query("select id, statut_relation, etape from public.prospects where id = any($1)", [[vue, partie, inconnu, acceptee]]);
+    const par = Object.fromEntries(r.rows.map((x) => [x.id, x]));
+    expect(par[vue]).toMatchObject({ statut_relation: "en_attente", etape: "invitation_envoyee" });
+    expect(par[partie]).toMatchObject({ statut_relation: "a_inviter", etape: "a_contacter" });
+    expect(par[inconnu]).toMatchObject({ statut_relation: "en_attente" }); // non identifié : on ne conclut rien
+    expect(par[acceptee]).toMatchObject({ statut_relation: "en_relation" });
+    const journal = await db.pool.query(
+      "select details from public.actions where prospect_id = $1 and type = 'changement_etape'",
+      [partie],
+    );
+    expect(journal.rows.map((x) => x.details)).toEqual([{ vers: "a_contacter", cause: "invitation_disparue" }]);
+  });
+
+  it("parcours des invitations interrompu (page suivante en attente) : aucun statut ne redescend", async () => {
+    const partie = await prospect("partie2", "en_attente");
+    await db.pool.query("update public.prospects set provider_id = 'ACopartie2' where id = $1", [partie]);
+    await db.pool.query(
+      "insert into public.liens_linkedin (type, url_normalisee, source, vu_le) values ('invitation_envoyee', 'linkedin.com/in/partie2', 'csv', '2026-10-01')",
+    );
+    await lancer("invitations_envoyees");
+    await tour(clientPagine({ debut: { personnes: [personne("autre")], suivant: "p2" } }, []));
+    const r = await db.pool.query("select statut_relation from public.prospects where id = $1", [partie]);
+    expect(r.rows[0].statut_relation).toBe("en_attente");
   });
 
   it("les invitations envoyées sont toujours lues jusqu'à la dernière page", async () => {

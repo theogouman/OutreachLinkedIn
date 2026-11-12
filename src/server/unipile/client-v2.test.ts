@@ -81,7 +81,7 @@ describe("client Unipile v2", () => {
     const f = fetchFactice(200, { data: [], next_cursor: null });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 5000, "c/2+");
     expect(r).toEqual({ ok: true, donnees: { personnes: [], suivant: null } });
-    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=100&cursor=c%2F2%2B");
+    expect(String(f.mock.calls[0]![0])).toBe("https://api.example.test/v2/acc_test/users/me/relations?limit=500&cursor=c%2F2%2B");
   });
 
   it("lit les invitations envoyées / reçues", async () => {
@@ -106,8 +106,21 @@ describe("client Unipile v2", () => {
         suivant: null,
       },
     });
-    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100&offset=100");
-    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=100");
+    expect(String(f.mock.calls[0]![0])).toContain("relation-requests?type=sent&limit=500&offset=100");
+  });
+
+  it("page de 500 refusée (400 invalid_parameters) : un seul nouvel essai, par 100", async () => {
+    const f = vi.fn<(url: URL | RequestInfo, init?: RequestInit) => Promise<Response>>(async (url) =>
+      String(url).includes("limit=500")
+        ? new Response(JSON.stringify({ type: "api/invalid_parameters", detail: "limit" }), { status: 400 })
+        : new Response(JSON.stringify({ data: [], next_cursor: null }), { status: 200 }),
+    );
+    const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("relations", 500);
+    expect(r).toEqual({ ok: true, donnees: { personnes: [], suivant: null } });
+    expect(f.mock.calls.map((c) => String(c[0]))).toEqual([
+      "https://api.example.test/v2/acc_test/users/me/relations?limit=500",
+      "https://api.example.test/v2/acc_test/users/me/relations?limit=100",
+    ]);
   });
 
   it("remonte le statut, le type, le détail et retry-after d'une erreur", async () => {

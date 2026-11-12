@@ -46,8 +46,13 @@ const invitationsSchema = z.object({
   next_cursor: curseurSchema,
 });
 
-/** Taille de page : 100 au plus (au-delà, Unipile répond 400 invalid_parameters, constaté le 2026-11-10). */
-export const TAILLE_PAGE_MAX = 100;
+/**
+ * Taille de page : 500 au plus (documentation v2 : « batches of 500 »). 1 000 a été refusé
+ * (400 invalid_parameters, constaté le 2026-11-10) : une page de plus de 100 refusée est
+ * redemandée une fois par 100.
+ */
+export const TAILLE_PAGE_MAX = 500;
+export const TAILLE_PAGE_REPLI = 100;
 
 /** POST /v2/{account_id}/chats/{chat_id}/messages/send → 200 { object: "MessageSent", message_id }. */
 const messageEnvoyeSchema = z.object({
@@ -82,6 +87,11 @@ export const BOITE_LINKEDIN_CLASSIQUE = "CLASSIC_PRIMARY";
 const PROVIDER_ID = /^[A-Za-z0-9_-]{5,200}$/;
 
 const erreurSchema = z.object({ type: z.string().optional(), detail: z.string().optional() }).passthrough();
+
+/** Page plus grande que le repli refusée comme paramètre invalide : à redemander par 100. */
+function refusTaille(e: ErreurAppel, params: Record<string, string>): boolean {
+  return e.status === 400 && e.type === "api/invalid_parameters" && Number(params.limit) > TAILLE_PAGE_REPLI;
+}
 
 function date(v: string | undefined): Date | null {
   if (!v) return null;
@@ -209,12 +219,16 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
         return { providerId: u.id, publicIdentifier, date: date(creeLe ?? undefined), photoUrl: u.public_picture_url ?? null, nom };
       };
       if (liste === "relations") {
-        const r = await appeler("/users/me/relations", params, relationsSchema);
+        let r = await appeler("/users/me/relations", params, relationsSchema);
+        if (!r.ok && refusTaille(r.erreur, params)) r = await appeler("/users/me/relations", { ...params, limit: String(TAILLE_PAGE_REPLI) }, relationsSchema);
         if (!r.ok) return r;
         return { ok: true, donnees: { personnes: r.donnees.data.map((x) => personne(x.user, x.created_at)), suivant: r.donnees.next_cursor ?? null } };
       }
       const type = liste === "invitations_envoyees" ? "sent" : "received";
-      const r = await appeler("/users/me/relation-requests", { type, ...params }, invitationsSchema);
+      let r = await appeler("/users/me/relation-requests", { type, ...params }, invitationsSchema);
+      if (!r.ok && refusTaille(r.erreur, params)) {
+        r = await appeler("/users/me/relation-requests", { type, ...params, limit: String(TAILLE_PAGE_REPLI) }, invitationsSchema);
+      }
       if (!r.ok) return r;
       return {
         ok: true,

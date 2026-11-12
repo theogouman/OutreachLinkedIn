@@ -33,7 +33,7 @@ const payloadPremierMessage = z.object({
  */
 const payloadLectureListe = z.object({
   liste: listeSchema,
-  limite: z.number().int().min(1).max(100).default(50),
+  limite: z.number().int().min(1).max(500).default(50),
   curseur: z.string().min(1).max(4000).optional(),
   /** Suite par décalage, quand Unipile ne renvoie pas de curseur (liste des invitations). */
   offset: z.number().int().min(1).max(20_000).optional(),
@@ -41,11 +41,15 @@ const payloadLectureListe = z.object({
   premier: z.string().max(200).optional(),
   complete: z.boolean().optional(),
   page: z.number().int().min(1).max(500).optional(),
+  /** Début du parcours complet (lecture de la première page), transmis de page en page. */
+  debut: z.iso.datetime({ offset: true }).optional(),
 });
 type PayloadLectureListe = z.infer<typeof payloadLectureListe>;
 
 /** Pages au plus par parcours complet (garde-fou contre une boucle de curseurs). */
 export const PAGES_MAX = 200;
+/** Écart entre deux pages d'un parcours complet : 4 appels par heure au plus (documentation Unipile v2). */
+export const ESPACEMENT_PAGES_MS = 15 * 60 * 1000;
 
 type Donnees =
   | { genre: "profil"; profil: ProfilLu; photo: Photo | null; conversationId?: string }
@@ -337,8 +341,12 @@ export async function identifierProspect(c: PoolClient, p: PersonneListee, photo
  * les invitations (quelques pages) sont toujours lues jusqu'au bout.
  */
 async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "liste" }>) {
+  const lue = await c.query("select max(created_at) as quand from public.actions where tache_id = $1", [tacheId]);
+  const lueA: Date = lue.rows[0]?.quand ?? new Date();
+  const debut = d.payload.debut ? new Date(d.payload.debut) : lueA;
   const page = (d.payload.page ?? 1) + 1;
-  if (page > PAGES_MAX || !d.personnes.length) return;
+  if (page > PAGES_MAX) return;
+  if (!d.personnes.length) return finParcours(c, d.liste, debut);
   const premier = d.personnes[0]!.providerId;
   if (d.payload.premier === premier) return; // même page qu'avant : le décalage n'est pas pris en compte
   // Suite : curseur d'Unipile ; à défaut, page pleine → décalage.
@@ -347,7 +355,7 @@ async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, 
     : d.personnes.length >= d.payload.limite
       ? { offset: (d.payload.offset ?? 0) + d.personnes.length }
       : null;
-  if (!suite) return;
+  if (!suite) return finParcours(c, d.liste, debut);
   if (d.liste === "relations") {
     const reste = await c.query(
       "select 1 from public.prospects where not demo and statut_relation = 'en_relation' and provider_id is null limit 1",
@@ -358,10 +366,56 @@ async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, 
   const cle = suite.curseur ? createHash("sha256").update(suite.curseur).digest("hex").slice(0, 32) : `offset-${suite.offset}`;
   await c.query(
     `insert into public.taches (type_action, payload, cle_idempotence, executer_apres)
-     select 'lecture_liste', $1, $2, executer_apres from public.taches where id = $3
+     values ('lecture_liste', $1, $2, $3::timestamptz + $4 * interval '1 millisecond')
      on conflict (cle_idempotence) do nothing`,
-    [{ liste: d.liste, limite: d.payload.limite, ...suite, premier, complete: true, page }, `complete:${d.liste}:${jour}:${cle}`, tacheId],
+    [
+      { liste: d.liste, limite: d.payload.limite, ...suite, premier, complete: true, page, debut: debut.toISOString() },
+      `complete:${d.liste}:${jour}:${cle}`,
+      lueA,
+      ESPACEMENT_PAGES_MS,
+    ],
   );
+}
+
+/**
+ * Liste des invitations envoyées lue en entier : une invitation qu'on y attendait et qui n'y est
+ * plus a été retirée, a expiré ou a été acceptée. On ne conclut que pour un prospect dont
+ * l'identifiant LinkedIn est connu (la liste donne toujours l'identifiant) : ses liens d'invitation
+ * sont effacés et son statut recalculé ; s'il n'est pas en relation, il revient « à inviter » et son
+ * étape « Invitation envoyée » repasse à « À contacter ». Un prospect non identifié reste en attente.
+ */
+async function finParcours(c: PoolClient, liste: Liste, debut: Date) {
+  if (liste !== "invitations_envoyees") return;
+  const disparues = await c.query(
+    `select p.id, p.url_normalisee, p.provider_id from public.prospects p
+      where not p.demo and p.statut_relation = 'en_attente' and p.provider_id is not null
+        and not exists (select 1 from public.liens_linkedin l
+                         where l.type = 'invitation_envoyee' and l.vu_le >= $1
+                           and (l.url_normalisee = p.url_normalisee or l.provider_id = p.provider_id))`,
+    [debut],
+  );
+  if (!disparues.rowCount) return;
+  const urls = disparues.rows.map((x) => x.url_normalisee as string);
+  const ids = disparues.rows.map((x) => x.provider_id as string);
+  await c.query(
+    "delete from public.liens_linkedin where type = 'invitation_envoyee' and (url_normalisee = any($1) or provider_id = any($2))",
+    [urls, ids],
+  );
+  const transitions = await recalculerStatuts(c, { urls, providerIds: ids });
+  await traiterAcceptations(c, transitions);
+  const retour = transitions.filter((t) => t.avant === "en_attente" && t.apres === "a_inviter").map((t) => t.prospectId);
+  if (!retour.length) return;
+  const maj = await c.query(
+    "update public.prospects set etape = 'a_contacter', updated_at = now() where id = any($1) and etape = 'invitation_envoyee' returning id",
+    [retour],
+  );
+  for (const r of maj.rows) {
+    await c.query(
+      `insert into public.actions (prospect_id, type, sortante, resultat, details)
+       values ($1, 'changement_etape', false, 'succes', '{"vers": "a_contacter", "cause": "invitation_disparue"}')`,
+      [r.id],
+    );
+  }
 }
 
 /** Message parti : il rejoint le fil de la conversation, à l'heure de l'envoi. */

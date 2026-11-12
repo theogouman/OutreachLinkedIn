@@ -13,7 +13,8 @@ export interface Bornes {
 export const MAXIMA: Record<TypeQuota, Bornes> = {
   invitation: { jour: 30, semaine: 150, mois: null },
   note_invitation: { jour: null, semaine: null, mois: 5 },
-  lecture_profil: { jour: 80, semaine: null, mois: null },
+  // Au-dessus de la recommandation Unipile (80 à 100) : choix de l'utilisateur le 2026-11-12.
+  lecture_profil: { jour: 150, semaine: null, mois: null },
   message: { jour: 100, semaine: null, mois: null },
   lecture_liste: { jour: 4, semaine: null, mois: null },
 };
