@@ -115,8 +115,8 @@ export function RedactionMessage({
                 {texte.length} / {MAX}
               </span>
             ) : (
-              // Raccourci clavier : sans objet sur téléphone et tablette.
-              <span className="hidden lg:inline">⌘ ou Ctrl + Entrée pour envoyer</span>
+              // Raccourci clavier : affiché seulement avec souris ou pavé tactile (jamais sur écran tactile seul).
+              <span className="hidden [@media(hover:hover)_and_(pointer:fine)]:inline">⌘ ou Ctrl + Entrée pour envoyer</span>
             )}
           </>
         )}

@@ -36,7 +36,7 @@ function Lien({ href, libelle }: { href: string; libelle: string }) {
 function Lignes({ lignes }: { lignes: { t: string; d: React.ReactNode }[] }) {
   if (!lignes.length) return null;
   return (
-    <dl className="flex flex-col divide-y divide-trait overflow-hidden rounded-2xl ring-1 ring-trait">
+    <dl className="flex flex-col divide-y divide-trait overflow-hidden rounded-2xl border border-trait">
       {lignes.map((l) => (
         <div key={l.t} className="flex flex-col gap-1 bg-carte px-4 py-3 sm:flex-row sm:gap-4">
           <dt className="caption-4 text-encre-3 sm:w-36 sm:shrink-0 sm:pt-0.5">{l.t}</dt>
@@ -85,7 +85,7 @@ export function OngletProfil({ profil }: { profil: ProfilLinkedIn }) {
       )}
       {profil.aPropos && (
         <Bloc titre="À propos">
-          <p className="selectionnable whitespace-pre-wrap break-words rounded-2xl bg-carte px-4 py-3 body-6 text-encre ring-1 ring-trait">
+          <p className="selectionnable whitespace-pre-wrap break-words rounded-2xl border border-trait bg-carte px-4 py-3 body-6 text-encre">
             {profil.aPropos}
           </p>
         </Bloc>

@@ -131,7 +131,7 @@ export function ModaleFiche({
               libelle: "Informations",
               contenu: (
                 <div className="flex flex-col gap-6">
-                  <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-3">
+                  <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-trait bg-trait sm:grid-cols-3">
                     {[
                       {
                         t: "Relation",
@@ -167,7 +167,7 @@ export function ModaleFiche({
                   {fiche.informationsListe.length > 0 && (
                     <section className="flex flex-col gap-2" aria-label={`Informations de la liste ${fiche.listeOrigine ?? ""}`}>
                       <h3 className="caption-4 text-encre-3">{fiche.listeOrigine}</h3>
-                      <dl className="flex flex-col divide-y divide-trait overflow-hidden rounded-2xl ring-1 ring-trait">
+                      <dl className="flex flex-col divide-y divide-trait overflow-hidden rounded-2xl border border-trait">
                         {fiche.informationsListe.map((info) => (
                           <div key={info.cle} className="flex flex-col gap-1 bg-carte px-4 py-3 sm:flex-row sm:gap-4">
                             <dt className="caption-4 text-encre-3 sm:w-36 sm:shrink-0 sm:pt-0.5">{info.libelle}</dt>
