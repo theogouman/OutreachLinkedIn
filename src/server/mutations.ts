@@ -1,6 +1,9 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
+import { NOTE_INVITATION_MAX } from "@/lib/invitation";
+import { identifiantVersProfil, normaliserUrlLinkedIn } from "@/lib/linkedin-url";
+import { debutMois } from "@/server/queue/temps";
 
 /**
  * Modifications demandées depuis l'interface. Toute entrée est validée ici (Zod),
@@ -234,6 +237,120 @@ export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { m
   return insererTacheMessage(pool, prospectId, { prospect_id: prospectId, texte: m.texte }, m.cle);
 }
 
+
+// ─── Invitations : depuis la fiche, par la file ───────────────────────────────
+
+export const invitationSchema = z.object({
+  prospectId: z.uuid(),
+  /** Note facultative ; vide = invitation sans note. */
+  note: z
+    .string()
+    .max(NOTE_INVITATION_MAX + 50)
+    .optional()
+    .transform((t) => t?.trim() || undefined)
+    .pipe(z.string().max(NOTE_INVITATION_MAX, `Note trop longue (${NOTE_INVITATION_MAX} caractères au plus)`).optional()),
+  /** Identifiant de demande, généré par le navigateur : un double clic n'invite qu'une fois. */
+  cle: z.uuid(),
+});
+
+const REFUS_STATUT: Record<string, string> = {
+  en_relation: "Vous êtes déjà en relation : écris-lui directement depuis l'onglet Conversation.",
+  en_attente: "Une invitation est déjà en attente pour ce prospect.",
+  invitation_recue: "Ce prospect t'a déjà invité : accepte son invitation sur LinkedIn.",
+};
+
+/**
+ * Notes d'invitation encore possibles ce mois-ci (heure de Paris) : plafond mensuel moins les
+ * invitations avec note déjà parties (même décompte que la file) et celles encore en attente.
+ * `restantes` null : pas de plafond mensuel.
+ */
+export async function notesInvitationRestantes(c: Pool | PoolClient, maintenant = new Date()) {
+  const r = await c.query(
+    `select (select plafond_mois from public.quotas where type_quota = 'note_invitation') as plafond,
+            (select fuseau from public.reglages where id) as fuseau`,
+  );
+  const plafond: number | null = r.rows[0]?.plafond ?? null;
+  if (plafond === null) return { restantes: null, plafond: null };
+  const depuis = debutMois(maintenant, r.rows[0].fuseau);
+  const n = await c.query(
+    `select (select count(*) from public.actions where type = 'invitation' and sortante and avec_note and created_at >= $1)
+          + (select count(*) from public.taches where type_action = 'invitation' and avec_note and statut = 'en_attente') as n`,
+    [depuis],
+  );
+  return { restantes: Math.max(0, plafond - Number(n.rows[0].n)), plafond };
+}
+
+/**
+ * Met une invitation en file depuis la fiche : seulement pour un prospect « à inviter », une seule
+ * à la fois. Sans identifiant LinkedIn connu, une lecture du profil passe avant (ordre strict par
+ * prospect) ; elle peut révéler une relation existante, et l'invitation est alors abandonnée à l'envoi.
+ * Le statut est revérifié par l'exécuteur juste avant l'appel. Tant qu'Unipile n'est pas branché,
+ * seules les données de démonstration sont acceptées.
+ */
+export async function mettreInvitationEnFile(pool: Pool, entree: unknown, opts: { modeSimule: boolean; maintenant?: Date }) {
+  const m = invitationSchema.parse(entree);
+  const cle = `invitation:${m.cle}`;
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    // Verrou court : deux demandes simultanées ne dépassent pas le quota de notes.
+    await c.query("select pg_advisory_xact_lock(hashtext('invitations'))");
+    const existante = await c.query("select id from public.taches where cle_idempotence = $1", [cle]);
+    if (existante.rowCount) {
+      await c.query("rollback");
+      return { tacheId: existante.rows[0].id as string, nouveau: false };
+    }
+    const p = await c.query(
+      "select statut_relation, demo, provider_id, public_identifier, linkedin_url from public.prospects where id = $1 for update",
+      [m.prospectId],
+    );
+    if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+    const x = p.rows[0];
+    if (REFUS_STATUT[x.statut_relation]) throw new EnvoiRefuse(REFUS_STATUT[x.statut_relation]);
+    if (opts.modeSimule && !x.demo) {
+      throw new EnvoiRefuse("Unipile n'est pas encore branché : seules les données de démonstration peuvent être invitées.");
+    }
+    const enFile = await c.query(
+      "select 1 from public.taches where prospect_id = $1 and type_action = 'invitation' and statut in ('en_attente', 'en_cours', 'incertaine')",
+      [m.prospectId],
+    );
+    if (enFile.rowCount) throw new EnvoiRefuse("Une invitation est déjà en file pour ce prospect.");
+    if (m.note) {
+      const { restantes } = await notesInvitationRestantes(c, opts.maintenant);
+      if (restantes !== null && restantes <= 0) {
+        throw new EnvoiRefuse("Quota de notes d'invitation du mois atteint : envoie-la sans note, ou attends le mois prochain.");
+      }
+    }
+    const lectureEnFile = await c.query(
+      "select 1 from public.taches where prospect_id = $1 and type_action = 'lecture_profil' and statut = 'en_attente'",
+      [m.prospectId],
+    );
+    // Une lecture déjà en file passe avant l'invitation (ordre par prospect) : pas de seconde lecture.
+    if (!x.provider_id && !lectureEnFile.rowCount) {
+      const pid =
+        (x.public_identifier && identifiantVersProfil(x.public_identifier)?.publicIdentifier) ??
+        normaliserUrlLinkedIn(x.linkedin_url)?.publicIdentifier;
+      if (!pid) throw new EnvoiRefuse("Adresse LinkedIn de ce prospect illisible : impossible de l'inviter.");
+      await c.query(
+        `insert into public.taches (type_action, prospect_id, payload, cle_idempotence)
+         values ('lecture_profil', $1, $2, $3)`,
+        [m.prospectId, { public_identifier: pid }, `lecture_profil:${cle}`],
+      );
+    }
+    const t = await c.query(
+      `insert into public.taches (type_action, prospect_id, payload, avec_note, cle_idempotence)
+       values ('invitation', $1, $2, $3, $4) returning id`,
+      [m.prospectId, m.note ? { prospect_id: m.prospectId, note: m.note } : { prospect_id: m.prospectId }, !!m.note, cle],
+    );
+    await c.query("commit");
+    return { tacheId: t.rows[0].id as string, nouveau: true };
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}
 
 // ─── Notes du prospect ────────────────────────────────────────────────────────
 

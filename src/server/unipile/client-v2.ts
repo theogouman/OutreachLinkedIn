@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NOTE_INVITATION_MAX } from "@/lib/invitation";
 import type { ErreurAppel } from "@/server/queue/politique";
 import { normaliserUrlLinkedIn } from "@/lib/linkedin-url";
 import { messageUnipileSchema, type MessageUnipile } from "@/server/conversations";
@@ -72,6 +73,17 @@ const conversationDemarreeSchema = z.object({
   object: z.literal("ChatStarted"),
   chat_id: z.string().min(1).max(200),
   message_id: z.union([z.string(), z.array(z.string()), z.null()]),
+});
+/**
+ * POST /v2/{account_id}/users/me/relation-requests (« Send a Relation request », vérifié le
+ * 2026-11-19) : corps { user_id, message? } → 201 { object: "RelationRequest", id, … }.
+ * TODO(security): la documentation ne précise ni la longueur maximale de la note ni le code
+ * d'erreur d'une invitation déjà envoyée ou d'une limite atteinte ; note bornée à 200 caractères
+ * (limite LinkedIn d'un compte gratuit), refus classés par la politique d'erreurs de la file.
+ */
+const invitationEnvoyeeSchema = z.object({
+  object: z.literal("RelationRequest"),
+  id: z.string().min(1).max(300).nullish(),
 });
 /** GET /v2/{account_id}/chats/{chat_id} → Chat ; `user_id` : l'autre participant d'une conversation à deux. */
 const conversationSchema = z.object({
@@ -209,6 +221,14 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
       if (!r.ok) return r;
       const id = r.donnees.message_id;
       return { ok: true, donnees: { chatId: r.donnees.chat_id, messageId: Array.isArray(id) ? (id[0] ?? null) : id } };
+    },
+
+    async inviter(providerId, note) {
+      if (!PROVIDER_ID.test(providerId)) return { ok: false, erreur: { status: 400, type: "identifiant_invalide" } };
+      const texte = note?.trim();
+      if (texte !== undefined && texte.length > NOTE_INVITATION_MAX) return { ok: false, erreur: { status: 400, type: "note_invalide" } };
+      const r = await appeler("/users/me/relation-requests", {}, invitationEnvoyeeSchema, texte ? { user_id: providerId, message: texte } : { user_id: providerId });
+      return r.ok ? { ok: true, donnees: { invitationId: r.donnees.id ?? null } } : r;
     },
 
     async lireConversation(chatId) {

@@ -9,6 +9,7 @@ import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
 import { chargerContexte } from "./queue/worker";
+import { notesInvitationRestantes } from "./mutations";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
@@ -181,14 +182,19 @@ export interface FicheProspect extends LigneProspect {
   historique: EvenementHistorique[];
   /** Profil LinkedIn issu d'un enrichissement externe, revalidé (src/lib/profil-linkedin.ts). */
   profil: ProfilLinkedIn | null;
+  demo: boolean;
+  /** Invitation depuis la fiche : déjà en file ?, notes encore possibles ce mois-ci (null : sans plafond). */
+  invitation: { enFile: boolean; notesRestantes: number | null; plafondNotes: number | null };
 }
 
-export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<FicheProspect | null> {
+export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = new Date()): Promise<FicheProspect | null> {
   const parse = z.uuid().safeParse(id);
   if (!parse.success) return null;
   const p = await pool.query(
-    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj,
-            to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie
+    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj, demo,
+            to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie,
+            exists (select 1 from public.taches t where t.prospect_id = prospects.id and t.type_action = 'invitation'
+                     and t.statut in ('en_attente', 'en_cours', 'incertaine')) as invitation_en_file
        from public.prospects where id = $1`,
     [parse.data],
   );
@@ -206,9 +212,12 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown): Promise<Fich
        from public.profils_linkedin where prospect_id = $1`,
     [parse.data],
   );
+  const notes = await notesInvitationRestantes(pool, maintenant);
   const x = p.rows[0];
   return {
     profil: profilAffichable(profil.rows[0] ?? null),
+    demo: x.demo,
+    invitation: { enFile: x.invitation_en_file, notesRestantes: notes.restantes, plafondNotes: notes.plafond },
     id: x.id,
     prenom: x.prenom,
     nom: x.nom,
@@ -521,7 +530,7 @@ export interface EtapeEntonnoir {
 /**
  * Entonnoir : étapes non terminales puis la première étape terminale (« Gagné »).
  * Chaque étape compte les prospects qui l'ont atteinte : étape actuelle, ou plus haute étape
- * franchie d'après le journal (un prospect « Perdu » après « Connecté » compte jusqu'à « Connecté »).
+ * franchie d'après le journal (un prospect « Perdu » après « À contacter » compte jusqu’à « À contacter »).
  * Les autres étapes terminales (Perdu, Pas intéressé) sont des sorties, comptées à part.
  */
 export async function entonnoirDepuis(pool: Pool): Promise<{ etapes: EtapeEntonnoir[]; sorties: EtapeEntonnoir[] }> {

@@ -67,6 +67,11 @@ export interface ClientLinkedIn {
    * la conversation. Jamais appelé hors de la file, ni sans relation vérifiée.
    */
   demarrerConversation(providerId: string, texte: string): Promise<Resultat<{ chatId: string; messageId: string | null }>>;
+  /**
+   * Invitation (demande de relation) à un profil, avec une note facultative. Jamais appelée hors
+   * de la file, ni sans statut « à inviter » revérifié juste avant.
+   */
+  inviter(providerId: string, note?: string): Promise<Resultat<{ invitationId: string | null }>>;
   lireProfil(identifiant: string): Promise<Resultat<ProfilLu>>;
   /** Interlocuteur d'une conversation à deux (identifiant LinkedIn interne), lu chez Unipile. */
   lireConversation(chatId: string): Promise<Resultat<{ interlocuteurId: string | null; nom: string | null; photoUrl: string | null }>>;

@@ -267,6 +267,33 @@ describe("client Unipile v2", () => {
     });
   });
 
+  it("invitation : POST relation-requests avec l'identifiant LinkedIn, note seulement si elle existe", async () => {
+    const reponse = { object: "RelationRequest", type: "sent", id: "inv_42", created_at: "2026-11-19T10:00:00Z", user: { id: "ACoAAB12cd" } };
+    const f = fetchFactice(201, reponse);
+    const client = creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch });
+    expect(await client.inviter("ACoAAB12cd")).toEqual({ ok: true, donnees: { invitationId: "inv_42" } });
+    const [url, init] = f.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.example.test/v2/acc_test/users/me/relation-requests");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ user_id: "ACoAAB12cd" });
+
+    await client.inviter("ACoAAB12cd", "Bonjour Camille");
+    expect(JSON.parse(String(f.mock.calls[1]![1]?.body))).toEqual({ user_id: "ACoAAB12cd", message: "Bonjour Camille" });
+  });
+
+  it("invitation : identifiant ou note invalides refusés sans appel ; refus de LinkedIn transmis", async () => {
+    const f = fetchFactice(201, {});
+    const client = creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch });
+    expect(await client.inviter("../users")).toMatchObject({ ok: false, erreur: { type: "identifiant_invalide" } });
+    expect(await client.inviter("ACoAAB12cd", "x".repeat(201))).toMatchObject({ ok: false, erreur: { type: "note_invalide" } });
+    expect(f).not.toHaveBeenCalled();
+    const refus = creerClientUnipileV2({
+      ...OPTS,
+      fetch: fetchFactice(422, { type: "provider/unprocessable_entity", detail: "limit" }) as unknown as typeof fetch,
+    });
+    expect(await refus.inviter("ACoAAB12cd")).toMatchObject({ ok: false, erreur: { status: 422, type: "provider/unprocessable_entity" } });
+  });
+
   it("lit l'interlocuteur et le nom d'une conversation à deux (Get a Chat)", async () => {
     const f = fetchFactice(200, { object: "Chat", id: "chat_1", user_id: "ACoLEA", name: " Léa Martin ", public_picture_url: "https://media.licdn.com/p.jpg" });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireConversation("chat_1");

@@ -38,6 +38,11 @@ export function creerClientSimule(
       if (!providerId.startsWith("ACoDEMO")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
       return { ok: true, donnees: { chatId: `demo-chat-${randomUUID()}`, messageId: `demo-msg-${randomUUID()}` } };
     },
+    async inviter(providerId) {
+      // Garde-fou : la simulation n'« invite » qu'un prospect de démonstration.
+      if (!providerId.startsWith("ACoDEMO")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
+      return { ok: true, donnees: { invitationId: `demo-inv-${randomUUID()}` } };
+    },
     async lireConversation() {
       return { ok: true, donnees: { interlocuteurId: null, nom: null, photoUrl: null } };
     },

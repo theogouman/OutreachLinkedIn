@@ -17,6 +17,8 @@ export interface NouvelleNotification {
   corps?: string | null;
   /** Chemin interne (ex. « /reglages »). */
   lien?: string | null;
+  /** Push différé : envoyé après validation de la transaction par `pousserNotificationsEnAttente`. */
+  pousser?: boolean;
 }
 
 /** Sujet VAPID : adresse du site (pas d'adresse e-mail transmise aux services Push). */
@@ -28,9 +30,9 @@ export const LIEN_INTERNE = /^\/([A-Za-z0-9_?=&%.-][A-Za-z0-9/_?=&%.-]*)?$/;
 export async function creerNotification(c: Pool | PoolClient, n: NouvelleNotification) {
   if (n.lien && !LIEN_INTERNE.test(n.lien)) throw new Error("Lien de notification non interne");
   const r = await c.query(
-    `insert into public.notifications (type, niveau, titre, corps, lien) values ($1, $2, $3, $4, $5)
+    `insert into public.notifications (type, niveau, titre, corps, lien, push_a_envoyer) values ($1, $2, $3, $4, $5, $6)
      returning id, type, niveau, titre, corps, lien, created_at`,
-    [n.type, n.niveau, n.titre.slice(0, 200), n.corps?.slice(0, 1000) ?? null, n.lien ?? null],
+    [n.type, n.niveau, n.titre.slice(0, 200), n.corps?.slice(0, 1000) ?? null, n.lien ?? null, n.pousser ?? false],
   );
   return r.rows[0] as { id: string; titre: string; corps: string | null; lien: string | null };
 }
@@ -99,6 +101,32 @@ export async function envoyerPush(
     }),
   );
   return { envoyes };
+}
+
+/**
+ * Pousse les notifications en attente de Push (créées dans une transaction : acceptations
+ * d'invitation). Réservées puis marquées en une requête : jamais poussées deux fois. Une seule
+ * telle quelle ; plusieurs = un seul Push récapitulatif (le détail est dans le centre de notifications).
+ */
+export async function pousserNotificationsEnAttente(pool: Pool, envoyer?: Envoyer) {
+  const r = await pool.query(
+    `update public.notifications set push_a_envoyer = false where push_a_envoyer
+     returning type, titre, corps, lien, created_at > now() - interval '1 day' as recente, created_at`,
+  );
+  // Plus d'un jour sans passage : trop tard pour un Push, la notification reste dans le centre.
+  const lignes = (r.rows as { type: string; titre: string; corps: string | null; lien: string | null; recente: boolean; created_at: Date }[])
+    .filter((l) => l.recente)
+    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  if (!lignes.length) return { envoyes: 0 };
+  const n =
+    lignes.length === 1
+      ? lignes[0]!
+      : {
+          titre: lignes.every((l) => l.type === "invitation_acceptee") ? `${lignes.length} invitations acceptées` : `${lignes.length} nouvelles notifications`,
+          corps: lignes.map((l) => l.titre).join(" · ").slice(0, 300),
+          lien: "/",
+        };
+  return envoyerPush(pool, { titre: n.titre, corps: n.corps, lien: n.lien }, envoyer);
 }
 
 /** Écrit la notification puis la pousse (le Push ne bloque jamais l'écriture). */

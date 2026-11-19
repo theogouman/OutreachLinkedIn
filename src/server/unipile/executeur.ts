@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { NOTE_INVITATION_MAX } from "@/lib/invitation";
 import type { Pool, PoolClient } from "pg";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import type { TypeLien } from "@/lib/statut-relation";
@@ -26,6 +27,11 @@ const payloadMessage = z.object({
 const payloadPremierMessage = z.object({
   prospect_id: z.uuid(),
   texte: z.string().min(1).max(8000),
+});
+/** Invitation depuis la fiche : l'identifiant LinkedIn et le statut sont relus juste avant l'appel. */
+const payloadInvitation = z.object({
+  prospect_id: z.uuid(),
+  note: z.string().min(1).max(NOTE_INVITATION_MAX).optional(),
 });
 /**
  * Lecture d'une liste. `complete` : parcours de toutes les pages (synchronisation initiale), une tâche
@@ -61,7 +67,8 @@ type Donnees =
   | { genre: "profil"; profil: ProfilLu; photo: Photo | null; conversationId?: string }
   | { genre: "liste"; liste: Liste; personnes: PersonneListee[]; photos: Map<string, Photo>; suivant: string | null; payload: PayloadLectureListe }
   | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
-  | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null };
+  | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null }
+  | { genre: "invitation"; prospectId: string; providerId: string };
 
 /** État du destinataire d'un premier message, relu juste avant l'appel LinkedIn. */
 export interface Destinataire {
@@ -213,7 +220,20 @@ export function creerExecuteur(
           ? { ok: true, donnees: { genre: "message", conversationId: p.data.conversation_id, texte: p.data.texte, messageId: r.donnees.messageId } satisfies Donnees }
           : r;
       }
-      // Invitations : pas encore disponibles.
+      if (tache.typeAction === "invitation") {
+        const p = payloadInvitation.safeParse(tache.payload);
+        if (!p.success) return invalide("payload_invalide");
+        if (!deps.lireDestinataire) return invalide("non_disponible");
+        const d = await deps.lireDestinataire(p.data.prospect_id);
+        if (!d) return invalide("prospect_introuvable");
+        // Statut changé depuis la mise en file (lecture du profil, synchronisation, webhook) : rien n'est envoyé.
+        if (d.statutRelation === "en_relation") return invalide("deja_en_relation");
+        if (d.statutRelation === "en_attente") return invalide("deja_invite");
+        if (d.statutRelation === "invitation_recue") return invalide("invitation_recue");
+        if (!d.providerId) return invalide("identifiant_linkedin_inconnu");
+        const r = await client.inviter(d.providerId, p.data.note);
+        return r.ok ? { ok: true, donnees: { genre: "invitation", prospectId: p.data.prospect_id, providerId: d.providerId } satisfies Donnees } : r;
+      }
       return invalide("non_disponible");
     },
   };
@@ -388,7 +408,7 @@ async function pageSuivante(c: PoolClient, tacheId: string, d: Extract<Donnees, 
  * plus a été retirée, a expiré ou a été acceptée. On ne conclut que pour un prospect dont
  * l'identifiant LinkedIn est connu (la liste donne toujours l'identifiant) : ses liens d'invitation
  * sont effacés et son statut recalculé ; s'il n'est pas en relation, il revient « à inviter » et son
- * étape « Invitation envoyée » repasse à « À contacter ». Un prospect non identifié reste en attente.
+ * étape « Invitation envoyée » repasse à « À inviter ». Un prospect non identifié reste en attente.
  */
 async function finParcours(c: PoolClient, liste: Liste, debut: Date) {
   if (liste !== "invitations_envoyees") return;
@@ -534,8 +554,34 @@ async function effetsIdentification(c: PoolClient, conversationId: string, profi
   }
 }
 
+/**
+ * Invitation partie : lien « invitation envoyée » (source outil), statut recalculé (« En attente »)
+ * et étape « Invitation envoyée » si le prospect en était encore au départ, notée au journal.
+ */
+async function effetsInvitation(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "invitation" }>) {
+  const p = await c.query("select url_normalisee from public.prospects where id = $1", [d.prospectId]);
+  if (!p.rowCount) return; // supprimé entre-temps (l'action reste, anonymisée, pour les quotas)
+  const url: string = p.rows[0].url_normalisee;
+  const a = await c.query("select created_at from public.actions where tache_id = $1 order by created_at desc limit 1", [tacheId]);
+  const quand: Date = a.rows[0]?.created_at ?? new Date();
+  await enregistrerLiens(c, [{ type: "invitation_envoyee", urlNormalisee: url, providerId: d.providerId, date: quand }], "outil", quand);
+  await recalculerStatuts(c, { urls: [url], providerIds: [d.providerId] });
+  const maj = await c.query(
+    "update public.prospects set etape = 'invitation_envoyee', updated_at = $2 where id = $1 and etape = 'a_contacter' returning id",
+    [d.prospectId, quand],
+  );
+  if (maj.rowCount) {
+    await c.query(
+      `insert into public.actions (prospect_id, type, sortante, resultat, details, created_at)
+       values ($1, 'changement_etape', false, 'succes', $2, $3)`,
+      [d.prospectId, { vers: "invitation_envoyee", cause: "invitation" }, quand],
+    );
+  }
+}
+
 export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees) => {
   const d = donnees as Donnees;
+  if (d.genre === "invitation") return effetsInvitation(c, tache.id, d);
   if (d.genre === "message") return effetsMessage(c, tache.id, d);
   if (d.genre === "conversation") return effetsConversation(c, tache.id, d);
   if (d.genre === "profil" && d.conversationId && !tache.prospectId) await effetsIdentification(c, d.conversationId, d.profil, d.photo);

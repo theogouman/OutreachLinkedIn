@@ -16,6 +16,7 @@ import { LogoLinkedIn } from "@/components/logos";
 import { lienProfilLinkedIn } from "@/lib/linkedin-url";
 import { NotesProspect } from "./notes-prospect";
 import { OngletProfil } from "./onglet-profil";
+import { InvitationProspect } from "./invitation-prospect";
 import { useOrdreFiches } from "@/components/ordre-fiches";
 import { IconeCorbeille, IconeFlecheDroite } from "@/components/icones-pages";
 import { actionSupprimerProspect } from "@/app/actions";
@@ -117,7 +118,7 @@ export function ModaleFiche({
 
   return (
     // Taille fixe : une longue conversation défile dans son encadré, la modale ne bouge pas.
-    <Modale fermer={fermer} hauteurFixe enTete={<EnTeteFiche fiche={fiche} nom={nom} nav={nav} />}>
+    <Modale fermer={fermer} hauteurFixe enTete={<EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} />}>
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
           remplir
@@ -339,7 +340,7 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
   );
 }
 
-function EnTeteFiche({ fiche, nom, nav }: { fiche: FicheProspect; nom: string; nav: Navigation }) {
+function EnTeteFiche({ fiche, nom, nav, modeSimule }: { fiche: FicheProspect; nom: string; nav: Navigation; modeSimule: boolean }) {
   const { fermer, titreId } = useModale();
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
   const sousTitre = [fiche.poste, fiche.entreprise, fiche.profil?.localisation].filter(Boolean).join(" · ");
@@ -403,6 +404,9 @@ function EnTeteFiche({ fiche, nom, nav }: { fiche: FicheProspect; nom: string; n
             )}
           </div>
         )}
+        <div className="mt-2 empty:hidden">
+          <InvitationProspect key={fiche.id} fiche={fiche} prenom={fiche.prenom ?? nom} modeSimule={modeSimule} />
+        </div>
       </div>
     </header>
   );
@@ -429,6 +433,7 @@ function FilDefilant({ nombre, children }: { nombre: number; children: ReactNode
 
 /** Précision selon l'état de l'invitation (LinkedIn n'accepte un message normal qu'entre relations de 1er degré). */
 function precisionPasEnRelation(statut: string, prenom: string): string | null {
+  if (statut === "a_inviter") return `Envoie-lui une invitation depuis le haut de la fiche : l'écriture s'ouvrira dès que ${prenom} l'aura acceptée`;
   if (statut === "en_attente") return `Invitation envoyée, pas encore acceptée : l'écriture s'ouvrira dès que ${prenom} l'aura acceptée`;
   if (statut === "invitation_recue") return `${prenom} t'a envoyé une invitation : accepte-la sur LinkedIn, l'écriture s'ouvrira ensuite`;
   return null;

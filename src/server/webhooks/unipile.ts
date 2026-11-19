@@ -5,7 +5,7 @@ import { identifiantVersProfil } from "@/lib/linkedin-url";
 import { enregistrerLiens, recalculerStatuts, traiterAcceptations } from "@/server/relations";
 import { verifierSignatureUnipile } from "@/server/secrets";
 import { accuseLectureSchema, enregistrerAccuseLecture, enregistrerMessageRecu, messageUnipileSchema, type Interlocuteur } from "@/server/conversations";
-import { creerNotification, envoyerPush } from "@/server/notifications";
+import { creerNotification, envoyerPush, pousserNotificationsEnAttente } from "@/server/notifications";
 
 export const TAILLE_MAX_WEBHOOK = 1024 * 1024;
 
@@ -187,6 +187,8 @@ export async function traiterWebhookUnipile(
   }
   // Après validation : le Push ne doit jamais faire échouer l'enregistrement.
   if (alerte) await envoyerPush(pool, alerte, opts.deps?.envoyerPush).catch((e) => console.error("[push]", (e as Error).message));
+  // Acceptations d'invitation notifiées pendant la transaction.
+  await pousserNotificationsEnAttente(pool, opts.deps?.envoyerPush).catch((e) => console.error("[push]", (e as Error).message));
   console.info("[webhook] %s enregistré", env.data.type.slice(0, 60));
   return { status: 200, corps: { ok: true } };
 }

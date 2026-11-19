@@ -7,7 +7,7 @@ import { poolServeur } from "@/server/db";
 import { importerProspects, importerRelations } from "@/server/import/appliquer";
 import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
 import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
-import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreMessageEnFile, supprimerConversation, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, supprimerConversation, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
 import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
@@ -50,7 +50,7 @@ export async function actionImporterRelations(formData: FormData): Promise<Retou
   return executer("importer-relations", async () => {
     const lecture = lireConnectionsCsv(await lireFichier(formData));
     const r = await importerRelations(poolServeur(), lecture.relations);
-    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour, ${r.etapesAvancees} passés à « Connecté »${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL ignorées` : ""}.`;
+    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour, ${r.etapesAvancees} passés à « À contacter »${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL ignorées` : ""}.`;
   });
 }
 
@@ -135,6 +135,14 @@ export async function actionEnvoyerMessage(entree: unknown): Promise<Retour> {
   return executer("envoyerMessage", async () => {
     const r = await mettreMessageEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
     return r.nouveau ? "Message mis en file d'attente." : "Ce message est déjà en file d'attente.";
+  });
+}
+
+/** Invitation demandée depuis la fiche : mise en file, jamais envoyée directement. */
+export async function actionInviterProspect(entree: unknown): Promise<Retour> {
+  return executer("inviter", async () => {
+    const r = await mettreInvitationEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
+    return r.nouveau ? "Invitation mise en file d'attente." : "Cette invitation est déjà en file d'attente.";
   });
 }
 

@@ -8,6 +8,7 @@ import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis, photosM
 import { completerConversations } from "@/server/completion-conversations";
 import { clientLinkedIn, dependancesCompletion } from "@/server/unipile/fabrique";
 import { synchroniserMessagerie } from "@/server/synchro-messagerie";
+import { pousserNotificationsEnAttente } from "@/server/notifications";
 
 export const maxDuration = 60;
 
@@ -40,6 +41,8 @@ export async function POST(request: Request) {
       // Unipile simulé : seules les données de démonstration sont traitées.
       seulementDemo: envUnipile().mode === "simule",
     });
+    // Acceptations d'invitation constatées par ce tour (lecture de liste ou de profil) : Push après validation.
+    await pousserNotificationsEnAttente(pool).catch((e) => console.error("[push]", (e as Error).message));
     // Synchronisation de la messagerie (lecture Unipile, hors file et hors quotas), dans un budget de temps.
     const messagerie =
       envUnipile().mode === "reel"

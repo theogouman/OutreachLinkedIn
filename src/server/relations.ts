@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import type { TypeLien } from "@/lib/statut-relation";
+import { creerNotification } from "@/server/notifications";
 
 export interface LienLinkedIn {
   type: TypeLien;
@@ -8,7 +9,7 @@ export interface LienLinkedIn {
   date?: Date | null;
 }
 
-export type SourceLien = "csv" | "sync" | "webhook" | "notion";
+export type SourceLien = "csv" | "sync" | "webhook" | "notion" | "outil";
 
 /** Enregistre (ou rafraîchit) des liens connus. Par lots, requêtes paramétrées. */
 export async function enregistrerLiens(c: PoolClient, liens: LienLinkedIn[], source: SourceLien, maintenant = new Date()) {
@@ -82,13 +83,33 @@ export async function recalculerStatuts(
 }
 
 /**
+ * Invitation acceptée : notification vers la fiche (onglet Conversation), une seule fois par
+ * prospect. Le Push part après validation de la transaction (`pousserNotificationsEnAttente`).
+ */
+async function notifierAcceptation(c: PoolClient, prospectId: string) {
+  const p = await c.query("select prenom, nom from public.prospects where id = $1", [prospectId]);
+  if (!p.rowCount) return;
+  const nom = [p.rows[0].prenom, p.rows[0].nom].filter(Boolean).join(" ").trim() || "Un prospect";
+  await creerNotification(c, {
+    type: "invitation_acceptee",
+    niveau: "info",
+    titre: `${nom} a accepté ton invitation`,
+    corps: "Vous êtes en relation : tu peux lui écrire depuis sa fiche.",
+    lien: `/?prospect=${prospectId}&onglet=conversation`,
+    pousser: true,
+  });
+}
+
+/**
  * Invitation acceptée (en attente → en relation, constaté par synchronisation ou
- * webhook) : passage à l'étape « Connecté » si le prospect n'est pas plus loin,
+ * webhook) : passage à l'étape « À contacter » (code connecte) si le prospect n'est pas plus loin,
  * et événement « acceptation » au journal (non compté dans les quotas).
  */
 export async function traiterAcceptations(c: PoolClient, transitions: Transition[], maintenant = new Date()) {
   const acceptes = transitions.filter((t) => t.avant === "en_attente" && t.apres === "en_relation");
   for (const t of acceptes) {
+    const deja = await c.query("select 1 from public.actions where prospect_id = $1 and type = 'acceptation' limit 1", [t.prospectId]);
+    if (!deja.rowCount) await notifierAcceptation(c, t.prospectId);
     await c.query(
       `insert into public.actions (prospect_id, type, sortante, resultat, created_at)
        values ($1, 'acceptation', false, 'succes', $2)`,
@@ -113,7 +134,7 @@ export async function traiterAcceptations(c: PoolClient, transitions: Transition
 
 /**
  * Après un import (archive LinkedIn, CSV de prospects, CRM Notion) : un prospect déjà en relation
- * qui en est encore à « À contacter » ou « Invitation envoyée » passe à « Connecté ».
+ * qui en est encore à « À inviter » ou « Invitation envoyée » passe à « À contacter » (code connecte).
  * Daté de la connexion connue (« Connected On » de l'archive), sinon de maintenant.
  * Une invitation envoyée devenue relation est aussi notée « acceptation » au journal
  * (non comptée dans les quotas, une seule fois par prospect). Indépendant de l'ordre des imports.
