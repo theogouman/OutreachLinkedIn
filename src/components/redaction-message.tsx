@@ -110,7 +110,14 @@ export function RedactionMessage({
             <span>
               Part par la file d&apos;attente, sous quota · {restants} restant{restants > 1 ? "s" : ""} aujourd&apos;hui
             </span>
-            <span className="tabular-nums">{texte.length > MAX - 1000 ? `${texte.length} / ${MAX}` : "⌘ ou Ctrl + Entrée pour envoyer"}</span>
+            {texte.length > MAX - 1000 ? (
+              <span className="tabular-nums">
+                {texte.length} / {MAX}
+              </span>
+            ) : (
+              // Raccourci clavier : sans objet sur téléphone et tablette.
+              <span className="hidden lg:inline">⌘ ou Ctrl + Entrée pour envoyer</span>
+            )}
           </>
         )}
       </p>

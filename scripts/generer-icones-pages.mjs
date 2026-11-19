@@ -13,7 +13,6 @@ const ICONES = [
   ["IconePageInbox", "bubble.left.and.text.bubble.right", null],
   ["IconePageFile", "list.bullet.indent", null],
   ["IconePageStats", "chart.line.uptrend.xyaxis", null],
-  ["IconePageImport", "square.and.arrow.up", null],
   ["IconePageReglages", "gear", null],
   [
     "IconeFiltresListe",

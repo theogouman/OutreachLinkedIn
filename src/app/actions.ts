@@ -4,9 +4,6 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
-import { importerProspects, importerRelations } from "@/server/import/appliquer";
-import { ErreurImport, lireConnectionsCsv, TAILLE_MAX_OCTETS } from "@/server/import/connections-csv";
-import { correspondanceSchema, lireProspectsCsv } from "@/server/import/prospects-csv";
 import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, supprimerConversation, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { envUnipile } from "@/server/env-serveur";
@@ -31,37 +28,11 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
     refresh();
     return { ok: true, message };
   } catch (e) {
-    if (e instanceof ErreurImport || e instanceof DemoDejaChargee || e instanceof EnvoiRefuse) return { ok: false, message: e.message };
+    if (e instanceof DemoDejaChargee || e instanceof EnvoiRefuse) return { ok: false, message: e.message };
     if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
     console.error("[action:%s]", nom, e);
     return { ok: false, message: ERREUR };
   }
-}
-
-async function lireFichier(formData: FormData): Promise<string> {
-  const f = formData.get("fichier");
-  if (!(f instanceof File) || f.size === 0) throw new ErreurImport("Aucun fichier reçu.");
-  if (f.size > TAILLE_MAX_OCTETS) throw new ErreurImport("Fichier trop volumineux (5 Mo maximum).");
-  if (!/\.csv$/i.test(f.name)) throw new ErreurImport("Le fichier doit être un .csv.");
-  return f.text();
-}
-
-export async function actionImporterRelations(formData: FormData): Promise<Retour> {
-  return executer("importer-relations", async () => {
-    const lecture = lireConnectionsCsv(await lireFichier(formData));
-    const r = await importerRelations(poolServeur(), lecture.relations);
-    return `${r.relations} relations lues, ${r.prospectsMisAJour} prospects mis à jour, ${r.etapesAvancees} passés à « À contacter »${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL ignorées` : ""}.`;
-  });
-}
-
-export async function actionImporterProspects(formData: FormData): Promise<Retour> {
-  return executer("importer-prospects", async () => {
-    const correspondance = correspondanceSchema.parse(JSON.parse(String(formData.get("correspondance") ?? "{}")));
-    const liste = z.string().trim().max(100).parse(String(formData.get("liste") ?? "")) || null;
-    const lecture = lireProspectsCsv(await lireFichier(formData), correspondance);
-    const r = await importerProspects(poolServeur(), lecture.prospects, liste);
-    return `${r.crees} prospects créés, ${r.dejaPresents} déjà présents, ${r.lecturesEnFile} lectures de profil mises en file${lecture.lignesRejetees ? `, ${lecture.lignesRejetees} lignes sans URL LinkedIn valide` : ""}.`;
-  });
 }
 
 export async function actionPlafonds(valeurs: unknown): Promise<Retour> {
@@ -99,7 +70,7 @@ export async function actionTrancher(id: string, decision: string): Promise<Reto
 
 export async function actionChargerDemo(): Promise<Retour> {
   return executer("charger-demo", async () => {
-    if (envUnipile().mode !== "simule") throw new ErreurImport("Données de démonstration indisponibles : Unipile est branché.");
+    if (envUnipile().mode !== "simule") throw new EnvoiRefuse("Données de démonstration indisponibles : Unipile est branché.");
     const r = await semerDemo(poolServeur());
     return `${r.prospects} prospects fictifs chargés.`;
   });

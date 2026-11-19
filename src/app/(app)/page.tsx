@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { etatOutil, ficheProspect, fil, prospects, referentiels, statsProspects, TAILLE_PAGE } from "@/server/donnees";
 import { BoutonDemo } from "@/components/bouton-demo";
 import { EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
@@ -63,12 +62,11 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
             titre="Aucun prospect pour l'instant"
             texte={
               etat.modeSimule
-                ? "Importe ta base Notion, ou charge des prospects fictifs pour essayer l'outil avant de brancher Unipile"
-                : "Importe l'export CSV de ta base Notion pour commencer"
+                ? "Demande à Claude d'importer une liste, ou charge des prospects fictifs pour essayer l'outil avant de brancher Unipile"
+                : "Demande à Claude d'importer une liste pour commencer"
             }
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                <Link href="/import" className="bouton bouton-contour">Importer une liste</Link>
                 {etat.modeSimule && etat.prospectsDemo === 0 && <BoutonDemo />}
               </div>
             }

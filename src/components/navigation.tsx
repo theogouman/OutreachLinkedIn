@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { IconePageFile, IconePageImport, IconePageInbox, IconePageProspects, IconePageReglages, IconePageStats } from "./icones-pages";
+import { IconePageFile, IconePageInbox, IconePageProspects, IconePageReglages, IconePageStats } from "./icones-pages";
 
 const LIENS = [
   { href: "/", libelle: "Prospects", Icone: IconePageProspects, compte: null },
   { href: "/inbox", libelle: "Inbox", Icone: IconePageInbox, compte: "nonLus" },
   { href: "/file", libelle: "File", Icone: IconePageFile, compte: "enAttente" },
   { href: "/statistiques", libelle: "Stats", Icone: IconePageStats, compte: null },
-  { href: "/import", libelle: "Import", Icone: IconePageImport, compte: null },
   { href: "/reglages", libelle: "Réglages", Icone: IconePageReglages, compte: null },
 ] as const;
 
