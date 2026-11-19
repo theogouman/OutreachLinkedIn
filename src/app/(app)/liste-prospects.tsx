@@ -67,11 +67,11 @@ export function ListeProspects({
     { libelle: "Relances dues", valeur: stats.relancesDues, aide: "aujourd'hui ou en retard", actif: !!f.relanceAvant && f.relanceAvant === aujourdhui(), agir: () => basculer("relanceAvant", aujourdhui()), accent: stats.relancesDues > 0 },
   ];
   const classeCarte = (actif?: boolean) =>
-    `carte flex flex-col gap-3 p-5 text-left outline-none transition-[background-color,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-creux focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)] ${actif ? "shadow-[inset_0_0_0_2px_var(--color-accent)]" : ""}`;
+    `carte flex min-w-0 flex-col gap-2 p-4 text-left sm:gap-3 sm:p-5 outline-none transition-[background-color,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-creux focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)] ${actif ? "shadow-[inset_0_0_0_2px_var(--color-accent)]" : ""}`;
   const contenuCarte = (c: (typeof cartes)[number]) => (
     <>
       <span className="body-6 text-encre-2">{c.libelle}</span>
-      <span className="flex items-baseline gap-2">
+      <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <Chiffre valeur={c.valeur} className={`chiffre-cle ${c.accent ? "text-rouge" : "text-encre"}`} />
         <span className="caption-5 text-encre-3">{c.aide}</span>
       </span>
@@ -83,7 +83,7 @@ export function ListeProspects({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {cartes.map((c) =>
           c.href ? (
             <Link key={c.libelle} href={c.href} className={classeCarte()}>

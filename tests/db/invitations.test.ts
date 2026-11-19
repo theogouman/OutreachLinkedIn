@@ -250,6 +250,33 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
     expect(n2.rows[0].n).toBe(1);
   });
 
+  it("webhook relation.new : invitation envoyée hors de l'outil (statut « à inviter ») → notifiée aussi", async () => {
+    const SECRET = randomBytes(24).toString("hex");
+    const T = 1_793_980_800;
+    const id = await prospect({ id: "max-reel", demo: false, statut: "a_inviter", etape: "a_contacter", prenom: "Max" });
+    const corps = JSON.stringify({
+      id: `evt_${randomUUID()}`,
+      type: "relation.new",
+      account_id: "acc_moi",
+      created_at: "2026-11-06T10:00:00Z",
+      payload: { id: "rel_2", object: "UserRelation", user: { id: "ACoMAX", public_identifier: "max-reel", display_name: "Max" } },
+    });
+    const signature = `t=${T},v0=${createHmac("sha256", SECRET).update(`${T}.${corps}`).digest("hex")}`;
+    const r = await traiterWebhookUnipile(db.pool, corps, signature, { secret: SECRET, accountId: "acc_moi", maintenantMs: T * 1000 });
+    expect(r.status).toBe(200);
+    const n = await db.pool.query("select titre from public.notifications");
+    expect(n.rows).toEqual([{ titre: "Max Durand a accepté ton invitation" }]);
+    const p = await db.pool.query("select statut_relation, etape from public.prospects where id = $1", [id]);
+    expect(p.rows[0]).toEqual({ statut_relation: "en_relation", etape: "connecte" });
+  });
+
+  it("une relation découverte par une liste (sans invitation connue) n'est pas notifiée", async () => {
+    const id = await prospect({ statut: "a_inviter", etape: "a_contacter" });
+    await accepter(id);
+    expect((await db.pool.query("select count(*)::int as n from public.notifications")).rows[0].n).toBe(0);
+    expect((await db.pool.query("select etape from public.prospects where id = $1", [id])).rows[0].etape).toBe("connecte");
+  });
+
   it("Push différé : une notification seule telle quelle, plusieurs regroupées, jamais deux fois", async () => {
     await db.pool.query(
       "insert into public.abonnements_push (endpoint, p256dh, auth) values ('https://push.example.com/a', 'cle', 'auth')",

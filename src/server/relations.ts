@@ -106,8 +106,18 @@ async function notifierAcceptation(c: PoolClient, prospectId: string) {
  * webhook) : passage à l'étape « À contacter » (code connecte) si le prospect n'est pas plus loin,
  * et événement « acceptation » au journal (non compté dans les quotas).
  */
-export async function traiterAcceptations(c: PoolClient, transitions: Transition[], maintenant = new Date()) {
-  const acceptes = transitions.filter((t) => t.avant === "en_attente" && t.apres === "en_relation");
+export async function traiterAcceptations(
+  c: PoolClient,
+  transitions: Transition[],
+  maintenant = new Date(),
+  opts: { webhookRelation?: boolean } = {},
+) {
+  // Webhook relation.new : une nouvelle relation est toujours une invitation acceptée, même si l'outil
+  // ne connaissait pas l'invitation (envoyée depuis LinkedIn). Une liste lue, elle, peut révéler
+  // d'anciennes relations : seule une invitation connue (« en attente ») y vaut acceptation.
+  const acceptes = transitions.filter(
+    (t) => t.apres === "en_relation" && (t.avant === "en_attente" || (opts.webhookRelation && t.avant === "a_inviter")),
+  );
   for (const t of acceptes) {
     const deja = await c.query("select 1 from public.actions where prospect_id = $1 and type = 'acceptation' limit 1", [t.prospectId]);
     if (!deja.rowCount) await notifierAcceptation(c, t.prospectId);

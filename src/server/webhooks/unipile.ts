@@ -146,7 +146,7 @@ export async function traiterWebhookUnipile(
         await enregistrerLiens(c, [{ type: "relation", urlNormalisee: url, providerId: id, date: d && !Number.isNaN(d.getTime()) ? d : null }], "webhook");
         // Invitation acceptée : le prospect reçoit aussi son identifiant LinkedIn (la photo viendra de la liste des relations).
         await identifierProspect(c, { providerId: id, publicIdentifier: public_identifier ?? null, date: null }, null, "webhook");
-        await traiterAcceptations(c, await recalculerStatuts(c, { urls: [url], providerIds: [id] }));
+        await traiterAcceptations(c, await recalculerStatuts(c, { urls: [url], providerIds: [id] }), new Date(), { webhookRelation: true });
       }
     }
     if (messageRecu?.success) await enregistrerMessageRecu(c, messageRecu.data, interlocuteur);
