@@ -4,8 +4,9 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
-import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, supprimerConversation, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, modifierPropriete, supprimerConversation, trancherIncertaine } from "@/server/mutations";
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
+import { creerVue, majOptionsVue, renommerVue, supprimerVue } from "@/server/vues";
 import { envUnipile } from "@/server/env-serveur";
 import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
 import { filtresProspectsSchema } from "@/lib/filtres/prospects";
@@ -114,6 +115,47 @@ export async function actionInviterProspect(entree: unknown): Promise<Retour> {
   return executer("inviter", async () => {
     const r = await mettreInvitationEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
     return r.nouveau ? "Invitation mise en file d'attente." : "Cette invitation est déjà en file d'attente.";
+  });
+}
+
+// ─── Vues de la liste Prospects et propriétés modifiables ──────────────────────
+
+/** Nouvelle vue d'un type du catalogue ; renvoie son identifiant pour l'ouvrir aussitôt. */
+export async function actionCreerVue(entree: unknown): Promise<Retour & { id?: string }> {
+  let id: string | undefined;
+  const r = await executer("creer-vue", async () => {
+    id = await creerVue(poolServeur(), entree);
+    return "Vue créée.";
+  });
+  return r.ok ? { ...r, id } : r;
+}
+
+export async function actionRenommerVue(entree: unknown): Promise<Retour> {
+  return executer("renommer-vue", async () => {
+    await renommerVue(poolServeur(), entree);
+    return "Vue renommée.";
+  });
+}
+
+export async function actionReglerVue(entree: unknown): Promise<Retour> {
+  return executer("regler-vue", async () => {
+    await majOptionsVue(poolServeur(), entree);
+    return "Vue mise à jour.";
+  });
+}
+
+export async function actionSupprimerVue(id: unknown): Promise<Retour> {
+  return executer("supprimer-vue", async () => {
+    await supprimerVue(poolServeur(), id);
+    return "Vue supprimée.";
+  });
+}
+
+/** Propriété modifiée sur place depuis une vue (seules celles déclarées modifiables). */
+export async function actionModifierPropriete(entree: unknown): Promise<Retour> {
+  return executer("modifier-propriete", async () => {
+    await modifierPropriete(poolServeur(), entree);
+    return "Modification enregistrée.";
   });
 }
 

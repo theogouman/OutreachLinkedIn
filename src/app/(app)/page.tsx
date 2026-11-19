@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { etatOutil, ficheProspect, fil, prospects, referentiels, statsProspects, TAILLE_PAGE } from "@/server/donnees";
+import { etatOutil, ficheProspect, fil, prospects, referentiels, statsProspects, TAILLE_PAGE, vues } from "@/server/donnees";
 import { BoutonDemo } from "@/components/bouton-demo";
 import { EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
 import { IconeProspects } from "@/components/icones";
@@ -38,13 +38,14 @@ function premier(v: string | string[] | undefined) {
 async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
   const sp = await searchParams;
   const idFiche = premier(sp.prospect);
-  const [initial, refs, etat, stats, fiche, conversation] = await Promise.all([
+  const [initial, refs, etat, stats, fiche, conversation, listeVues] = await Promise.all([
     prospects({ page: 1 }),
     referentiels(),
     etatOutil(),
     statsProspects(),
     idFiche ? ficheProspect(idFiche) : null,
     idFiche ? fil({ prospectId: idFiche }) : null,
+    vues(),
   ]);
   const etapes = Object.fromEntries(refs.etapes.map((e) => [e.code, e.libelle]));
 
@@ -55,6 +56,8 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
         stats={stats}
         etapes={refs.etapes.map((e) => ({ code: e.code, libelle: e.libelle }))}
         listes={refs.listes}
+        vues={listeVues}
+        vueInitiale={premier(sp.vue) ?? null}
         taillePage={TAILLE_PAGE}
         videSansFiltre={
           <EtatVide

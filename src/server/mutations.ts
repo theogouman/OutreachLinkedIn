@@ -4,6 +4,7 @@ import { MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { NOTE_INVITATION_MAX } from "@/lib/invitation";
 import { identifiantVersProfil, normaliserUrlLinkedIn } from "@/lib/linkedin-url";
 import { debutMois } from "@/server/queue/temps";
+import { PROPRIETES_PROSPECTS, valeurListe } from "@/lib/proprietes/prospects";
 
 /**
  * Modifications demandées depuis l'interface. Toute entrée est validée ici (Zod),
@@ -350,6 +351,27 @@ export async function mettreInvitationEnFile(pool: Pool, entree: unknown, opts: 
   } finally {
     c.release();
   }
+}
+
+// ─── Propriétés modifiables depuis les vues ───────────────────────────────────
+
+/**
+ * Une entrée par propriété modifiable du catalogue (src/lib/proprietes/prospects.ts) : toute autre
+ * propriété est refusée. Liste d'origine : une des listes déjà présentes, ou aucune.
+ */
+export const proprieteSchema = z.discriminatedUnion("cle", [
+  z.object({ prospectId: z.uuid(), cle: z.literal("liste"), valeur: valeurListe }),
+]);
+
+export async function modifierPropriete(pool: Pool, entree: unknown) {
+  const m = proprieteSchema.parse(entree);
+  if (!PROPRIETES_PROSPECTS[m.cle].modifiable) throw new EnvoiRefuse("Cette propriété n'est pas modifiable.");
+  if (m.valeur !== null) {
+    const existe = await pool.query("select 1 from public.prospects where liste_origine = $1 limit 1", [m.valeur]);
+    if (!existe.rowCount) throw new EnvoiRefuse("Liste inconnue : choisis une des listes existantes.");
+  }
+  const r = await pool.query("update public.prospects set liste_origine = $2, updated_at = now() where id = $1", [m.prospectId, m.valeur]);
+  if (!r.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
 }
 
 // ─── Notes du prospect ────────────────────────────────────────────────────────

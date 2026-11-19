@@ -10,6 +10,7 @@ import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
 import { chargerContexte } from "./queue/worker";
 import { notesInvitationRestantes } from "./mutations";
+import { vuesDepuis } from "./vues";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
@@ -164,6 +165,13 @@ export async function referentielsDepuis(pool: Pool) {
 export async function referentiels() {
   await exigerUtilisateur();
   return referentielsDepuis(poolServeur());
+}
+
+// ─── Vues de la liste Prospects ───────────────────────────────────────────────
+
+export async function vues() {
+  await exigerUtilisateur();
+  return vuesDepuis(poolServeur());
 }
 
 // ─── Fiche prospect ───────────────────────────────────────────────────────────

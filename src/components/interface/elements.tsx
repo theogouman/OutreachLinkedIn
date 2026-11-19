@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 
 /* Teintes d'avatar : douces, lisibles en encre foncée (contraste ≥ 4,5:1). */
 const TEINTES = ["#f6e3df", "#e6eef5", "#e8f1e6", "#f3ecdc", "#ece7f4", "#e4f0ef", "#f4e6ee"];
+/** Encre des initiales : fixe, car le fond pastel ne change pas en mode sombre (sinon texte clair sur fond clair). */
+const ENCRE_AVATAR = "#26211f";
 
 function teinte(nom: string) {
   let h = 0;
@@ -35,8 +37,8 @@ export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: numb
   return (
     <span
       aria-hidden
-      className="inline-grid shrink-0 place-items-center rounded-full caption-3 text-encre ring-1 ring-encre/5"
-      style={{ width: taille, height: taille, background: teinte(nom), fontSize: taille < 32 ? 11 : undefined }}
+      className="inline-grid shrink-0 place-items-center rounded-full caption-3 ring-1 ring-encre/5"
+      style={{ width: taille, height: taille, background: teinte(nom), color: ENCRE_AVATAR, fontSize: taille < 32 ? 11 : undefined }}
     >
       {initiales}
     </span>

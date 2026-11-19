@@ -1,11 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableTriable, type Colonne } from "@/components/interface/table-triable";
 import { Avatar, Chiffre } from "@/components/interface/elements";
-import { BadgeEtape, BadgeStatut } from "@/components/badges";
 import { IconeFermer, IconeRecherche } from "@/components/icones";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
@@ -14,15 +13,14 @@ import { LIBELLES_STATUT } from "@/lib/statut-relation";
 import { actionListerProspects } from "@/app/actions";
 import type { LigneProspect, StatsProspects } from "@/server/donnees";
 import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
+import { BarreVues } from "@/components/vues/barre-vues";
+import { GalerieProspects } from "@/components/vues/galerie";
+import { ValeurPropriete, valeurPropriete, type ContexteProprietes } from "@/components/vues/proprietes";
+import { PROPRIETES_PROSPECTS, type ClePropriete } from "@/lib/proprietes/prospects";
+import { MISES_EN_PAGE, type Vue } from "@/lib/vues/catalogue";
 
-const fmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" });
-
-function libelleRelance(date: string | null) {
-  if (!date) return { texte: "—", retard: false };
-  const d = new Date(`${date}T12:00:00Z`);
-  const aujourdhui = new Date().toISOString().slice(0, 10);
-  return { texte: date === aujourdhui ? "Aujourd'hui" : fmt.format(d), retard: date <= aujourdhui };
-}
+/** Aucune vue en base (cas anormal) : la table par défaut, sans enregistrement. */
+const VUE_SECOURS: Vue = { id: "00000000-0000-4000-8000-000000000000", nom: "Table", type: "table", options: MISES_EN_PAGE.table.defaut };
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
@@ -35,6 +33,8 @@ export function ListeProspects({
   stats,
   etapes,
   listes,
+  vues,
+  vueInitiale,
   taillePage,
   videSansFiltre,
   charger = actionListerProspects,
@@ -43,6 +43,9 @@ export function ListeProspects({
   stats: StatsProspects;
   etapes: { code: string; libelle: string }[];
   listes: string[];
+  /** Vues enregistrées (au moins une) et vue ouverte au chargement (?vue=). */
+  vues: Vue[];
+  vueInitiale: string | null;
   taillePage: number;
   videSansFiltre: ReactNode;
   /** Source des résultats filtrés (l'action serveur ; remplaçable dans les tests). */
@@ -59,6 +62,25 @@ export function ListeProspects({
   const libellesEtapes = Object.fromEntries(etapes.map((e) => [e.code, e.libelle]));
   const pages = Math.max(1, Math.ceil(l.total / taillePage));
   const basculer = (cle: "statut" | "relanceAvant", valeur: string) => l.changer(cle, f[cle] === valeur ? "" : valeur);
+  const ctx: ContexteProprietes = { etapes: libellesEtapes, listes };
+
+  // Vue ouverte : gardée dans l'URL (?vue=) sans recharger la page, pour la retrouver et la partager.
+  const [idVue, setIdVue] = useState(vueInitiale);
+  const vue = vues.find((v) => v.id === idVue) ?? vues[0] ?? VUE_SECOURS;
+  const choisirVue = (id: string) => {
+    setIdVue(id);
+    const q = new URLSearchParams(window.location.search);
+    q.set("vue", id);
+    window.history.replaceState(null, "", `${window.location.pathname}?${q}`);
+  };
+  const router = useRouter();
+  const chemin = usePathname();
+  const params = useSearchParams();
+  const ouvrirFiche = (id: string) => {
+    const q = new URLSearchParams(params);
+    q.set("prospect", id);
+    router.push(`${chemin}?${q}`, { scroll: false });
+  };
 
   const cartes = [
     { libelle: "En relation", valeur: stats.parStatut.en_relation, aide: `sur ${stats.total} prospects`, actif: f.statut === "en_relation", agir: () => basculer("statut", "en_relation") },
@@ -182,7 +204,24 @@ export function ListeProspects({
         videSansFiltre
       ) : (
         <>
-          <TableProspects lignes={l.lignes} etapes={libellesEtapes} vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à ces filtres</p>} />
+          <BarreVues vues={vues} active={vue} choisir={choisirVue} />
+          {vue.type === "galerie" ? (
+            <GalerieProspects
+              lignes={l.lignes}
+              proprietes={vue.options.proprietes}
+              ctx={ctx}
+              ouvrir={ouvrirFiche}
+              vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à ces filtres</p>}
+            />
+          ) : (
+            <TableProspects
+              lignes={l.lignes}
+              proprietes={vue.options.proprietes}
+              ctx={ctx}
+              ouvrir={ouvrirFiche}
+              vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à ces filtres</p>}
+            />
+          )}
           <div className="flex items-center justify-between caption-5 text-encre-3">
             <span aria-live="polite">
               {l.total} prospect{l.total > 1 ? "s" : ""}
@@ -205,12 +244,31 @@ export function ListeProspects({
   );
 }
 
-export function TableProspects({ lignes, etapes, vide }: { lignes: LigneProspect[]; etapes: Record<string, string>; vide?: ReactNode }) {
-  const router = useRouter();
-  const chemin = usePathname();
-  const params = useSearchParams();
-  const nom = (p: LigneProspect) => [p.prenom, p.nom].filter(Boolean).join(" ") || "Sans nom";
+/** Largeur de colonne par propriété (mise en page « Table »). */
+const LARGEURS: Record<ClePropriete, string> = {
+  entreprise: "minmax(140px, 1.2fr)",
+  poste: "minmax(140px, 1.2fr)",
+  relation: "150px",
+  etape: "150px",
+  relance: "110px",
+  liste: "minmax(130px, 1fr)",
+};
 
+/** Mise en page « Table » : colonne Prospect, puis une colonne par propriété choisie dans la vue. */
+export function TableProspects({
+  lignes,
+  proprietes,
+  ctx,
+  ouvrir,
+  vide,
+}: {
+  lignes: LigneProspect[];
+  proprietes: ClePropriete[];
+  ctx: ContexteProprietes;
+  ouvrir: (id: string) => void;
+  vide?: ReactNode;
+}) {
+  const nom = (p: LigneProspect) => [p.prenom, p.nom].filter(Boolean).join(" ") || "Sans nom";
   const colonnes: Colonne<LigneProspect>[] = [
     {
       id: "nom",
@@ -227,34 +285,16 @@ export function TableProspects({ lignes, etapes, vide }: { lignes: LigneProspect
         </div>
       ),
     },
-    { id: "entreprise", entete: "Entreprise", largeur: "minmax(140px, 1.2fr)", valeur: (p) => p.entreprise, cellule: (p) => <span className="block truncate text-encre-2">{p.entreprise ?? "—"}</span> },
-    { id: "relation", entete: "Relation", largeur: "150px", valeur: (p) => p.statutRelation, cellule: (p) => <BadgeStatut statut={p.statutRelation} /> },
-    { id: "etape", entete: "Étape", largeur: "150px", valeur: (p) => etapes[p.etape] ?? p.etape, cellule: (p) => <BadgeEtape libelle={etapes[p.etape] ?? p.etape} /> },
-    {
-      id: "relance",
-      entete: "Relance",
-      largeur: "110px",
-      valeur: (p) => p.prochaineRelance,
-      cellule: (p) => {
-        const r = libelleRelance(p.prochaineRelance);
-        return <span className={`caption-4 ${r.retard ? "text-rouge" : "text-encre-3"}`}>{r.texte}</span>;
-      },
-    },
-    { id: "liste", entete: "Liste", largeur: "minmax(120px, 1fr)", valeur: (p) => p.listeOrigine, cellule: (p) => <span className="block truncate caption-5 text-encre-3">{p.listeOrigine ?? "—"}</span> },
+    ...proprietes.map(
+      (cle): Colonne<LigneProspect> => ({
+        id: cle,
+        entete: cle === "relance" ? "Relance" : cle === "liste" ? "Liste" : PROPRIETES_PROSPECTS[cle].libelle,
+        largeur: LARGEURS[cle],
+        valeur: (p) => valeurPropriete(cle, p, ctx),
+        cellule: (p) => <ValeurPropriete cle={cle} prospect={p} ctx={ctx} />,
+      }),
+    ),
   ];
 
-  return (
-    <TableTriable
-      lignes={lignes}
-      vide={vide}
-      colonnes={colonnes}
-      idDe={(p) => p.id}
-      libelle="Prospects"
-      surLigne={(p) => {
-        const q = new URLSearchParams(params);
-        q.set("prospect", p.id);
-        router.push(`${chemin}?${q}`, { scroll: false });
-      }}
-    />
-  );
+  return <TableTriable lignes={lignes} vide={vide} colonnes={colonnes} idDe={(p) => p.id} libelle="Prospects" surLigne={(p) => ouvrir(p.id)} />;
 }
