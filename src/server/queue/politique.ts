@@ -190,8 +190,18 @@ export function estUnEnvoi(type: TypeAction): boolean {
   return type === "invitation" || type === "message";
 }
 
+/**
+ * Refus d'invitation propre à une personne (déjà invitée, déjà en relation, demande traitée il y a
+ * moins de 3 semaines) : rien à voir avec une limite du compte, seule cette tâche échoue.
+ * Textes d'Unipile constatés ou documentés ; tout autre refus 422 garde le gel par prudence.
+ */
+const REFUS_INVITATION_PERSONNE = /already handled a request|already (been )?(invited|sent)|invitation (has )?already|already connected|already a (connection|relation)/i;
+
 export function classerErreur(e: ErreurAppel, type: TypeAction = "lecture_liste"): IssueErreur {
   if (e.status === null) return { genre: "incertain" };
+  if (type === "invitation" && e.status === 422 && e.detail && REFUS_INVITATION_PERSONNE.test(e.detail)) {
+    return { genre: "echec_definitif" };
+  }
   if (e.status === 429 && e.type === "api/too_many_requests") {
     const s = e.retryAfterS && e.retryAfterS > 0 ? e.retryAfterS : 60;
     return { genre: "reessayer", apres_ms: s * 1000 };

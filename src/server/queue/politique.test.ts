@@ -147,6 +147,21 @@ describe("gel sur erreur", () => {
     // 422 / 429 : refus explicite, rien n'est parti.
     expect(classerErreur({ status: 422, type: "provider/unprocessable_entity" }, "invitation")).toMatchObject({ incertain: false });
   });
+
+  it("invitation refusée pour cette personne seulement : échec de la tâche, aucun gel", () => {
+    // Constaté le 2026-11-19 : un seul refus avait gelé toutes les invitations 24 h.
+    const refus = (detail: string) => classerErreur({ status: 422, type: "provider/unprocessable_entity", detail }, "invitation");
+    expect(refus("This user has already handled a request from you in the past 3 weeks. Please wait until you can send a new one.")).toEqual({
+      genre: "echec_definitif",
+    });
+    expect(refus("An invitation has already been sent to this user")).toEqual({ genre: "echec_definitif" });
+    expect(refus("You are already connected to this user")).toEqual({ genre: "echec_definitif" });
+    // Refus inconnu ou limite du compte : le gel reste (prudence).
+    expect(refus("You have reached the weekly invitation limit")).toMatchObject({ genre: "gel" });
+    expect(classerErreur({ status: 422, type: "provider/unprocessable_entity" }, "invitation")).toMatchObject({ genre: "gel" });
+    // Même texte sur un autre type d'action : règle inchangée.
+    expect(classerErreur({ status: 422, detail: "This user has already handled a request from you" }, "message")).toMatchObject({ genre: "gel" });
+  });
 });
 
 describe("bouton d'arrêt", () => {
