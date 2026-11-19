@@ -637,8 +637,15 @@ html {
   .inbox-glisse {
     position: relative;
     display: block;
-    height: calc(100dvh - 300px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    /* Sans en-tête de page : en-tête mobile (72 px) + barre de pouce (72 px) + 16 px d’air. */
+    height: calc(100dvh - 160px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     min-height: 420px;
+  }
+  @media (min-width: 768px) {
+    /* Tablette : barre flottante en haut (104 px), marge basse de 64 px, pas de barre de pouce. */
+    .inbox-glisse {
+      height: calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
   }
   .inbox-volet {
     position: absolute;

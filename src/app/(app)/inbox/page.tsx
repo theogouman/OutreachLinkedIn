@@ -18,11 +18,15 @@ import { RedactionMessage } from "@/components/redaction-message";
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
   return (
     <section className="flex flex-col gap-6">
-      <EnTetePage
-        titre="Inbox"
-        description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent"
-        actions={<BoutonNouveauMessage />}
-      />
+      {/* Petit écran : ni titre, ni description, ni « Nouveau message » ; l'Inbox prend la hauteur libérée. */}
+      <h1 className="sr-only lg:hidden">Inbox</h1>
+      <div className="hidden lg:block">
+        <EnTetePage
+          titre="Inbox"
+          description="Toutes les conversations LinkedIn, reliées aux fiches prospects quand elles existent"
+          actions={<BoutonNouveauMessage />}
+        />
+      </div>
       <Suspense fallback={<SqueletteInbox />}>
         <Contenu searchParams={searchParams} />
       </Suspense>
