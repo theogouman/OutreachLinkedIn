@@ -92,8 +92,8 @@ describe.skipIf(!TEST_DATABASE_URL)("webhooks Unipile : messages et alertes", ()
     expect(vus).toEqual(["chat_neuf"]);
     const c = await db.pool.query("select prospect_id, non_lu from public.conversations where unipile_chat_id = 'chat_neuf'");
     expect(c.rows).toEqual([{ prospect_id: id, non_lu: false }]);
-    // Un message sortant ne fait pas avancer l'étape.
-    expect((await db.pool.query("select etape from public.prospects where id = $1", [id])).rows[0].etape).toBe("connecte");
+    // Conversation engagée depuis le téléphone : « À contacter » → « Premier message ».
+    expect((await db.pool.query("select etape from public.prospects where id = $1", [id])).rows[0].etape).toBe("premier_message");
   });
 
   it("interlocuteur inconnu : conversation hors CRM, rattachée (et fusionnée) dès que le prospect est identifié", async () => {

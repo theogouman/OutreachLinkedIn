@@ -1,6 +1,7 @@
 import "server-only";
 import type { PoolClient } from "pg";
 import { z } from "zod";
+import { synchroniserEtapes } from "@/server/etapes";
 
 /*
  * Conversations LinkedIn reçues d'Unipile (webhooks message.*). Rattachement au prospect par son
@@ -101,6 +102,8 @@ export async function enregistrerMessageRecu(c: PoolClient, m: MessageUnipile, i
       where id = $1`,
     [conv.id, quand, !m.is_sender],
   );
+  // Message écrit depuis LinkedIn (téléphone, navigateur) : même effet qu'un envoi depuis l'outil.
+  if (m.is_sender && conv.prospect_id) await synchroniserEtapes(c, [conv.prospect_id], "message_envoye");
   if (!m.is_sender && conv.prospect_id) {
     await c.query("insert into public.actions (prospect_id, type, sortante, resultat, created_at) values ($1, 'reponse', false, 'succes', $2)", [
       conv.prospect_id,

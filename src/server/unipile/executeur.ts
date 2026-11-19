@@ -9,6 +9,7 @@ import { enregistrerLiens, recalculerStatuts, traiterAcceptations, type LienLink
 import type { ClientLinkedIn, Liste, PersonneListee, ProfilLu } from "./types";
 import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "./photo";
 import { rattacherConversations } from "@/server/conversations";
+import { synchroniserEtapes } from "@/server/etapes";
 import { prospectDuMemeNom } from "@/server/completion-conversations";
 import { cleNom, cleNomSql, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
@@ -457,6 +458,9 @@ async function effetsMessage(c: PoolClient, tacheId: string, d: Extract<Donnees,
     "update public.conversations set dernier_message_at = greatest(coalesce(dernier_message_at, $2), $2) where id = $1",
     [d.conversationId, quand],
   );
+  // Conversation engagée par l'utilisateur : le prospect passe au moins à « Premier message ».
+  const p = await c.query("select prospect_id from public.conversations where id = $1 and prospect_id is not null", [d.conversationId]);
+  if (p.rowCount) await synchroniserEtapes(c, [p.rows[0].prospect_id], "message_envoye");
 }
 
 /**

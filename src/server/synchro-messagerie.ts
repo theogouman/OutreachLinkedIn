@@ -2,6 +2,7 @@ import "server-only";
 import type { Pool, PoolClient } from "pg";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import { rattacherConversations, texteMessage, type MessageUnipile } from "@/server/conversations";
+import { synchroniserEtapes } from "@/server/etapes";
 import type { ClientLinkedIn, ConversationListee } from "@/server/unipile/types";
 import type { ErreurAppel } from "@/server/queue/politique";
 import { telechargerPhoto as telechargerPhotoLinkedIn, type Photo } from "@/server/unipile/photo";
@@ -293,4 +294,7 @@ async function enregistrerHistorique(c: PoolClient, conversationId: string, chat
       where id = $1`,
     [conversationId],
   );
+  // Historique repris : l'étape du prospect suit les échanges réels (jamais de recul).
+  const p = await c.query("select prospect_id from public.conversations where id = $1 and prospect_id is not null", [conversationId]);
+  if (p.rowCount) await synchroniserEtapes(c, [p.rows[0].prospect_id], "synchro");
 }

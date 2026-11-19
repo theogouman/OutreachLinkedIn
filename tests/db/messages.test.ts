@@ -87,8 +87,12 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
     expect(apres?.messages[0]).toMatchObject({ sens: "sortant", texte: "Bonjour Camille", statut: "envoye" });
     const c = await db.pool.query("select dernier_message_at from public.conversations where id = $1", [convDemo]);
     expect(new Date(c.rows[0].dernier_message_at).getTime()).toBe(JEUDI_10H.getTime());
-    const a = await db.pool.query("select type, resultat from public.actions");
-    expect(a.rows).toEqual([{ type: "message", resultat: "succes" }]);
+    const a = await db.pool.query("select type, resultat from public.actions order by type");
+    // Message envoyé : l'étape du prospect avance (« Premier message »), notée au journal.
+    expect(a.rows).toEqual([
+      { type: "changement_etape", resultat: "succes" },
+      { type: "message", resultat: "succes" },
+    ]);
   });
 
   it("le client simulé refuse d'envoyer vers une conversation qui n'est pas fictive", async () => {
@@ -143,7 +147,7 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
       expect(apres?.messages).toEqual([expect.objectContaining({ sens: "sortant", texte: "Bonjour Léa", statut: "envoye" })]);
       const c = await db.pool.query("select unipile_chat_id, demo from public.conversations where prospect_id = $1", [id]);
       expect(c.rows).toEqual([{ unipile_chat_id: expect.stringMatching(/^demo-chat-/), demo: true }]);
-      const a = await db.pool.query("select type, resultat from public.actions");
+      const a = await db.pool.query("select type, resultat from public.actions where type = 'message'");
       expect(a.rows).toEqual([{ type: "message", resultat: "succes" }]);
     });
 

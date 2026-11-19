@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import type { TypeLien } from "@/lib/statut-relation";
 import { creerNotification } from "@/server/notifications";
+import { synchroniserEtapes } from "@/server/etapes";
 
 export interface LienLinkedIn {
   type: TypeLien;
@@ -129,5 +130,8 @@ export async function traiterAcceptations(c: PoolClient, transitions: Transition
       );
     }
   }
+  // Autres changements de statut (relation ou invitation découverte par une liste, un profil) :
+  // l'étape suit (« À contacter », « Invitation envoyée »), jamais de recul.
+  await synchroniserEtapes(c, transitions.map((t) => t.prospectId), "relation");
   return acceptes.length;
 }
