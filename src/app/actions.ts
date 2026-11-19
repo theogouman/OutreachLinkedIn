@@ -8,7 +8,7 @@ import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, suppri
 import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
 import { creerVue, majOptionsVue, renommerVue, supprimerVue } from "@/server/vues";
 import { envUnipile } from "@/server/env-serveur";
-import { inboxDepuis, prospectsDepuis, type LigneConversation, type LigneProspect } from "@/server/donnees";
+import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
 import { filtresProspectsSchema } from "@/lib/filtres/prospects";
 import { filtresInboxSchema } from "@/lib/filtres/inbox";
 import { clesPush, enregistrerAbonnement, marquerNotificationsLues, supprimerAbonnement } from "@/server/notifications";
@@ -116,6 +116,38 @@ export async function actionInviterProspect(entree: unknown): Promise<Retour> {
     const r = await mettreInvitationEnFile(poolServeur(), entree, { modeSimule: envUnipile().mode === "simule" });
     return r.nouveau ? "Invitation mise en file d'attente." : "Cette invitation est déjà en file d'attente.";
   });
+}
+
+// ─── Fiches voisines (glisser entre profils sur téléphone) ─────────────────────
+
+export type DonneesFiche = {
+  fiche: FicheProspect;
+  libelleEtape: string;
+  conversation: { id: string | null; demo: boolean; messages: MessageFil[] } | null;
+};
+
+/**
+ * Lecture seule d'une fiche, pour la précharger (fiches précédente et suivante de la liste) :
+ * utilisateur vérifié, identifiant validé, aucune écriture ni rafraîchissement de la page.
+ */
+export async function actionLireFiche(id: unknown): Promise<DonneesFiche | null> {
+  await exigerUtilisateur();
+  const prospectId = z.uuid().safeParse(id);
+  if (!prospectId.success) return null;
+  try {
+    const pool = poolServeur();
+    const [fiche, refs, conversation] = await Promise.all([
+      ficheProspectDepuis(pool, prospectId.data),
+      referentielsDepuis(pool),
+      filDepuis(pool, { prospectId: prospectId.data }),
+    ]);
+    if (!fiche) return null;
+    const libelleEtape = refs.etapes.find((e) => e.code === fiche.etape)?.libelle ?? fiche.etape;
+    return { fiche, libelleEtape, conversation };
+  } catch (e) {
+    console.error("[action:%s]", "lire-fiche", e);
+    return null;
+  }
 }
 
 // ─── Vues de la liste Prospects et propriétés modifiables ──────────────────────

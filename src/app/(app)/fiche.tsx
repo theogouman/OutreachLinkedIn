@@ -19,7 +19,7 @@ import { OngletProfil } from "./onglet-profil";
 import { InvitationProspect } from "./invitation-prospect";
 import { useOrdreFiches } from "@/components/ordre-fiches";
 import { IconeCorbeille, IconeFlecheDroite } from "@/components/icones-pages";
-import { actionSupprimerProspect } from "@/app/actions";
+import { actionLireFiche, actionSupprimerProspect, type DonneesFiche } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { useDansEcran } from "@/components/interface/dans-ecran";
 
@@ -59,9 +59,9 @@ function jourRelance(date: string | null) {
 
 /** Fiche prospect en modale centrée, ouverte par ?prospect=<id> (lien direct possible). */
 export function ModaleFiche({
-  fiche,
-  libelleEtape,
-  conversation,
+  fiche: ficheServeur,
+  libelleEtape: libelleServeur,
+  conversation: conversationServeur,
   restants,
   modeSimule,
 }: {
@@ -76,6 +76,21 @@ export function ModaleFiche({
   const router = useRouter();
   const chemin = usePathname();
   const params = useSearchParams();
+
+  // Fiches voisines préchargées : un glisser (ou une flèche) affiche aussitôt la fiche suivante,
+  // pendant que l'URL et les données du serveur suivent. Les données du serveur l'emportent dès
+  // qu'elles portent sur la fiche affichée (plus récentes).
+  const cache = useRef(new Map<string, DonneesFiche>());
+  const [locale, setLocale] = useState<DonneesFiche | null>(null);
+  const affichee: DonneesFiche =
+    locale && locale.fiche.id !== ficheServeur.id
+      ? locale
+      : { fiche: ficheServeur, libelleEtape: libelleServeur, conversation: conversationServeur };
+  const { fiche, libelleEtape, conversation } = affichee;
+  useEffect(() => {
+    cache.current.set(ficheServeur.id, { fiche: ficheServeur, libelleEtape: libelleServeur, conversation: conversationServeur });
+  }, [ficheServeur, libelleServeur, conversationServeur]);
+
   const fermer = () => {
     const q = new URLSearchParams(params);
     q.delete("prospect");
@@ -90,6 +105,8 @@ export function ModaleFiche({
   const rang = ordre.indexOf(fiche.id);
   const aller = (id: string | undefined) => {
     if (!id) return;
+    const deja = cache.current.get(id);
+    if (deja) setLocale(deja);
     const q = new URLSearchParams(params);
     q.set("prospect", id);
     demarrer(() => router.replace(`${chemin}?${q}`, { scroll: false }));
@@ -100,6 +117,19 @@ export function ModaleFiche({
     position: rang >= 0 ? `${rang + 1} sur ${ordre.length}` : null,
     enCours,
   };
+  // Préchargement des deux voisines de la fiche affichée (lecture seule, côté serveur vérifié).
+  const voisines = [ordre[rang - 1], ordre[rang + 1]].filter((x): x is string => !!x && rang >= 0).join(",");
+  useEffect(() => {
+    // Une lecture arrivée après un nouveau glisser reste utile : le cache est indexé par fiche.
+    for (const id of voisines ? voisines.split(",") : []) {
+      if (cache.current.has(id)) continue;
+      actionLireFiche(id)
+        .then((d) => {
+          if (d) cache.current.set(id, d);
+        })
+        .catch(() => {});
+    }
+  }, [voisines]);
   const navRef = useRef(nav);
   useEffect(() => {
     navRef.current = nav;
@@ -119,7 +149,7 @@ export function ModaleFiche({
 
   return (
     // Taille fixe : une longue conversation défile dans son encadré, la modale ne bouge pas.
-    <Modale fermer={fermer} hauteurFixe enTete={<EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} />}>
+    <Modale fermer={fermer} hauteurFixe glisserHorizontal={{ precedent: nav.precedent, suivant: nav.suivant }} enTete={<EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} />}>
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
           remplir
@@ -129,6 +159,7 @@ export function ModaleFiche({
             {
               id: "informations",
               libelle: "Informations",
+              libelleCourt: "Infos",
               contenu: (
                 <div className="flex flex-col gap-6">
                   <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-trait bg-trait sm:grid-cols-3">

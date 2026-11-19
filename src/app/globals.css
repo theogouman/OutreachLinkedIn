@@ -533,13 +533,28 @@ html {
 }
 .t-tabs.t-tabs-plein {
   display: flex;
+  /* Jamais de chevauchement : si les onglets ne tiennent pas, la barre défile (sans barre visible). */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
 }
+.t-tabs.t-tabs-plein::-webkit-scrollbar {
+  display: none;
+}
+/* Largeur de chaque onglet = son contenu (libellé + compteur), l'espace restant réparti entre eux :
+   la pastille, calée sur l'onglet, couvre toujours tout le libellé (constaté le 2026-11-20 sur
+   iPhone : onglets à largeur égale de 82 px, « Conversation 0 » en demandait 92). */
 .t-tabs-plein .t-tab {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 0 auto;
+  min-width: max-content;
   justify-content: center;
   padding-inline: 8px;
   white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .t-tabs-plein .t-tab {
+    padding-inline: 6px;
+  }
 }
 .t-tab {
   position: relative;

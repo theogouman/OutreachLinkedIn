@@ -13,7 +13,8 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
-export type Section = { id: string; libelle: string; compte?: number; contenu: ReactNode };
+/** `libelleCourt` : affiché sur un écran étroit (≤ 420 px) pour que tous les onglets tiennent. */
+export type Section = { id: string; libelle: string; libelleCourt?: string; compte?: number; contenu: ReactNode };
 
 export function SectionsGlissantes({
   sections,
@@ -45,6 +46,14 @@ export function SectionsGlissantes({
     if (!animer) p.style.transition = "none";
     p.style.width = `${o.offsetWidth}px`;
     p.style.transform = `translateX(${o.offsetLeft}px)`;
+    // Barre qui défile (onglets trop larges pour l'écran) : l'onglet actif reste visible.
+    const b = barre.current;
+    if (b && b.scrollWidth > b.clientWidth) {
+      const gauche = o.offsetLeft - 12;
+      const droite = o.offsetLeft + o.offsetWidth + 12 - b.clientWidth;
+      if (b.scrollLeft > gauche) b.scrollTo({ left: gauche, behavior: animer ? "smooth" : "auto" });
+      else if (b.scrollLeft < droite) b.scrollTo({ left: droite, behavior: animer ? "smooth" : "auto" });
+    }
     if (!animer) {
       void p.offsetWidth; // applique la position avant de rétablir la transition
       p.style.transition = "";
@@ -107,9 +116,18 @@ export function SectionsGlissantes({
             aria-controls={`${base}-section-${s.id}`}
             tabIndex={i === actif ? 0 : -1}
             onClick={() => setActif(i)}
-            className="t-tab flex items-center gap-1.5 body-5"
+            className="t-tab flex items-center gap-1.5 body-5 max-[420px]:gap-1"
           >
-            {s.libelle}
+            {s.libelleCourt ? (
+              <>
+                <span className="max-[420px]:hidden">{s.libelle}</span>
+                <span className="hidden max-[420px]:inline" aria-hidden>
+                  {s.libelleCourt}
+                </span>
+              </>
+            ) : (
+              s.libelle
+            )}
             {s.compte !== undefined && <span className="caption-4 tabular-nums text-encre-3">{s.compte}</span>}
           </button>
         ))}

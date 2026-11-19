@@ -4,19 +4,27 @@
  * Animation : Transitions.dev « Modal open / close » (classes .t-modal / .is-open / .is-closing,
  * globals.css). Accessibilité reprise du panneau (interior) : piège de focus, Échap, défilement
  * de la page bloqué, focus rendu à l'élément d'origine à la fermeture.
- * Sur téléphone (< 640 px) : panneau qui monte du bas, avec poignée ; on le ferme en le faisant
- * glisser vers le bas (au-delà de 120 px ou d'un geste rapide), sinon il revient en place.
+ * Sur téléphone (< 640 px) : panneau qui monte du bas, avec poignée. Gestes (comme une feuille iOS),
+ * depuis n'importe où dans le panneau, direction décidée dans les premiers pixels :
+ * - vers le bas : ferme (au-delà de 120 px ou d'un geste rapide), seulement si la zone qui défile
+ *   sous le doigt est déjà en haut ; sinon c'est un défilement normal ;
+ * - à gauche / à droite (`glisserHorizontal`) : élément suivant / précédent, le panneau suit le doigt,
+ *   sort de l'écran puis le nouveau contenu entre par l'autre côté.
  * `hauteurFixe` : la modale garde la même taille quel que soit le contenu (min(760 px, écran)) ;
  * le corps ne défile pas, c'est au contenu de gérer son propre défilement.
  */
 
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 const FERMETURE_MS = 150; // --modal-close-dur
 const FERMETURE_PANNEAU_MS = 260; // panneau du bas (globals.css, max-width: 639px)
 const SEUIL_GLISSER_PX = 120;
+const SEUIL_HORIZONTAL_PX = 80;
+const DECISION_PX = 8;
+/** Éléments qui gardent leurs gestes (saisie, barre d'onglets qui défile). */
+const SANS_GESTE = "input,textarea,select,[contenteditable='true'],.t-tabs,[data-sans-geste]";
 const estTelephone = () => window.matchMedia("(max-width: 639px)").matches;
 
 type Etat = "entree" | "ouverte" | "sortie";
@@ -36,6 +44,7 @@ export function Modale({
   children,
   largeur = 720,
   hauteurFixe = false,
+  glisserHorizontal,
 }: {
   /** Appelé une fois l'animation de fermeture terminée. */
   fermer: () => void;
@@ -45,6 +54,8 @@ export function Modale({
   largeur?: number;
   /** Taille fixe : le contenu défile à l'intérieur de ses propres zones, jamais la modale. */
   hauteurFixe?: boolean;
+  /** Glisser horizontal (téléphone) : élément précédent (vers la droite) / suivant (vers la gauche). */
+  glisserHorizontal?: { precedent?: () => void; suivant?: () => void };
 }) {
   const [etat, setEtat] = useState<Etat>("entree");
   const titreId = useId();
@@ -87,30 +98,113 @@ export function Modale({
     minuteur.current = window.setTimeout(fermer, reduit ? 0 : estTelephone() ? FERMETURE_PANNEAU_MS : FERMETURE_MS);
   }, [fermer]);
 
-  // ── Glisser pour fermer (téléphone) ──
-  const glisse = useRef<{ y0: number; t0: number; dy: number } | null>(null);
-  const debutGlisser = (e: PointerEvent<HTMLDivElement>) => {
-    if (!estTelephone() || e.pointerType === "mouse") return;
-    if ((e.target as HTMLElement).closest("a,button,input,textarea,select,label")) return;
-    glisse.current = { y0: e.clientY, t0: performance.now(), dy: 0 };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    if (boite.current) boite.current.style.transition = "none";
-  };
-  const pendantGlisser = (e: PointerEvent<HTMLDivElement>) => {
-    const g = glisse.current;
-    if (!g || !boite.current) return;
-    g.dy = Math.max(0, e.clientY - g.y0); // vers le bas seulement
-    boite.current.style.transform = `translateY(${g.dy}px)`;
-  };
-  const finGlisser = () => {
-    const g = glisse.current;
-    glisse.current = null;
-    if (!g || !boite.current) return;
-    const vitesse = g.dy / Math.max(1, performance.now() - g.t0); // px / ms
-    boite.current.style.transition = "";
-    boite.current.style.transform = "";
-    if (g.dy > SEUIL_GLISSER_PX || (g.dy > 30 && vitesse > 0.6)) fermerAnime();
-  };
+  // ── Gestes tactiles (téléphone) ──
+  const horizontal = useRef(glisserHorizontal);
+  useEffect(() => {
+    horizontal.current = glisserHorizontal;
+  });
+  useEffect(() => {
+    const b = boite.current;
+    if (!b) return;
+    type Geste = { x0: number; y0: number; t0: number; mode: "?" | "fermer" | "naviguer" | "natif"; dx: number; dy: number };
+    let g: Geste | null = null;
+    let animation = false;
+
+    /** La zone qui défile sous le doigt est-elle déjà en haut (ou n'existe pas) ? */
+    const enHaut = (cible: EventTarget | null) => {
+      for (let n = cible instanceof Element ? cible : null; n && n !== b; n = n.parentElement) {
+        const st = getComputedStyle(n);
+        if (/(auto|scroll)/.test(st.overflowY) && n.scrollHeight > n.clientHeight + 1) return n.scrollTop <= 0;
+      }
+      return true;
+    };
+    const placer = (x: number, y: number, avecTransition: boolean) => {
+      b.style.transition = avecTransition ? "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)" : "none";
+      b.style.transform = x || y ? `translate(${x}px, ${y}px)` : "";
+    };
+
+    const debut = (e: TouchEvent) => {
+      if (!estTelephone() || animation || e.touches.length !== 1) return;
+      if ((e.target as Element | null)?.closest(SANS_GESTE)) return;
+      const t = e.touches[0]!;
+      g = { x0: t.clientX, y0: t.clientY, t0: performance.now(), mode: "?", dx: 0, dy: 0 };
+    };
+    const mouvement = (e: TouchEvent) => {
+      if (!g || g.mode === "natif") return;
+      const t = e.touches[0]!;
+      g.dx = t.clientX - g.x0;
+      g.dy = t.clientY - g.y0;
+      if (g.mode === "?") {
+        const ax = Math.abs(g.dx);
+        const ay = Math.abs(g.dy);
+        if (ax < DECISION_PX && ay < DECISION_PX) return;
+        const nav = horizontal.current;
+        if (ay > ax && g.dy > 0 && enHaut(e.target)) g.mode = "fermer";
+        else if (ax > ay * 1.2 && nav && (nav.precedent || nav.suivant)) g.mode = "naviguer";
+        else {
+          g.mode = "natif";
+          return;
+        }
+      }
+      e.preventDefault(); // le geste est pour le panneau : pas de défilement en même temps
+      if (g.mode === "fermer") placer(0, Math.max(0, g.dy), false);
+      else {
+        const nav = horizontal.current;
+        // Pas d'élément de ce côté : résistance (le panneau suit à peine).
+        const possible = g.dx < 0 ? !!nav?.suivant : !!nav?.precedent;
+        placer(possible ? g.dx : g.dx / 4, 0, false);
+      }
+    };
+    const fin = () => {
+      const geste = g;
+      g = null;
+      if (!geste || geste.mode === "?" || geste.mode === "natif") return;
+      const vitesseY = geste.dy / Math.max(1, performance.now() - geste.t0);
+      const vitesseX = Math.abs(geste.dx) / Math.max(1, performance.now() - geste.t0);
+      if (geste.mode === "fermer") {
+        placer(0, 0, true);
+        if (geste.dy > SEUIL_GLISSER_PX || (geste.dy > 30 && vitesseY > 0.6)) fermerAnime();
+        return;
+      }
+      const nav = horizontal.current;
+      const action = geste.dx < 0 ? nav?.suivant : nav?.precedent;
+      if (!action || (Math.abs(geste.dx) < SEUIL_HORIZONTAL_PX && !(Math.abs(geste.dx) > 30 && vitesseX > 0.5))) {
+        placer(0, 0, true);
+        return;
+      }
+      // Sortie du côté du geste, changement de contenu, entrée par l'autre côté.
+      const sens = geste.dx < 0 ? -1 : 1;
+      const reduit = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduit) {
+        placer(0, 0, false);
+        action();
+        return;
+      }
+      animation = true;
+      placer(sens * window.innerWidth, 0, true);
+      window.setTimeout(() => {
+        action();
+        placer(-sens * window.innerWidth * 0.35, 0, false);
+        void b.offsetWidth;
+        placer(0, 0, true);
+        window.setTimeout(() => {
+          b.style.transition = "";
+          animation = false;
+        }, 230);
+      }, 200);
+    };
+
+    b.addEventListener("touchstart", debut, { passive: true });
+    b.addEventListener("touchmove", mouvement, { passive: false });
+    b.addEventListener("touchend", fin);
+    b.addEventListener("touchcancel", fin);
+    return () => {
+      b.removeEventListener("touchstart", debut);
+      b.removeEventListener("touchmove", mouvement);
+      b.removeEventListener("touchend", fin);
+      b.removeEventListener("touchcancel", fin);
+    };
+  }, [fermerAnime]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -148,14 +242,8 @@ export function Modale({
         className={`t-modal${classeEtat} relative flex ${hauteurFixe ? "h-[92dvh] sm:h-[min(760px,calc(100dvh-48px))]" : "max-h-[92dvh]"} w-full flex-col overflow-hidden rounded-t-[24px] bg-carte pb-[env(safe-area-inset-bottom)] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.04)] outline-none sm:max-h-full sm:rounded-[24px] sm:pb-0`}
       >
         <Contexte value={{ fermer: fermerAnime, titreId }}>
-          {/* Zone de prise (téléphone) : poignée et en-tête se glissent vers le bas pour fermer. */}
-          <div
-            className="shrink-0 touch-none sm:touch-auto"
-            onPointerDown={debutGlisser}
-            onPointerMove={pendantGlisser}
-            onPointerUp={finGlisser}
-            onPointerCancel={finGlisser}
-          >
+          {/* Poignée et en-tête (téléphone) : toute la fiche se glisse (gestes ci-dessus). */}
+          <div className="shrink-0">
             <span aria-hidden className="mx-auto mt-2.5 block h-1.5 w-10 rounded-full bg-trait-fort sm:hidden" />
             {enTete}
           </div>

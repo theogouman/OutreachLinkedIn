@@ -1,4 +1,5 @@
 import { IconeLienExterne } from "@/components/icones";
+import { TexteDepliable } from "@/components/interface/texte-depliable";
 import type { ProfilLinkedIn } from "@/lib/profil-linkedin";
 
 /*
@@ -71,7 +72,7 @@ export function OngletProfil({ profil }: { profil: ProfilLinkedIn }) {
         e.creation && { t: "Création", d: String(e.creation) },
         e.site && { t: "Site", d: <Lien href={e.site} libelle={new URL(e.site).hostname} /> },
         e.linkedin && { t: "Page LinkedIn", d: <Lien href={e.linkedin} libelle="Ouvrir" /> },
-        e.description && { t: "Description", d: e.description },
+        e.description && { t: "Description", d: <TexteDepliable texte={e.description} lignes={4} /> },
       ].filter(Boolean) as { t: string; d: React.ReactNode }[])
     : [];
 
@@ -85,9 +86,9 @@ export function OngletProfil({ profil }: { profil: ProfilLinkedIn }) {
       )}
       {profil.aPropos && (
         <Bloc titre="À propos">
-          <p className="selectionnable whitespace-pre-wrap break-words rounded-2xl border border-trait bg-carte px-4 py-3 body-6 text-encre">
-            {profil.aPropos}
-          </p>
+          <div className="rounded-2xl border border-trait bg-carte px-4 py-3">
+            <TexteDepliable texte={profil.aPropos} className="body-6 text-encre" />
+          </div>
         </Bloc>
       )}
       {entreprise.length > 0 && (
@@ -110,7 +111,9 @@ export function OngletProfil({ profil }: { profil: ProfilLinkedIn }) {
                 </p>
                 {(x.periode || x.lieu) && <p className="caption-5 text-encre-3">{[x.periode, x.lieu].filter(Boolean).join(" · ")}</p>}
                 {x.description && (
-                  <p className="selectionnable mt-1 line-clamp-4 whitespace-pre-wrap break-words caption-5 text-encre-2">{x.description}</p>
+                  <div className="mt-1">
+                    <TexteDepliable texte={x.description} seuil={200} lignes={4} className="caption-5 text-encre-2" />
+                  </div>
                 )}
               </li>
             ))}
