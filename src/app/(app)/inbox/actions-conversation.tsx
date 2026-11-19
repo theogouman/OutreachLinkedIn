@@ -6,6 +6,7 @@ import { actionMarquerNonLue, actionSupprimerConversation } from "@/app/actions"
 import { IconeEnveloppe } from "@/components/icones";
 import { IconeCorbeille } from "@/components/icones-pages";
 import { useRetour } from "@/components/interface/toasts";
+import { useDansEcran } from "@/components/interface/dans-ecran";
 
 const BOUTON =
   "grid size-9 place-items-center rounded-full text-encre-3 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50";
@@ -17,6 +18,7 @@ export function ActionsConversation({ id, nonLu, nom }: { id: string; nonLu: boo
   const retourner = useRetour();
   const router = useRouter();
   const annuler = useRef<HTMLButtonElement>(null);
+  const panneau = useDansEcran<HTMLDivElement>(confirmer);
   useEffect(() => {
     if (confirmer) annuler.current?.focus();
   }, [confirmer]);
@@ -45,6 +47,7 @@ export function ActionsConversation({ id, nonLu, nom }: { id: string; nonLu: boo
       </button>
       {confirmer && (
         <div
+          ref={panneau}
           role="alertdialog"
           aria-label="Confirmer la suppression"
           onKeyDown={(e) => {
@@ -53,7 +56,7 @@ export function ActionsConversation({ id, nonLu, nom }: { id: string; nonLu: boo
               setConfirmer(false);
             }
           }}
-          className="flottant absolute right-0 top-11 z-10 flex w-[280px] animate-apparition flex-col gap-3 rounded-[18px] p-4"
+          className="flottant dans-ecran absolute right-0 top-11 z-10 flex w-[min(280px,calc(100vw-32px))] animate-apparition flex-col gap-3 overflow-y-auto rounded-[18px] p-4"
         >
           <p className="body-6 text-encre">Supprimer la conversation avec {nom} ?</p>
           <p className="caption-5 text-encre-3">

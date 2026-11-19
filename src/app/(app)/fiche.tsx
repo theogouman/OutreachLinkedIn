@@ -21,6 +21,7 @@ import { useOrdreFiches } from "@/components/ordre-fiches";
 import { IconeCorbeille, IconeFlecheDroite } from "@/components/icones-pages";
 import { actionSupprimerProspect } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
+import { useDansEcran } from "@/components/interface/dans-ecran";
 
 const EVENEMENTS: Record<string, string> = {
   invitation: "Invitation",
@@ -282,6 +283,7 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
   const [enCours, demarrer] = useTransition();
   const retourner = useRetour();
   const annuler = useRef<HTMLButtonElement>(null);
+  const panneau = useDansEcran<HTMLDivElement>(confirmer);
   useEffect(() => {
     if (confirmer) annuler.current?.focus();
   }, [confirmer]);
@@ -300,6 +302,7 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
       </button>
       {confirmer && (
         <div
+          ref={panneau}
           role="alertdialog"
           aria-label="Confirmer la suppression"
           onKeyDown={(e) => {
@@ -308,7 +311,7 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
               setConfirmer(false);
             }
           }}
-          className="flottant absolute right-0 top-11 z-10 flex w-[280px] animate-apparition flex-col gap-3 rounded-[18px] p-4"
+          className="flottant dans-ecran absolute right-0 top-11 z-10 flex w-[min(280px,calc(100vw-32px))] animate-apparition flex-col gap-3 overflow-y-auto rounded-[18px] p-4"
         >
           <p className="body-6 text-encre">Supprimer {prenom} définitivement ?</p>
           <p className="caption-5 text-encre-3">

@@ -149,6 +149,16 @@
   box-shadow: rgba(0, 0, 0, 0.03) 0 -2px 16px -4px, rgba(0, 0, 0, 0.08) 0 16px 40px -8px, rgba(0, 0, 0, 0.04) 0 1px 3px 0;
 }
 
+/*
+ * Panneau ancré (menu, notifications, confirmation) toujours dans l'écran : décalage et hauteur
+ * calculés par useDansEcran (src/components/interface/dans-ecran.ts). À poser sur tout panneau
+ * en position absolue ouvert depuis un bouton, avec une largeur min(…, 100vw - 32px).
+ */
+@utility dans-ecran {
+  translate: var(--dans-ecran-x, 0px) 0;
+  max-height: var(--dans-ecran-h, none);
+}
+
 /* Bouton principal : 8 px × 12 px (ai-design-skills B2), états complets (B9). */
 @utility bouton {
   display: inline-flex;

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useDansEcran } from "@/components/interface/dans-ecran";
 
 const POINT = {
   en_cours: { couleur: "bg-emerald-500", halo: "bg-emerald-500/40", libelle: "File active" },
@@ -16,6 +17,7 @@ const POINT = {
  */
 export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof typeof POINT; alerte: boolean; children: ReactNode }) {
   const [ouvert, setOuvert] = useState(false);
+  const panneau = useDansEcran<HTMLDivElement>(ouvert);
   const reduit = useReducedMotion();
   const panneauId = useId();
   const racine = useRef<HTMLDivElement>(null);
@@ -91,7 +93,8 @@ export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof ty
             exit={reduit ? { opacity: 0 } : { opacity: 0, y: -2, scale: 0.99, transition: { duration: 0.15 } }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformOrigin: "top right" }}
-            className="flottant absolute right-0 top-[calc(100%+10px)] z-50 w-[min(340px,calc(100vw-24px))] rounded-[20px] p-4"
+            ref={panneau}
+            className="flottant dans-ecran absolute right-0 top-[calc(100%+10px)] z-50 w-[min(340px,calc(100vw-32px))] overflow-y-auto overscroll-contain rounded-[20px] p-4"
           >
             {/* Pont invisible : le pointeur passe du bouton au panneau sans le fermer. */}
             <span className="absolute -top-3 left-0 h-3 w-full" aria-hidden />

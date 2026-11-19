@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { actionAbonnerPush, actionClePush, actionDesabonnerPush, actionNotificationsLues } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { IconeCloche } from "@/components/icones";
+import { useDansEcran } from "@/components/interface/dans-ecran";
 import type { NotificationAffichee } from "@/server/notifications";
 
 const fmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
@@ -105,6 +106,7 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
   const [ouvert, setOuvert] = useState(false);
   const [enCours, demarrer] = useTransition();
   const racine = useRef<HTMLDivElement>(null);
+  const panneau = useDansEcran<HTMLDivElement>(ouvert);
   const alerte = liste.some((n) => !n.lue && n.niveau === "alerte");
 
   useEffect(() => {
@@ -141,9 +143,10 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
 
       {ouvert && (
         <div
+          ref={panneau}
           role="dialog"
           aria-label="Notifications"
-          className="flottant absolute right-0 top-11 z-50 flex w-[min(360px,calc(100vw-32px))] animate-apparition flex-col overflow-hidden rounded-[20px]"
+          className="flottant dans-ecran absolute right-0 top-11 z-50 flex w-[min(360px,calc(100vw-32px))] animate-apparition flex-col overflow-hidden rounded-[20px]"
         >
           <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3">
             <h2 className="title-4 text-encre">Notifications</h2>
@@ -158,7 +161,7 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
               </button>
             )}
           </div>
-          <ul className="max-h-[50dvh] overflow-y-auto">
+          <ul className="max-h-[50dvh] min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {liste.length === 0 && <li className="px-4 py-8 text-center caption-5 text-encre-3">Aucune notification pour l&apos;instant</li>}
             {liste.map((n) => {
               const contenu = (

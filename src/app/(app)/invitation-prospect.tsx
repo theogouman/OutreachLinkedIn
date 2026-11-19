@@ -10,6 +10,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { actionInviterProspect } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
+import { useDansEcran } from "@/components/interface/dans-ecran";
 import { IconeAttente, IconeChevronBas, IconeInviter } from "@/components/icones";
 import { NOTE_INVITATION_MAX } from "@/lib/invitation";
 import type { FicheProspect } from "@/server/donnees";
@@ -22,6 +23,7 @@ export function InvitationProspect({ fiche, prenom, modeSimule }: { fiche: Fiche
   const racine = useRef<HTMLDivElement>(null);
   const chevron = useRef<HTMLButtonElement>(null);
   const champ = useRef<HTMLTextAreaElement>(null);
+  const panneau = useDansEcran<HTMLFormElement>(ouvert);
   const panneauId = useId();
   const aideId = useId();
   // Identifiant de demande : un double clic n'invite qu'une fois (nouvelle demande si la note change).
@@ -116,13 +118,14 @@ export function InvitationProspect({ fiche, prenom, modeSimule }: { fiche: Fiche
 
       {ouvert && (
         <form
+          ref={panneau}
           id={panneauId}
           aria-label="Invitation avec une note"
           onSubmit={(e) => {
             e.preventDefault();
             inviter(true);
           }}
-          className="flottant absolute left-0 top-11 z-20 flex w-[min(340px,calc(100vw-48px))] animate-apparition flex-col gap-3 rounded-[18px] p-4"
+          className="flottant dans-ecran absolute left-0 top-11 z-20 flex w-[min(340px,calc(100vw-32px))] animate-apparition flex-col gap-3 overflow-y-auto rounded-[18px] p-4"
         >
           <label htmlFor={`${panneauId}-note`} className="body-6 text-encre">
             Note pour {prenom}
