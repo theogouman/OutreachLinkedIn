@@ -162,10 +162,53 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
   it("la fiche expose l'invitation en file et les notes restantes", async () => {
     const id = await prospect({ provider: "ACoDEMOf" });
     let f = await ficheProspectDepuis(db.pool, id, JEUDI_10H);
-    expect(f?.invitation).toEqual({ enFile: false, notesRestantes: 4, plafondNotes: 4 });
+    expect(f?.invitation).toEqual({ enFile: false, notesRestantes: 4, plafondNotes: 4, possibleLe: null });
     await mettreInvitationEnFile(db.pool, { prospectId: id, note: "Salut", cle: randomUUID() }, REEL);
     f = await ficheProspectDepuis(db.pool, id, JEUDI_10H);
-    expect(f?.invitation).toEqual({ enFile: true, notesRestantes: 3, plafondNotes: 4 });
+    expect(f?.invitation).toEqual({ enFile: true, notesRestantes: 3, plafondNotes: 4, possibleLe: null });
+  });
+
+  // ─── Délai LinkedIn après un retrait (spec 001-workflows, FR-027) ────────────
+
+  /** Retrait d'invitation réussi pour ce prospect, à la date donnée. */
+  const retire = (prospectId: string, le: string) =>
+    db.pool.query(
+      "insert into public.actions (prospect_id, type, sortante, resultat, created_at) values ($1, 'retrait_invitation', true, 'succes', $2)",
+      [prospectId, le],
+    );
+
+  it("invitation manuelle refusée moins de 21 jours après un retrait, avec la date ; acceptée ensuite", async () => {
+    const recent = await prospect({ provider: "ACoRECENT" });
+    await retire(recent, "2026-10-30T10:00:00Z"); // 6 jours avant le jeudi 5 novembre
+    await expect(mettreInvitationEnFile(db.pool, { prospectId: recent, cle: randomUUID() }, REEL)).rejects.toThrow(
+      /LinkedIn refuse une nouvelle invitation à cette personne avant le vendredi 20 novembre/,
+    );
+    const f = await ficheProspectDepuis(db.pool, recent, JEUDI_10H);
+    expect(f?.invitation.possibleLe).toEqual(new Date("2026-11-20T10:00:00Z"));
+
+    const ancien = await prospect({ provider: "ACoANCIEN" });
+    await retire(ancien, "2026-10-10T10:00:00Z"); // 26 jours
+    expect((await mettreInvitationEnFile(db.pool, { prospectId: ancien, cle: randomUUID() }, REEL)).nouveau).toBe(true);
+    expect((await ficheProspectDepuis(db.pool, ancien, JEUDI_10H))?.invitation.possibleLe).toBeNull();
+  });
+
+  it("l'exécuteur revérifie le délai juste avant l'envoi : rien ne part chez LinkedIn", async () => {
+    const id = await prospect({ provider: "ACoTROPTOT" });
+    await db.pool.query(
+      "insert into public.taches (type_action, prospect_id, payload, cle_idempotence) values ('invitation', $1, $2, 'trop-tot')",
+      [id, { prospect_id: id }],
+    );
+    await db.pool.query(
+      "insert into public.actions (prospect_id, type, sortante, resultat, created_at) values ($1, 'retrait_invitation', true, 'succes', now() - interval '2 days')",
+      [id],
+    );
+    let appels = 0;
+    const client = { ...creerClientSimule(), inviter: async () => (appels++, { ok: true as const, donnees: { invitationId: "x" } }) };
+    expect(await tour(client)).toMatchObject({ resultat: "echec" });
+    expect(appels).toBe(0);
+    expect((await db.pool.query("select derniere_erreur from public.taches where cle_idempotence = 'trop-tot'")).rows[0].derniere_erreur).toBe(
+      "400 delai_linkedin_21_jours",
+    );
   });
 
   // ─── Envoi par la file ──────────────────────────────────────────────────────

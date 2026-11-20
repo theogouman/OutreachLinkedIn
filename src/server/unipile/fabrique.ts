@@ -21,6 +21,7 @@ export function clientNonBranche(): ClientLinkedIn {
     envoyerMessage: refus,
     demarrerConversation: refus,
     inviter: refus,
+    retirerInvitation: refus,
     lireProfil: refus,
     lireConversation: refus,
     lireListe: refus,

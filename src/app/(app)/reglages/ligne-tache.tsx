@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconeFile, IconeInviter, IconeLecture, IconeMessage, IconeSynchro } from "@/components/icones";
+import { IconeFile, IconeInviter, IconeLecture, IconeMessage, IconeRetirer, IconeSynchro } from "@/components/icones";
 import type { LigneTache as Tache } from "@/server/donnees";
 import { ActionsTache } from "./actions-tache";
 
@@ -8,6 +8,7 @@ const TYPES: Record<string, { libelle: string; icone: ReactNode }> = {
   message: { libelle: "Message", icone: <IconeMessage taille={16} /> },
   lecture_profil: { libelle: "Lecture de profil", icone: <IconeLecture taille={16} /> },
   lecture_liste: { libelle: "Synchronisation", icone: <IconeSynchro taille={16} /> },
+  retrait_invitation: { libelle: "Retrait d'invitation", icone: <IconeRetirer taille={16} /> },
 };
 
 const MOTIFS: Record<string, string> = {

@@ -42,6 +42,11 @@ export function creerClientSimule(
       if (!providerId.startsWith("ACoDEMO")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
       return { ok: true, donnees: { invitationId: `demo-inv-${randomUUID()}` } };
     },
+    async retirerInvitation(invitationId) {
+      // Simulation : seule une invitation fictive est « retirée ».
+      if (!invitationId.startsWith("demo-inv-")) return { ok: false, erreur: { status: 400, type: "simulation_hors_demo" } };
+      return { ok: true, donnees: { dejaDisparue: false } };
+    },
     async lireConversation() {
       return { ok: true, donnees: { interlocuteurId: null, nom: null, photoUrl: null } };
     },

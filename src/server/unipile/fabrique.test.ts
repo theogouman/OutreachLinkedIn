@@ -8,6 +8,7 @@ describe("clientNonBranche (Unipile non branché)", () => {
       c.envoyerMessage("chat", "Bonjour"),
       c.demarrerConversation("ACo1", "Bonjour"),
       c.inviter("ACo1", "note"),
+      c.retirerInvitation("123"),
       c.lireProfil("jean"),
       c.lireConversation("chat"),
       c.lireListe("relations", 10),

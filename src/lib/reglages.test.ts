@@ -49,8 +49,9 @@ describe("resumePlafonds", () => {
       lecture_profil: { jour: 150, semaine: null, mois: null },
       message: { jour: 50, semaine: null, mois: null },
       lecture_liste: { jour: 3, semaine: null, mois: null },
+      retrait_invitation: { jour: 10, semaine: null, mois: null },
     });
-    expect(r).toBe("Invitations 20/jour, 100/semaine · Notes 4/mois · Lectures 150/jour · Messages 50/jour · Synchros 3/jour");
+    expect(r).toBe("Invitations 20/jour, 100/semaine · Notes 4/mois · Lectures 150/jour · Messages 50/jour · Synchros 3/jour · Retraits 10/jour");
   });
   it("ignore une période vide", () => {
     const r = resumePlafonds({
@@ -59,8 +60,9 @@ describe("resumePlafonds", () => {
       lecture_profil: { jour: 40, semaine: null, mois: null },
       message: { jour: 50, semaine: null, mois: null },
       lecture_liste: { jour: 3, semaine: null, mois: null },
+      retrait_invitation: { jour: 10, semaine: null, mois: null },
     });
-    expect(r).toBe("Invitations 20/jour · Lectures 40/jour · Messages 50/jour · Synchros 3/jour");
+    expect(r).toBe("Invitations 20/jour · Lectures 40/jour · Messages 50/jour · Synchros 3/jour · Retraits 10/jour");
   });
 });
 

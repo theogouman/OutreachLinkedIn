@@ -9,7 +9,8 @@ import { exigerUtilisateur } from "./auth";
 import { poolServeur } from "./db";
 import { envUnipile } from "./env-serveur";
 import { chargerContexte } from "./queue/worker";
-import { notesInvitationRestantes } from "./mutations";
+import { dernierRetrait, notesInvitationRestantes } from "./mutations";
+import { reinvitationPossibleLe } from "@/lib/invitation";
 import { vuesDepuis } from "./vues";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
@@ -188,7 +189,13 @@ export interface FicheProspect extends LigneProspect {
   /** Profil LinkedIn issu d'un enrichissement externe, revalidé (src/lib/profil-linkedin.ts). */
   profil: ProfilLinkedIn | null;
   /** Invitation depuis la fiche : déjà en file ?, notes encore possibles ce mois-ci (null : sans plafond). */
-  invitation: { enFile: boolean; notesRestantes: number | null; plafondNotes: number | null };
+  invitation: {
+    enFile: boolean;
+    notesRestantes: number | null;
+    plafondNotes: number | null;
+    /** Retrait récent : date à partir de laquelle LinkedIn accepte une nouvelle invitation (null : aucune attente). */
+    possibleLe: Date | null;
+  };
 }
 
 export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = new Date()): Promise<FicheProspect | null> {
@@ -220,7 +227,12 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
   const x = p.rows[0];
   return {
     profil: profilAffichable(profil.rows[0] ?? null),
-    invitation: { enFile: x.invitation_en_file, notesRestantes: notes.restantes, plafondNotes: notes.plafond },
+    invitation: {
+      enFile: x.invitation_en_file,
+      notesRestantes: notes.restantes,
+      plafondNotes: notes.plafond,
+      possibleLe: reinvitationPossibleLe(await dernierRetrait(pool, parse.data), maintenant),
+    },
     id: x.id,
     prenom: x.prenom,
     nom: x.nom,

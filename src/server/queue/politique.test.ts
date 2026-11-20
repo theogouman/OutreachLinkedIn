@@ -36,6 +36,7 @@ function ctx(over: Partial<ContexteDecision> = {}, compteurs: Partial<Record<Typ
       lecture_profil: { plafond: { jour: 40, semaine: null, mois: null }, gelJusqua: null },
       message: { plafond: { jour: 50, semaine: null, mois: null }, gelJusqua: null },
       lecture_liste: { plafond: { jour: 3, semaine: null, mois: null }, gelJusqua: null },
+      retrait_invitation: { plafond: { jour: 10, semaine: null, mois: null }, gelJusqua: null },
     },
     compteurs: {
       invitation: { ...zero, ...compteurs.invitation },
@@ -43,6 +44,7 @@ function ctx(over: Partial<ContexteDecision> = {}, compteurs: Partial<Record<Typ
       lecture_profil: { ...zero, ...compteurs.lecture_profil },
       message: { ...zero, ...compteurs.message },
       lecture_liste: { ...zero, ...compteurs.lecture_liste },
+      retrait_invitation: { ...zero, ...compteurs.retrait_invitation },
     },
   };
   return { ...base, ...over, reglages: { ...base.reglages, ...over.reglages } };
@@ -161,6 +163,34 @@ describe("gel sur erreur", () => {
     expect(classerErreur({ status: 422, type: "provider/unprocessable_entity" }, "invitation")).toMatchObject({ genre: "gel" });
     // Même texte sur un autre type d'action : règle inchangée.
     expect(classerErreur({ status: 422, detail: "This user has already handled a request from you" }, "message")).toMatchObject({ genre: "gel" });
+  });
+});
+
+describe("retrait d'invitation (automatisations)", () => {
+  const retrait = { id: "r1", typeAction: "retrait_invitation" as const, avecNote: false };
+  const inviter = { id: "i1", typeAction: "invitation" as const, avecNote: false };
+
+  it("a son propre quota : 10 retraits faits bloquent les retraits, pas les invitations", () => {
+    const c = ctx({}, { retrait_invitation: { jour: 10 } });
+    expect(peutExecuter(retrait, c)).toMatchObject({ autorise: false, motif: "quota_jour", quota: "retrait_invitation" });
+    expect(peutExecuter(inviter, c)).toEqual({ autorise: true });
+  });
+
+  it("a son propre gel : un retrait gelé ne gèle pas les invitations", () => {
+    const base = ctx();
+    const c = { ...base, quotas: { ...base.quotas, retrait_invitation: { ...base.quotas.retrait_invitation, gelJusqua: new Date(JEUDI_10H.getTime() + GEL_24H_MS) } } };
+    expect(peutExecuter(retrait, c)).toMatchObject({ autorise: false, motif: "gel", quota: "retrait_invitation" });
+    expect(peutExecuter(inviter, c)).toEqual({ autorise: true });
+  });
+
+  it.each([
+    [{ status: 422, type: "provider/unprocessable_entity" }, { genre: "echec_definitif" }],
+    [{ status: 429, type: "provider/too_many_requests" }, { genre: "gel", duree_ms: GEL_24H_MS, incertain: false }],
+    [{ status: 502 }, { genre: "gel", duree_ms: GEL_24H_MS, incertain: false }],
+    // Sans réponse : un retrait refait est sans risque (déjà retirée → 404) : nouvel essai, jamais « incertain ».
+    [{ status: null }, { genre: "reessayer", apres_ms: 15 * 60 * 1000 }],
+  ] as const)("refus d'un retrait %o → %o", (erreur, issue) => {
+    expect(classerErreur(erreur, "retrait_invitation")).toEqual(issue);
   });
 });
 

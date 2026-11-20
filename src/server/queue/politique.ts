@@ -8,7 +8,7 @@
  */
 import { debutJour, debutMois, debutSemaine, prochainDebutPlage, dansPlage, type Plages } from "./temps";
 
-export type TypeAction = "invitation" | "message" | "lecture_profil" | "lecture_liste";
+export type TypeAction = "invitation" | "message" | "lecture_profil" | "lecture_liste" | "retrait_invitation";
 export type TypeQuota = TypeAction | "note_invitation";
 
 export interface Plafond {
@@ -197,7 +197,16 @@ export function estUnEnvoi(type: TypeAction): boolean {
  */
 const REFUS_INVITATION_PERSONNE = /already handled a request|already (been )?(invited|sent)|invitation (has )?already|already connected|already a (connection|relation)/i;
 
+/** Nouvel essai d'un retrait resté sans réponse : le refaire est sans risque (déjà retirée → 404). */
+export const REESSAI_RETRAIT_MS = 15 * 60 * 1000;
+
 export function classerErreur(e: ErreurAppel, type: TypeAction = "lecture_liste"): IssueErreur {
+  if (type === "retrait_invitation") {
+    // Codes non documentés par Unipile (research.md, R1) : 422 = refus propre à cette invitation ;
+    // 429 et 5xx = gel du seul retrait ; sans réponse = nouvel essai plus tard.
+    if (e.status === null) return { genre: "reessayer", apres_ms: REESSAI_RETRAIT_MS };
+    if (e.status === 422) return { genre: "echec_definitif" };
+  }
   if (e.status === null) return { genre: "incertain" };
   if (type === "invitation" && e.status === 422 && e.detail && REFUS_INVITATION_PERSONNE.test(e.detail)) {
     return { genre: "echec_definitif" };

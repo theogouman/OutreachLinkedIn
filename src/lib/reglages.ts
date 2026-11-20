@@ -34,6 +34,7 @@ const LIBELLES_COURTS: Record<TypeQuota, string> = {
   lecture_profil: "Lectures",
   message: "Messages",
   lecture_liste: "Synchros",
+  retrait_invitation: "Retraits",
 };
 
 export function resumePlafonds(plafonds: Record<TypeQuota, Record<Periode, number | null>>): string {

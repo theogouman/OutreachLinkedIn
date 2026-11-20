@@ -285,6 +285,32 @@ describe("client Unipile v2", () => {
     expect(JSON.parse(String(f.mock.calls[1]![1]?.body))).toEqual({ user_id: "ACoAAB12cd", message: "Bonjour Camille" });
   });
 
+  it("retrait d'invitation : POST …/relation-requests/{id}/cancel, sans corps, réponse RelationRequestCanceled", async () => {
+    const f = fetchFactice(200, { object: "RelationRequestCanceled" });
+    const client = creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch });
+    expect(await client.retirerInvitation("7266123456789")).toEqual({ ok: true, donnees: { dejaDisparue: false } });
+    const [url, init] = f.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.example.test/v2/acc_test/users/me/relation-requests/7266123456789/cancel");
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBeUndefined();
+  });
+
+  it("retrait d'invitation : déjà disparue (404) = constat ; réponse inattendue ou refus transmis ; identifiant douteux refusé sans appel", async () => {
+    const avec = (status: number, corps: unknown) => creerClientUnipileV2({ ...OPTS, fetch: fetchFactice(status, corps) as unknown as typeof fetch });
+    expect(await avec(404, { type: "resource/not_found" }).retirerInvitation("123")).toEqual({ ok: true, donnees: { dejaDisparue: true } });
+    expect(await avec(200, { object: "Autre" }).retirerInvitation("123")).toMatchObject({ ok: false });
+    expect(await avec(422, { type: "provider/unprocessable_entity", detail: "x" }).retirerInvitation("123")).toMatchObject({
+      ok: false,
+      erreur: { status: 422 },
+    });
+    const f = fetchFactice(200, { object: "RelationRequestCanceled" });
+    const client = creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch });
+    for (const id of ["..", "../users", "a/b", "", "x".repeat(301), "id?x=1"]) {
+      expect(await client.retirerInvitation(id)).toMatchObject({ ok: false, erreur: { type: "identifiant_invalide" } });
+    }
+    expect(f).not.toHaveBeenCalled();
+  });
+
   it("invitation : identifiant ou note invalides refusés sans appel ; refus de LinkedIn transmis", async () => {
     const f = fetchFactice(201, {});
     const client = creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch });

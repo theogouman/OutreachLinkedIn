@@ -12,7 +12,7 @@ import { actionInviterProspect } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { useDansEcran } from "@/components/interface/dans-ecran";
 import { IconeAttente, IconeChevronBas, IconeInviter } from "@/components/icones";
-import { NOTE_INVITATION_MAX } from "@/lib/invitation";
+import { messageReinvitationTropTot, NOTE_INVITATION_MAX } from "@/lib/invitation";
 import type { FicheProspect } from "@/server/donnees";
 
 export function InvitationProspect({ fiche, prenom, modeSimule }: { fiche: FicheProspect; prenom: string; modeSimule: boolean }) {
@@ -29,8 +29,13 @@ export function InvitationProspect({ fiche, prenom, modeSimule }: { fiche: Fiche
   // Identifiant de demande : un double clic n'invite qu'une fois (nouvelle demande si la note change).
   const cle = useRef<string | null>(null);
 
-  const { enFile, notesRestantes, plafondNotes } = fiche.invitation;
-  const bloque = modeSimule ? "Unipile n'est pas branché : aucune action LinkedIn ne peut partir" : null;
+  const { enFile, notesRestantes, plafondNotes, possibleLe } = fiche.invitation;
+  // Invitation retirée il y a moins de 3 semaines : LinkedIn refuserait (date de déblocage affichée).
+  const bloque = modeSimule
+    ? "Unipile n'est pas branché : aucune action LinkedIn ne peut partir"
+    : possibleLe
+      ? messageReinvitationTropTot(new Date(possibleLe))
+      : null;
   const notesEpuisees = notesRestantes !== null && notesRestantes <= 0;
 
   useEffect(() => {

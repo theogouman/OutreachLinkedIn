@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
-import { NOTE_INVITATION_MAX } from "@/lib/invitation";
+import { messageReinvitationTropTot, NOTE_INVITATION_MAX, reinvitationPossibleLe } from "@/lib/invitation";
 import { identifiantVersProfil, normaliserUrlLinkedIn } from "@/lib/linkedin-url";
 import { debutMois } from "@/server/queue/temps";
 import { PROPRIETES_PROSPECTS, valeurListe } from "@/lib/proprietes/prospects";
@@ -25,6 +25,7 @@ export const plafondsSchema = z.object({
   lecture_profil: plafondDe("lecture_profil"),
   message: plafondDe("message"),
   lecture_liste: plafondDe("lecture_liste"),
+  retrait_invitation: plafondDe("retrait_invitation"),
 });
 
 export async function majPlafonds(pool: Pool, entree: unknown) {
@@ -266,6 +267,15 @@ const REFUS_STATUT: Record<string, string> = {
  * invitations avec note déjà parties (même décompte que la file) et celles encore en attente.
  * `restantes` null : pas de plafond mensuel.
  */
+/** Date du dernier retrait d'invitation réussi pour ce prospect (null : aucun). */
+export async function dernierRetrait(c: Pool | PoolClient, prospectId: string): Promise<Date | null> {
+  const r = await c.query(
+    "select max(created_at) as le from public.actions where prospect_id = $1 and type = 'retrait_invitation' and resultat = 'succes'",
+    [prospectId],
+  );
+  return r.rows[0]?.le ?? null;
+}
+
 export async function notesInvitationRestantes(c: Pool | PoolClient, maintenant = new Date()) {
   const r = await c.query(
     `select (select plafond_mois from public.quotas where type_quota = 'note_invitation') as plafond,
@@ -310,6 +320,8 @@ export async function mettreInvitationEnFile(pool: Pool, entree: unknown, opts: 
     if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
     const x = p.rows[0];
     if (REFUS_STATUT[x.statut_relation]) throw new EnvoiRefuse(REFUS_STATUT[x.statut_relation]);
+    const possibleLe = reinvitationPossibleLe(await dernierRetrait(c, m.prospectId), opts.maintenant ?? new Date());
+    if (possibleLe) throw new EnvoiRefuse(messageReinvitationTropTot(possibleLe));
     const enFile = await c.query(
       "select 1 from public.taches where prospect_id = $1 and type_action = 'invitation' and statut in ('en_attente', 'en_cours', 'incertaine')",
       [m.prospectId],

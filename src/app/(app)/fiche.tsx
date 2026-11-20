@@ -28,6 +28,7 @@ const EVENEMENTS: Record<string, string> = {
   message: "Message",
   lecture_profil: "Lecture du profil",
   lecture_liste: "Synchronisation",
+  retrait_invitation: "Invitation retirée",
   acceptation: "Invitation acceptée",
   reponse: "Réponse reçue",
   changement_etape: "Changement d'étape",

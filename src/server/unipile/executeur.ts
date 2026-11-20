@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { NOTE_INVITATION_MAX } from "@/lib/invitation";
+import { NOTE_INVITATION_MAX, reinvitationPossibleLe } from "@/lib/invitation";
 import type { Pool, PoolClient } from "pg";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import type { TypeLien } from "@/lib/statut-relation";
@@ -30,6 +30,8 @@ const payloadPremierMessage = z.object({
   texte: z.string().min(1).max(8000),
 });
 /** Invitation depuis la fiche : l'identifiant LinkedIn et le statut sont relus juste avant l'appel. */
+/** Retrait d'invitation : seul le prospect est figé ; l'identifiant d'invitation est relu juste avant l'appel. */
+const payloadRetrait = z.object({ prospect_id: z.uuid() });
 const payloadInvitation = z.object({
   prospect_id: z.uuid(),
   note: z.string().min(1).max(NOTE_INVITATION_MAX).optional(),
@@ -69,7 +71,8 @@ type Donnees =
   | { genre: "liste"; liste: Liste; personnes: PersonneListee[]; photos: Map<string, Photo>; suivant: string | null; payload: PayloadLectureListe }
   | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
   | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null }
-  | { genre: "invitation"; prospectId: string; providerId: string; invitationId: string | null };
+  | { genre: "invitation"; prospectId: string; providerId: string; invitationId: string | null }
+  | { genre: "retrait"; prospectId: string; dejaDisparue: boolean };
 
 /** État du destinataire d'un premier message, relu juste avant l'appel LinkedIn. */
 export interface Destinataire {
@@ -77,6 +80,10 @@ export interface Destinataire {
   providerId: string | null;
   conversationId: string | null;
   chatId: string | null;
+  /** Identifiant de l'invitation en attente chez LinkedIn (dernier connu), pour la retirer. */
+  invitationId?: string | null;
+  /** Dernier retrait d'invitation réussi : une nouvelle invitation attend 21 jours. */
+  retireeLe?: Date | null;
 }
 export type LireDestinataire = (prospectId: string) => Promise<Destinataire | null>;
 
@@ -129,7 +136,13 @@ async function telechargerPhotos(
 export function lireDestinataireDepuis(pool: Pool): LireDestinataire {
   return async (prospectId) => {
     const r = await pool.query(
-      `select p.statut_relation, p.provider_id, c.id as conversation_id, c.unipile_chat_id
+      `select p.statut_relation, p.provider_id, c.id as conversation_id, c.unipile_chat_id,
+              (select l.invitation_id from public.liens_linkedin l
+                where l.type = 'invitation_envoyee' and l.invitation_id is not null
+                  and (l.url_normalisee = p.url_normalisee or (p.provider_id is not null and l.provider_id = p.provider_id))
+                order by l.vu_le desc limit 1) as invitation_id,
+              (select max(a.created_at) from public.actions a
+                where a.prospect_id = p.id and a.type = 'retrait_invitation' and a.resultat = 'succes') as retiree_le
          from public.prospects p
          left join lateral (select id, unipile_chat_id from public.conversations
                              where prospect_id = p.id order by dernier_message_at desc nulls last limit 1) c on true
@@ -138,7 +151,14 @@ export function lireDestinataireDepuis(pool: Pool): LireDestinataire {
     );
     if (!r.rowCount) return null;
     const x = r.rows[0];
-    return { statutRelation: x.statut_relation, providerId: x.provider_id, conversationId: x.conversation_id, chatId: x.unipile_chat_id };
+    return {
+      statutRelation: x.statut_relation,
+      providerId: x.provider_id,
+      conversationId: x.conversation_id,
+      chatId: x.unipile_chat_id,
+      invitationId: x.invitation_id,
+      retireeLe: x.retiree_le,
+    };
   };
 }
 
@@ -232,6 +252,8 @@ export function creerExecuteur(
         if (d.statutRelation === "en_attente") return invalide("deja_invite");
         if (d.statutRelation === "invitation_recue") return invalide("invitation_recue");
         if (!d.providerId) return invalide("identifiant_linkedin_inconnu");
+        // Moins de 21 jours depuis un retrait : LinkedIn refuserait, rien n'est envoyé.
+        if (reinvitationPossibleLe(d.retireeLe ?? null, new Date())) return invalide("delai_linkedin_21_jours");
         const r = await client.inviter(d.providerId, p.data.note);
         return r.ok
           ? {
@@ -239,6 +261,19 @@ export function creerExecuteur(
               donnees: { genre: "invitation", prospectId: p.data.prospect_id, providerId: d.providerId, invitationId: r.donnees.invitationId } satisfies Donnees,
             }
           : r;
+      }
+      if (tache.typeAction === "retrait_invitation") {
+        const p = payloadRetrait.safeParse(tache.payload);
+        if (!p.success) return invalide("payload_invalide");
+        if (!deps.lireDestinataire) return invalide("non_disponible");
+        const d = await deps.lireDestinataire(p.data.prospect_id);
+        if (!d) return invalide("prospect_introuvable");
+        // État revérifié juste avant l'appel : rien n'est retiré si l'invitation n'est plus en attente.
+        if (d.statutRelation === "en_relation") return invalide("deja_en_relation");
+        if (d.statutRelation !== "en_attente") return invalide("plus_en_attente");
+        if (!d.invitationId) return invalide("identifiant_invitation_inconnu");
+        const r = await client.retirerInvitation(d.invitationId);
+        return r.ok ? { ok: true, donnees: { genre: "retrait", prospectId: p.data.prospect_id, dejaDisparue: r.donnees.dejaDisparue } satisfies Donnees } : r;
       }
       return invalide("non_disponible");
     },
@@ -619,8 +654,31 @@ async function effetsInvitation(c: PoolClient, tacheId: string, d: Extract<Donne
   }
 }
 
+/**
+ * Invitation retirée (ou déjà disparue) : lien d'invitation effacé, statut recalculé (« à inviter »,
+ * sauf relation entre-temps). L'étape reste « Invitation envoyée » : la relance est en cours, une
+ * nouvelle invitation suivra (jamais de recul automatique).
+ */
+async function effetsRetrait(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "retrait" }>) {
+  const p = await c.query("select url_normalisee, provider_id from public.prospects where id = $1", [d.prospectId]);
+  if (!p.rowCount) return;
+  const { url_normalisee: url, provider_id: providerId } = p.rows[0] as { url_normalisee: string; provider_id: string | null };
+  await c.query(
+    "delete from public.liens_linkedin where type = 'invitation_envoyee' and (url_normalisee = $1 or ($2::text is not null and provider_id = $2))",
+    [url, providerId],
+  );
+  await traiterAcceptations(c, await recalculerStatuts(c, { urls: [url], providerIds: providerId ? [providerId] : [] }));
+  if (d.dejaDisparue) {
+    await c.query("update public.actions set details = details || $2::jsonb where tache_id = $1 and type = 'retrait_invitation'", [
+      tacheId,
+      { deja_disparue: true },
+    ]);
+  }
+}
+
 export const appliquerEffetsUnipile: AppliquerEffets = async (c, tache, donnees) => {
   const d = donnees as Donnees;
+  if (d.genre === "retrait") return effetsRetrait(c, tache.id, d);
   if (d.genre === "invitation") return effetsInvitation(c, tache.id, d);
   if (d.genre === "message") return effetsMessage(c, tache.id, d);
   if (d.genre === "conversation") return effetsConversation(c, tache.id, d);

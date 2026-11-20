@@ -19,15 +19,15 @@
 
 ## Phase 2 — Action « retrait d'invitation » (incrément 2) [US1]
 
-- [ ] T010 [P] [US1] Test `src/server/queue/politique.test.ts` : quota et gel propres au retrait ; 404 = constat ; 422 = échec de la seule tâche ; 429/5xx = gel du seul retrait
-- [ ] T011 [US1] `src/lib/plafonds.ts`, `src/server/queue/politique.ts` : type et quota `retrait_invitation` (maximum 30, défaut 10), libellé, jauge
-- [ ] T012 [P] [US1] Test client : `retirerInvitation` (200 → retirée, 404 → déjà disparue, réponse invalide refusée)
-- [ ] T013 [US1] `src/server/unipile/client-v2.ts`, `types.ts`, `fabrique.ts` (`clientNonBranche`), `tests/fixtures/client-simule.ts`
-- [ ] T014 [US1] Test `tests/db/retrait.test.ts` : exécuteur — revérifie « en attente » et identifiant connu, sinon rien n'est envoyé ; effets : lien retiré, statut « à inviter », étape conservée, journal `retrait_invitation` ; tâche annulable tant qu'elle n'est pas partie
-- [ ] T015 [US1] `src/server/unipile/executeur.ts` : branche `retrait_invitation` et effets
-- [ ] T016 [US1] Test `tests/db/invitations.test.ts` : invitation manuelle refusée moins de 21 jours après un retrait (avec la date), acceptée ensuite ; l'exécuteur refuse aussi
-- [ ] T017 [US1] `src/server/mutations.ts` (`mettreInvitationEnFile`), `executeur.ts`, `src/server/donnees.ts` (date de déblocage sur la fiche)
-- [ ] T018 [P] [US1] Affichage : `reglages/ligne-tache.tsx` (type « Retrait d'invitation »), `fiche.tsx` (historique), `invitation-prospect.tsx` (bouton grisé + date)
+- [x] T010 [P] [US1] Test `src/server/queue/politique.test.ts` : quota et gel propres au retrait ; 404 = constat ; 422 = échec de la seule tâche ; 429/5xx = gel du seul retrait
+- [x] T011 [US1] `src/lib/plafonds.ts`, `src/server/queue/politique.ts` : type et quota `retrait_invitation` (maximum 30, défaut 10), libellé, jauge
+- [x] T012 [P] [US1] Test client : `retirerInvitation` (200 → retirée, 404 → déjà disparue, réponse invalide refusée)
+- [x] T013 [US1] `src/server/unipile/client-v2.ts`, `types.ts`, `fabrique.ts` (`clientNonBranche`), `tests/fixtures/client-simule.ts`
+- [x] T014 [US1] Test `tests/db/retrait.test.ts` : exécuteur — revérifie « en attente » et identifiant connu, sinon rien n'est envoyé ; effets : lien retiré, statut « à inviter », étape conservée, journal `retrait_invitation` ; tâche annulable tant qu'elle n'est pas partie
+- [x] T015 [US1] `src/server/unipile/executeur.ts` : branche `retrait_invitation` et effets
+- [x] T016 [US1] Test `tests/db/invitations.test.ts` : invitation manuelle refusée moins de 21 jours après un retrait (avec la date), acceptée ensuite ; l'exécuteur refuse aussi
+- [x] T017 [US1] `src/server/mutations.ts` (`mettreInvitationEnFile`), `executeur.ts`, `src/server/donnees.ts` (date de déblocage sur la fiche)
+- [x] T018 [P] [US1] Affichage : `reglages/ligne-tache.tsx` (type « Retrait d'invitation »), `fiche.tsx` (historique), `invitation-prospect.tsx` (bouton grisé + date)
 
 ## Phase 3 — Moteur et relance (incrément 3) [US1]
 

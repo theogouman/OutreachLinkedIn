@@ -2,7 +2,7 @@
  * Plafonds d'un compte LinkedIn gratuit (docs/plan-v1.md). Les maxima reprennent
  * la recommandation Unipile ; les mêmes valeurs sont imposées par des CHECK en base.
  */
-export type TypeQuota = "invitation" | "note_invitation" | "lecture_profil" | "message" | "lecture_liste";
+export type TypeQuota = "invitation" | "note_invitation" | "lecture_profil" | "message" | "lecture_liste" | "retrait_invitation";
 
 export interface Bornes {
   jour: number | null;
@@ -17,6 +17,8 @@ export const MAXIMA: Record<TypeQuota, Bornes> = {
   lecture_profil: { jour: 150, semaine: null, mois: null },
   message: { jour: 100, semaine: null, mois: null },
   lecture_liste: { jour: 4, semaine: null, mois: null },
+  // Aucune limite documentée par Unipile : maximum prudent (défaut 10, spec 001-workflows).
+  retrait_invitation: { jour: 30, semaine: null, mois: null },
 };
 
 export const LIBELLES_QUOTA: Record<TypeQuota, string> = {
@@ -25,6 +27,7 @@ export const LIBELLES_QUOTA: Record<TypeQuota, string> = {
   lecture_profil: "Lectures de profil",
   message: "Messages",
   lecture_liste: "Synchronisations",
+  retrait_invitation: "Retraits d'invitation",
 };
 
 export const TYPES_QUOTA = Object.keys(MAXIMA) as TypeQuota[];

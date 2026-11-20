@@ -74,6 +74,11 @@ export interface ClientLinkedIn {
    * de la file, ni sans statut « à inviter » revérifié juste avant.
    */
   inviter(providerId: string, note?: string): Promise<Resultat<{ invitationId: string | null }>>;
+  /**
+   * Retrait d'une invitation envoyée (identifiant donné par la liste des invitations). Jamais appelé
+   * hors de la file. `dejaDisparue` : l'invitation n'existait plus (constat, pas un échec).
+   */
+  retirerInvitation(invitationId: string): Promise<Resultat<{ dejaDisparue: boolean }>>;
   lireProfil(identifiant: string): Promise<Resultat<ProfilLu>>;
   /** Interlocuteur d'une conversation à deux (identifiant LinkedIn interne), lu chez Unipile. */
   lireConversation(chatId: string): Promise<Resultat<{ interlocuteurId: string | null; nom: string | null; photoUrl: string | null }>>;

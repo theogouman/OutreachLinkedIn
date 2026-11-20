@@ -87,6 +87,16 @@ const invitationEnvoyeeSchema = z.object({
   object: z.literal("RelationRequest"),
   id: z.string().min(1).max(300).nullish(),
 });
+/**
+ * POST /v2/{account_id}/users/me/relation-requests/{request_id}/cancel (« Cancel a relation request »,
+ * vérifié le 2026-11-20), sans corps → 200 { object: "RelationRequestCanceled" }. `request_id` :
+ * identifiant de l'invitation donné par la liste des invitations envoyées.
+ * TODO(security): aucun code d'erreur documenté ; 404 lu comme « déjà disparue » (constat), les autres
+ * refus classés par la politique de la file (research.md, R1), à revoir au premier cas réel.
+ */
+const retraitSchema = z.object({ object: z.literal("RelationRequestCanceled") });
+/** Identifiant d'invitation accepté dans un chemin : ni point, ni barre, ni paramètre. */
+const IDENTIFIANT_INVITATION_CHEMIN = /^[A-Za-z0-9_:-]{1,300}$/;
 /** GET /v2/{account_id}/chats/{chat_id} → Chat ; `user_id` : l'autre participant d'une conversation à deux. */
 const conversationSchema = z.object({
   object: z.literal("Chat"),
@@ -156,13 +166,15 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
     params: Record<string, string>,
     schema: z.ZodType<T>,
     corpsJson?: Record<string, unknown>,
+    /** POST sans corps (ex. retrait d'invitation). */
+    postSansCorps = false,
   ): Promise<Resultat<T>> {
     const url = new URL(`${base}/v2/${encodeURIComponent(opts.accountId)}${chemin}`);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     let rep: Response;
     try {
       rep = await f(url, {
-        method: corpsJson ? "POST" : "GET",
+        method: corpsJson || postSansCorps ? "POST" : "GET",
         body: corpsJson ? JSON.stringify(corpsJson) : undefined,
         headers: {
           "X-API-KEY": opts.apiKey,
@@ -231,6 +243,15 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
       if (texte !== undefined && texte.length > NOTE_INVITATION_MAX) return { ok: false, erreur: { status: 400, type: "note_invalide" } };
       const r = await appeler("/users/me/relation-requests", {}, invitationEnvoyeeSchema, texte ? { user_id: providerId, message: texte } : { user_id: providerId });
       return r.ok ? { ok: true, donnees: { invitationId: r.donnees.id ?? null } } : r;
+    },
+
+    async retirerInvitation(invitationId) {
+      if (!IDENTIFIANT_INVITATION_CHEMIN.test(invitationId)) return { ok: false, erreur: { status: 400, type: "identifiant_invalide" } };
+      const r = await appeler(`/users/me/relation-requests/${encodeURIComponent(invitationId)}/cancel`, {}, retraitSchema, undefined, true);
+      if (r.ok) return { ok: true, donnees: { dejaDisparue: false } };
+      // Invitation introuvable : déjà retirée, expirée ou acceptée. Rien à retirer, ce n'est pas un échec.
+      if (r.erreur.status === 404) return { ok: true, donnees: { dejaDisparue: true } };
+      return r;
     },
 
     async lireConversation(chatId) {
