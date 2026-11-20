@@ -31,12 +31,12 @@
 
 ## Phase 3 — Moteur et relance (incrément 3) [US1]
 
-- [ ] T019 [P] [US1] Test `src/lib/automatisations/catalogue.test.ts` : schéma des réglages (bornes, défauts, `cycles` = 1 à 10 ou `null`), modules descriptifs
-- [ ] T020 [US1] `src/lib/automatisations/catalogue.ts`
-- [ ] T021 [P] [US1] Test `src/server/automatisations/relance-invitations.test.ts` (pur) : chaque transition de `data-model.md` ; délais tirés dans les plages ; minimum de 21 jours ; cycles épuisés → mis de côté ; « sans limite » ; sorties de boucle (acceptation, étape terminale, invitation reçue)
-- [ ] T022 [US1] `src/server/automatisations/relance-invitations.ts` (`decider`)
-- [ ] T023 [US1] Test `tests/db/moteur-automatisations.test.ts` : suivis créés pour les seuls prospects du CRM ; plafond quotidien (étalement des invitations anciennes) ; idempotence (deux passages = une tâche) ; pause et arrêt d'urgence → rien ; tâche annulée → retour à l'attente ; priorité aux actions manuelles dans le tour de file ; prospect supprimé → suivi supprimé
-- [ ] T024 [US1] `src/server/automatisations/moteur.ts` ; `src/server/queue/worker.ts` (priorité 2) ; `src/app/api/worker/tick/route.ts` (appel, mode réel seulement)
+- [x] T019 [P] [US1] Test `src/lib/automatisations/catalogue.test.ts` : schéma des réglages (bornes, défauts, `cycles` = 1 à 10 ou `null`), modules descriptifs
+- [x] T020 [US1] `src/lib/automatisations/catalogue.ts`
+- [x] T021 [P] [US1] Test `src/server/automatisations/relance-invitations.test.ts` (pur) : chaque transition de `data-model.md` ; délais tirés dans les plages ; minimum de 21 jours ; cycles épuisés → mis de côté ; « sans limite » ; sorties de boucle (acceptation, étape terminale, invitation reçue)
+- [x] T022 [US1] `src/server/automatisations/relance-invitations.ts` (`decider`)
+- [x] T023 [US1] Test `tests/db/moteur-automatisations.test.ts` : suivis créés pour les seuls prospects du CRM ; plafond quotidien (étalement des invitations anciennes) ; idempotence (deux passages = une tâche) ; pause et arrêt d'urgence → rien ; tâche annulée → retour à l'attente ; priorité aux actions manuelles dans le tour de file ; prospect supprimé → suivi supprimé
+- [x] T024 [US1] `src/server/automatisations/moteur.ts` ; `src/server/queue/worker.ts` (priorité 2) ; `src/app/api/worker/tick/route.ts` (appel, mode réel seulement)
 
 ## Phase 4 — Page Workflow (incrément 4) [US2]
 

@@ -9,6 +9,7 @@ import { completerConversations } from "@/server/completion-conversations";
 import { clientLinkedIn, dependancesCompletion } from "@/server/unipile/fabrique";
 import { synchroniserMessagerie } from "@/server/synchro-messagerie";
 import { pousserNotificationsEnAttente } from "@/server/notifications";
+import { executerAutomatisations } from "@/server/automatisations/moteur";
 
 export const maxDuration = 60;
 
@@ -34,11 +35,20 @@ export async function POST(request: Request) {
     const pool = poolServeur();
     const maintenant = new Date();
     await planifierSynchronisations(pool, maintenant);
+    // Automatisations actives (Workflow) : décisions et mises en file, avant le tour de file.
+    const automatisations = await executerAutomatisations(pool, maintenant).catch((e) => {
+      console.error("[automatisations]", (e as Error).message);
+      return null;
+    });
     // Conversations à compléter (nom, photo) : lecture de la messagerie, hors quota et hors file.
     await completerConversations(pool, dependancesCompletion(), 5).catch((e) => console.error("[completion]", (e as Error).message));
     const bilan = await executerUnTour({
       pool,
-      executeur: creerExecuteur(clientLinkedIn(), { lireDestinataire: lireDestinataireDepuis(pool), photosManquantes: photosManquantesDepuis(pool) }),
+      executeur: creerExecuteur(clientLinkedIn(), {
+        lireDestinataire: lireDestinataireDepuis(pool),
+        photosManquantes: photosManquantesDepuis(pool),
+        maintenant: () => maintenant,
+      }),
       appliquerEffets: appliquerEffetsUnipile,
     });
     // Acceptations d'invitation constatées par ce tour (lecture de liste ou de profil) : Push après validation.
@@ -48,7 +58,7 @@ export async function POST(request: Request) {
       console.error("[messagerie]", (e as Error).message);
       return null;
     });
-    return NextResponse.json({ ok: true, bilan, messagerie });
+    return NextResponse.json({ ok: true, bilan, automatisations, messagerie });
   } catch (e) {
     console.error("[worker] tour en erreur", e);
     return NextResponse.json({ ok: false }, { status: 500 });

@@ -142,7 +142,8 @@ export async function chargerContexte(c: PoolClient | Pool, maintenant: Date): P
  * non terminée est candidate (ordre strict). Priorité : les messages et invitations demandés par
  * l'utilisateur, puis les tâches qui les bloquent (ex. la lecture de profil qui donne l'identifiant
  * LinkedIn d'un premier message ou d'une invitation) et les lectures de listes (une page identifie des dizaines de
- * prospects d'un coup), puis le reste (lectures de profil de fond), chacun dans l'ordre de demande.
+ * prospects d'un coup), puis les actions des automatisations (spec 001-workflows : jamais avant celles de
+ * l'utilisateur), puis le reste (lectures de profil de fond), chacun dans l'ordre de demande.
  */
 async function chargerCandidates(c: PoolClient, maintenant: Date) {
   const r = await c.query(
@@ -157,6 +158,7 @@ async function chargerCandidates(c: PoolClient, maintenant: Date) {
              and p.ordre < t.ordre
              and p.statut in ('en_attente', 'en_cours', 'incertaine'))
       order by (case
+                  when t.automatisation_id is not null then 2
                   when t.type_action in ('message', 'invitation') then 0
                   when t.payload ? 'conversation_id' and t.type_action = 'lecture_profil' then 1
                   when t.type_action = 'lecture_liste' then 1
@@ -164,7 +166,7 @@ async function chargerCandidates(c: PoolClient, maintenant: Date) {
                          select 1 from public.taches m
                           where m.prospect_id = t.prospect_id and m.type_action in ('message', 'invitation')
                             and m.statut = 'en_attente' and m.ordre > t.ordre) then 1
-                  else 2
+                  else 3
                 end),
                t.ordre
       limit 200`,

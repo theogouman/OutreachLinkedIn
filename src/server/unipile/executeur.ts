@@ -174,6 +174,8 @@ export function creerExecuteur(
     lireDestinataire?: LireDestinataire;
     telechargerPhoto?: (url: string) => Promise<Photo | null>;
     photosManquantes?: PhotosManquantes;
+    /** Heure de référence des vérifications (règle des 21 jours) ; celle du worker dans les tests. */
+    maintenant?: () => Date;
   } = {},
 ): ExecuteurLinkedIn {
   const telecharger = deps.telechargerPhoto ?? telechargerPhotoLinkedIn;
@@ -253,7 +255,7 @@ export function creerExecuteur(
         if (d.statutRelation === "invitation_recue") return invalide("invitation_recue");
         if (!d.providerId) return invalide("identifiant_linkedin_inconnu");
         // Moins de 21 jours depuis un retrait : LinkedIn refuserait, rien n'est envoyé.
-        if (reinvitationPossibleLe(d.retireeLe ?? null, new Date())) return invalide("delai_linkedin_21_jours");
+        if (reinvitationPossibleLe(d.retireeLe ?? null, (deps.maintenant ?? (() => new Date()))())) return invalide("delai_linkedin_21_jours");
         const r = await client.inviter(d.providerId, p.data.note);
         return r.ok
           ? {
