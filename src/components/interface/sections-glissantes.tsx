@@ -23,6 +23,7 @@ export function SectionsGlissantes({
   initial,
   actifId,
   surChangement,
+  aCote,
 }: {
   sections: Section[];
   libelle: string;
@@ -32,6 +33,8 @@ export function SectionsGlissantes({
   /** Mode piloté : section active (id) tenue par le parent (ex. fiches voisines sur le même onglet). */
   actifId?: string;
   surChangement?: (id: string) => void;
+  /** Élément placé à droite de la barre d'onglets, sur la même ligne (ex. un bouton d'action). */
+  aCote?: ReactNode;
 }) {
   const [actifLocal, setActifLocal] = useState(() => Math.max(0, sections.findIndex((s) => s.id === initial)));
   const pilote = actifId !== undefined;
@@ -112,7 +115,8 @@ export function SectionsGlissantes({
 
   return (
     <div className={`flex flex-col gap-4 ${remplir ? "min-h-0 flex-1" : ""}`}>
-      <div ref={barre} className="t-tabs t-tabs-plein" role="tablist" aria-label={libelle} onKeyDown={clavier}>
+      <div className={aCote ? "flex items-center gap-2" : "contents"}>
+      <div ref={barre} className={`t-tabs t-tabs-plein ${aCote ? "min-w-0 flex-1" : ""}`} role="tablist" aria-label={libelle} onKeyDown={clavier}>
         <span ref={pilule} className="t-tabs-pill" aria-hidden />
         {sections.map((s, i) => (
           <button
@@ -142,6 +146,8 @@ export function SectionsGlissantes({
             {s.compte !== undefined && <span className="caption-4 tabular-nums text-encre-3">{s.compte}</span>}
           </button>
         ))}
+      </div>
+      {aCote}
       </div>
 
       <div

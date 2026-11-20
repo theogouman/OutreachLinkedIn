@@ -11,6 +11,7 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ICONES = [
   ["IconePageProspects", "figure.walk.motion", null],
   ["IconePageInbox", "bubble.left.and.text.bubble.right", null],
+  ["IconePageWorkflow", "bolt.fill", null],
   ["IconePageFile", "list.bullet.indent", null],
   ["IconePageStats", "chart.line.uptrend.xyaxis", null],
   ["IconePageReglages", "gear", null],

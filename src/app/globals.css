@@ -888,7 +888,117 @@ html {
   transform: translateX(6px);
 }
 
+/* Transitions.dev — Tooltip (valeurs d'origine). Adaptations : couleurs prises sur les jetons
+   (carte, encre : suit le mode sombre) ; variante `.t-tt-droite` ancrée au bord droit du déclencheur,
+   pour une bulle placée près du bord droit d'une carte (elle ne déborde pas, rien n'est rogné). */
+:root {
+  --tt-in-dur: 150ms;
+  --tt-out-dur: 50ms;
+  --tt-scale: 0.98;
+  --tt-delay: 80ms;
+  --tt-in-ease: ease-out;
+  --tt-out-ease: ease-out;
+  --tt-bg: var(--color-carte);
+  --tt-fg: var(--color-encre);
+}
+.t-tt-wrap {
+  position: relative;
+  display: inline-block;
+}
+.t-tt {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 20;
+  transform: translate(-50%, 0) scale(var(--tt-scale));
+  transform-origin: 50% 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  background: var(--tt-bg);
+  color: var(--tt-fg);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-encre) 8%, transparent),
+    0 2px 4px color-mix(in srgb, var(--color-encre) 8%, transparent),
+    0 8px 20px color-mix(in srgb, var(--color-encre) 10%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--tt-out-dur) var(--tt-out-ease),
+    transform var(--tt-out-dur) var(--tt-out-ease);
+}
+.t-tt.t-tt-droite {
+  left: auto;
+  right: 0;
+  transform: scale(var(--tt-scale));
+  transform-origin: 100% 100%;
+}
+.t-tt-wrap:hover .t-tt,
+.t-tt-trigger:focus-visible + .t-tt {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  transition-duration: var(--tt-in-dur);
+  transition-timing-function: var(--tt-in-ease);
+  transition-delay: var(--tt-delay);
+}
+.t-tt-wrap:hover .t-tt.t-tt-droite,
+.t-tt-trigger:focus-visible + .t-tt.t-tt-droite {
+  transform: scale(1);
+}
+
+/* Tableau blanc du déroulé d'une automatisation (page Workflow) : grille de points, étiquettes reliées
+   par des traits ; branches (oui / non) en arbre, chaque étape d'une branche reliée à la précédente. */
+.tableau-blanc {
+  background-color: var(--color-conversation);
+  background-image: radial-gradient(var(--color-conversation-point) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+  background-position: 8px 8px;
+}
+.arbre-chaine > * + * {
+  position: relative;
+  margin-top: 20px;
+}
+.arbre-chaine > * + *::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: -20px;
+  height: 20px;
+  border-left: 1.5px solid var(--color-trait-fort);
+}
+.arbre-branches {
+  position: relative;
+  margin-top: 20px;
+  margin-left: 18px;
+}
+.arbre-branches > li {
+  position: relative;
+  padding-left: 22px;
+  padding-top: 10px;
+}
+.arbre-branches > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -20px;
+  bottom: 0;
+  border-left: 1.5px solid var(--color-trait-fort);
+}
+.arbre-branches > li:last-child::before {
+  bottom: auto;
+  height: 46px;
+}
+.arbre-branches > li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 26px;
+  width: 18px;
+  border-top: 1.5px solid var(--color-trait-fort);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .t-tt,
   .reglage-retour,
   .reglage-ouvrir,
   .t-modal,
