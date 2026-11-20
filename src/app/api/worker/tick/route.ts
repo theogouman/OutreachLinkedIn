@@ -29,6 +29,8 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Unipile non branché (mode simulé) : aucun tour, aucune tâche planifiée, rien vers LinkedIn.
+    if (envUnipile().mode !== "reel") return NextResponse.json({ ok: true, bilan: { statut: "rien_a_faire", motif: "unipile_non_branche" } });
     const pool = poolServeur();
     const maintenant = new Date();
     await planifierSynchronisations(pool, maintenant);
@@ -38,19 +40,14 @@ export async function POST(request: Request) {
       pool,
       executeur: creerExecuteur(clientLinkedIn(), { lireDestinataire: lireDestinataireDepuis(pool), photosManquantes: photosManquantesDepuis(pool) }),
       appliquerEffets: appliquerEffetsUnipile,
-      // Unipile simulé : seules les données de démonstration sont traitées.
-      seulementDemo: envUnipile().mode === "simule",
     });
     // Acceptations d'invitation constatées par ce tour (lecture de liste ou de profil) : Push après validation.
     await pousserNotificationsEnAttente(pool).catch((e) => console.error("[push]", (e as Error).message));
     // Synchronisation de la messagerie (lecture Unipile, hors file et hors quotas), dans un budget de temps.
-    const messagerie =
-      envUnipile().mode === "reel"
-        ? await synchroniserMessagerie(pool, { client: clientLinkedIn() }, 15_000).catch((e) => {
-            console.error("[messagerie]", (e as Error).message);
-            return null;
-          })
-        : null;
+    const messagerie = await synchroniserMessagerie(pool, { client: clientLinkedIn() }, 15_000).catch((e) => {
+      console.error("[messagerie]", (e as Error).message);
+      return null;
+    });
     return NextResponse.json({ ok: true, bilan, messagerie });
   } catch (e) {
     console.error("[worker] tour en erreur", e);

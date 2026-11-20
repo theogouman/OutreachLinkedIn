@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
-import { creerClientSimule } from "@/server/unipile/simule";
+import { creerClientSimule } from "../fixtures/client-simule";
 import { EnvoiRefuse, mettreInvitationEnFile, notesInvitationRestantes } from "@/server/mutations";
 import { ficheProspectDepuis } from "@/server/donnees";
 import { recalculerStatuts, traiterAcceptations, enregistrerLiens } from "@/server/relations";
@@ -48,10 +48,9 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
     return r.rows[0].id;
   }
 
-  const SIMULE = { modeSimule: true, maintenant: JEUDI_10H };
   const REEL = { modeSimule: false, maintenant: JEUDI_10H };
 
-  const tour = async (client: ClientLinkedIn = creerClientSimule(), seulementDemo = true) => {
+  const tour = async (client: ClientLinkedIn = creerClientSimule()) => {
     // Tâches créées à l'heure réelle : rendues échues pour le jeudi 10 h des tests.
     await db.pool.query("update public.taches set executer_apres = '2026-11-01'");
     return executerUnTour({
@@ -60,7 +59,6 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
       appliquerEffets: appliquerEffetsUnipile,
       maintenant: () => JEUDI_10H,
       aleatoire: () => 0,
-      seulementDemo,
     });
   };
   const rouvrir = () => db.pool.query("update public.reglages set prochaine_action_possible_a = null");
@@ -69,7 +67,7 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
 
   it("identifiant LinkedIn inconnu : lecture du profil puis invitation, dans cet ordre", async () => {
     const id = await prospect();
-    const r = await mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, SIMULE);
+    const r = await mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, REEL);
     expect(r.nouveau).toBe(true);
     const t = await db.pool.query("select type_action, avec_note, payload from public.taches where prospect_id = $1 order by ordre", [id]);
     expect(t.rows.map((x) => x.type_action)).toEqual(["lecture_profil", "invitation"]);
@@ -82,7 +80,7 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
       "insert into public.taches (type_action, prospect_id, payload, cle_idempotence) values ('lecture_profil', $1, '{\"public_identifier\": \"x-y-z\"}', 'lecture_profil:fond')",
       [id],
     );
-    await mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, SIMULE);
+    await mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, REEL);
     const t = await db.pool.query("select type_action from public.taches where prospect_id = $1 order by ordre", [id]);
     expect(t.rows.map((x) => x.type_action)).toEqual(["lecture_profil", "invitation"]);
   });
@@ -90,8 +88,8 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
   it("identifiant connu : l'invitation seule ; un double clic n'en crée qu'une", async () => {
     const id = await prospect({ provider: "ACoDEMOx1" });
     const cle = randomUUID();
-    const a = await mettreInvitationEnFile(db.pool, { prospectId: id, cle }, SIMULE);
-    const b = await mettreInvitationEnFile(db.pool, { prospectId: id, cle }, SIMULE);
+    const a = await mettreInvitationEnFile(db.pool, { prospectId: id, cle }, REEL);
+    const b = await mettreInvitationEnFile(db.pool, { prospectId: id, cle }, REEL);
     expect(b).toEqual({ tacheId: a.tacheId, nouveau: false });
     const t = await db.pool.query("select type_action from public.taches where prospect_id = $1", [id]);
     expect(t.rows.map((x) => x.type_action)).toEqual(["invitation"]);
@@ -99,22 +97,27 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
 
   it("refuse une deuxième invitation en file pour le même prospect", async () => {
     const id = await prospect({ provider: "ACoDEMOx2" });
-    await mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, SIMULE);
-    await expect(mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, SIMULE)).rejects.toThrow(EnvoiRefuse);
+    await mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, REEL);
+    await expect(mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, REEL)).rejects.toThrow(EnvoiRefuse);
   });
 
   it("refuse un prospect déjà en relation, déjà invité ou qui t'a invité", async () => {
     for (const statut of ["en_relation", "en_attente", "invitation_recue"]) {
       const id = await prospect({ statut });
-      await expect(mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, SIMULE)).rejects.toThrow(EnvoiRefuse);
+      await expect(mettreInvitationEnFile(db.pool, { prospectId: id, cle: randomUUID() }, REEL)).rejects.toThrow(EnvoiRefuse);
     }
     const n = await db.pool.query("select count(*)::int as n from public.taches");
     expect(n.rows[0].n).toBe(0);
   });
 
-  it("Unipile simulé : refuse un vrai prospect ; refuse un prospect inconnu ou une entrée invalide", async () => {
+  it("Unipile non branché : refuse tout prospect, même fictif ; refuse un prospect inconnu ou une entrée invalide", async () => {
     const vrai = await prospect({ id: "jean-vrai", demo: false });
-    await expect(mettreInvitationEnFile(db.pool, { prospectId: vrai, cle: randomUUID() }, SIMULE)).rejects.toThrow(EnvoiRefuse);
+    const fictif = await prospect({ id: "demo-fictif" });
+    for (const prospectId of [vrai, fictif]) {
+      await expect(mettreInvitationEnFile(db.pool, { prospectId, cle: randomUUID() }, { modeSimule: true, maintenant: JEUDI_10H })).rejects.toThrow(
+        /pas branché/,
+      );
+    }
     await expect(mettreInvitationEnFile(db.pool, { prospectId: randomUUID(), cle: randomUUID() }, REEL)).rejects.toThrow(EnvoiRefuse);
     await expect(mettreInvitationEnFile(db.pool, { prospectId: "pas-un-uuid", cle: randomUUID() }, REEL)).rejects.toThrow();
     await expect(mettreInvitationEnFile(db.pool, { prospectId: vrai }, REEL)).rejects.toThrow();
@@ -125,9 +128,9 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
   it("note : 200 caractères au plus, vide = sans note", async () => {
     const id = await prospect({ provider: "ACoDEMOx3" });
     await expect(
-      mettreInvitationEnFile(db.pool, { prospectId: id, note: "x".repeat(201), cle: randomUUID() }, SIMULE),
+      mettreInvitationEnFile(db.pool, { prospectId: id, note: "x".repeat(201), cle: randomUUID() }, REEL),
     ).rejects.toThrow();
-    await mettreInvitationEnFile(db.pool, { prospectId: id, note: "   ", cle: randomUUID() }, SIMULE);
+    await mettreInvitationEnFile(db.pool, { prospectId: id, note: "   ", cle: randomUUID() }, REEL);
     const t = await db.pool.query("select avec_note, payload from public.taches where type_action = 'invitation'");
     expect(t.rows[0].avec_note).toBe(false);
     expect(t.rows[0].payload).not.toHaveProperty("note");
@@ -143,25 +146,24 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
     );
     const a = await prospect({ provider: "ACoDEMOa" });
     expect(await notesInvitationRestantes(db.pool, JEUDI_10H)).toEqual({ restantes: 2, plafond: 4 });
-    await mettreInvitationEnFile(db.pool, { prospectId: a, note: "Bonjour Camille", cle: randomUUID() }, SIMULE);
+    await mettreInvitationEnFile(db.pool, { prospectId: a, note: "Bonjour Camille", cle: randomUUID() }, REEL);
     expect(await notesInvitationRestantes(db.pool, JEUDI_10H)).toEqual({ restantes: 1, plafond: 4 });
 
     const b = await prospect({ provider: "ACoDEMOb" });
-    await mettreInvitationEnFile(db.pool, { prospectId: b, note: "Bonjour", cle: randomUUID() }, SIMULE);
+    await mettreInvitationEnFile(db.pool, { prospectId: b, note: "Bonjour", cle: randomUUID() }, REEL);
     const c = await prospect({ provider: "ACoDEMOc" });
-    await expect(mettreInvitationEnFile(db.pool, { prospectId: c, note: "Bonjour", cle: randomUUID() }, SIMULE)).rejects.toThrow(
+    await expect(mettreInvitationEnFile(db.pool, { prospectId: c, note: "Bonjour", cle: randomUUID() }, REEL)).rejects.toThrow(
       /notes/i,
     );
     // Sans note, l'invitation reste possible.
-    expect((await mettreInvitationEnFile(db.pool, { prospectId: c, cle: randomUUID() }, SIMULE)).nouveau).toBe(true);
+    expect((await mettreInvitationEnFile(db.pool, { prospectId: c, cle: randomUUID() }, REEL)).nouveau).toBe(true);
   });
 
   it("la fiche expose l'invitation en file et les notes restantes", async () => {
     const id = await prospect({ provider: "ACoDEMOf" });
     let f = await ficheProspectDepuis(db.pool, id, JEUDI_10H);
     expect(f?.invitation).toEqual({ enFile: false, notesRestantes: 4, plafondNotes: 4 });
-    expect(f?.demo).toBe(true);
-    await mettreInvitationEnFile(db.pool, { prospectId: id, note: "Salut", cle: randomUUID() }, SIMULE);
+    await mettreInvitationEnFile(db.pool, { prospectId: id, note: "Salut", cle: randomUUID() }, REEL);
     f = await ficheProspectDepuis(db.pool, id, JEUDI_10H);
     expect(f?.invitation).toEqual({ enFile: true, notesRestantes: 3, plafondNotes: 4 });
   });
@@ -170,7 +172,7 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
 
   it("envoi : lien « invitation envoyée », statut « En attente », étape « Invitation envoyée », journal", async () => {
     const id = await prospect();
-    await mettreInvitationEnFile(db.pool, { prospectId: id, note: "Bonjour Camille", cle: randomUUID() }, SIMULE);
+    await mettreInvitationEnFile(db.pool, { prospectId: id, note: "Bonjour Camille", cle: randomUUID() }, REEL);
     expect((await tour()).statut).toBe("execute"); // lecture du profil
     await rouvrir();
     expect(await tour()).toMatchObject({ statut: "execute", resultat: "succes" }); // invitation
@@ -199,7 +201,7 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
     await db.pool.query("update public.prospects set statut_relation = 'en_relation' where id = $1", [id]);
     let appels = 0;
     const client = { ...creerClientSimule(), inviter: async () => (appels++, { ok: true as const, donnees: { invitationId: "x" } }) };
-    expect(await tour(client, false)).toMatchObject({ resultat: "echec" });
+    expect(await tour(client)).toMatchObject({ resultat: "echec" });
     expect(appels).toBe(0);
   });
 
@@ -211,7 +213,7 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
       ...creerClientSimule(),
       inviter: async (providerId: string, note?: string) => (recus.push([providerId, note]), { ok: true as const, donnees: { invitationId: "inv_1" } }),
     };
-    expect(await tour(client, false)).toMatchObject({ resultat: "succes" });
+    expect(await tour(client)).toMatchObject({ resultat: "succes" });
     expect(recus).toEqual([["ACoLEA123", "Ravi d'échanger"]]);
   });
 

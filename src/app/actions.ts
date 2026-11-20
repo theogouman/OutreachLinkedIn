@@ -5,7 +5,6 @@ import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
 import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, modifierPropriete, supprimerConversation, trancherIncertaine } from "@/server/mutations";
-import { DemoDejaChargee, semerDemo } from "@/server/demo";
 import { creerVue, majOptionsVue, renommerVue, supprimerVue } from "@/server/vues";
 import { envUnipile } from "@/server/env-serveur";
 import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
@@ -29,7 +28,7 @@ async function executer(nom: string, fn: () => Promise<string>): Promise<Retour>
     refresh();
     return { ok: true, message };
   } catch (e) {
-    if (e instanceof DemoDejaChargee || e instanceof EnvoiRefuse) return { ok: false, message: e.message };
+    if (e instanceof EnvoiRefuse) return { ok: false, message: e.message };
     if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
     console.error("[action:%s]", nom, e);
     return { ok: false, message: ERREUR };
@@ -67,14 +66,6 @@ export async function actionTrancher(id: string, decision: string): Promise<Reto
   return executer("trancher", async () =>
     (await trancherIncertaine(poolServeur(), id, decision)) ? "Décision enregistrée." : "Cette tâche n'est plus incertaine.",
   );
-}
-
-export async function actionChargerDemo(): Promise<Retour> {
-  return executer("charger-demo", async () => {
-    if (envUnipile().mode !== "simule") throw new EnvoiRefuse("Données de démonstration indisponibles : Unipile est branché.");
-    const r = await semerDemo(poolServeur());
-    return `${r.prospects} prospects fictifs chargés.`;
-  });
 }
 
 export async function actionMarquerLue(id: string): Promise<Retour> {
@@ -116,7 +107,7 @@ export async function actionInviterProspect(entree: unknown): Promise<Retour> {
 export type DonneesFiche = {
   fiche: FicheProspect;
   libelleEtape: string;
-  conversation: { id: string | null; demo: boolean; messages: MessageFil[] } | null;
+  conversation: { id: string | null; messages: MessageFil[] } | null;
 };
 
 /**

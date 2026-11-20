@@ -30,7 +30,7 @@ export function InvitationProspect({ fiche, prenom, modeSimule }: { fiche: Fiche
   const cle = useRef<string | null>(null);
 
   const { enFile, notesRestantes, plafondNotes } = fiche.invitation;
-  const bloque = modeSimule && !fiche.demo ? "Unipile n'est pas encore branché : seules les données de démonstration peuvent être invitées" : null;
+  const bloque = modeSimule ? "Unipile n'est pas branché : aucune action LinkedIn ne peut partir" : null;
   const notesEpuisees = notesRestantes !== null && notesRestantes <= 0;
 
   useEffect(() => {

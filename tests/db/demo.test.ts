@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
-import { DemoDejaChargee, PROSPECTS_DEMO, purgerDemo, semerDemo } from "@/server/demo";
+import { DemoDejaChargee, PROSPECTS_DEMO, purgerDemo, semerDemo } from "../fixtures/demo";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur } from "@/server/unipile/executeur";
-import { creerClientSimule } from "@/server/unipile/simule";
+import { creerClientSimule } from "../fixtures/client-simule";
 
 // Jeudi 5 novembre 2026, 10h00 à Paris.
 const JEUDI_10H = new Date("2026-11-05T09:00:00Z");
@@ -33,7 +33,6 @@ describe.skipIf(!TEST_DATABASE_URL)("données de démonstration", () => {
       appliquerEffets: appliquerEffetsUnipile,
       maintenant: () => new Date(JEUDI_10H.getTime() + minutes * 60_000),
       aleatoire: () => 0,
-      seulementDemo: true,
     });
 
   it("charge les prospects fictifs, une seule fois", async () => {
@@ -43,19 +42,6 @@ describe.skipIf(!TEST_DATABASE_URL)("données de démonstration", () => {
     expect(n.rows[0].n).toBe(PROSPECTS_DEMO.length);
     // Les tâches de démo partent tout de suite.
     await db.pool.query("update public.taches set executer_apres = '2026-11-01' where statut = 'en_attente'");
-  });
-
-  it("en mode simulé, un vrai prospect n'est jamais traité (pas de faux identifiant)", async () => {
-    for (let i = 0; i < 6; i++) await tour(i * 10);
-    const reel = await db.pool.query("select provider_id from public.prospects where id = $1", [reelId]);
-    expect(reel.rows[0].provider_id).toBeNull();
-    const t = await db.pool.query("select statut from public.taches where cle_idempotence = 'reel'");
-    expect(t.rows[0].statut).toBe("en_attente");
-    // Les lectures de démo, elles, sont passées.
-    const lues = await db.pool.query(
-      "select count(*)::int as n from public.taches t join public.prospects p on p.id = t.prospect_id where p.demo and t.type_action = 'lecture_profil' and t.statut = 'faite'",
-    );
-    expect(lues.rows[0].n).toBe(3);
   });
 
   it("la synchronisation simulée fait accepter deux invitations", async () => {

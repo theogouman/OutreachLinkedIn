@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { asUser, createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
-import { CONVERSATIONS_DEMO, CONVERSATIONS_HORS_CRM_DEMO, purgerDemo, semerDemo } from "@/server/demo";
+import { CONVERSATIONS_DEMO, CONVERSATIONS_HORS_CRM_DEMO, purgerDemo, semerDemo } from "../fixtures/demo";
 import { filDepuis, inboxDepuis } from "@/server/donnees";
 import { marquerLue } from "@/server/mutations";
 

@@ -68,7 +68,7 @@ export function ModaleFiche({
   fiche: FicheProspect;
   libelleEtape: string;
   /** Fil du prospect : conversation existante (id), ou premiers messages encore en file (id null). */
-  conversation: { id: string | null; demo: boolean; messages: MessageFil[] } | null;
+  conversation: { id: string | null; messages: MessageFil[] } | null;
   /** Messages encore possibles aujourd'hui (quota du jour). */
   restants: number;
   modeSimule: boolean;
@@ -597,7 +597,7 @@ function OngletConversation({
 }: {
   fiche: FicheProspect;
   nom: string;
-  conversation: { id: string | null; demo: boolean; messages: MessageFil[] } | null;
+  conversation: { id: string | null; messages: MessageFil[] } | null;
   restants: number;
   modeSimule: boolean;
 }) {
@@ -606,8 +606,7 @@ function OngletConversation({
   const messages = conversation?.messages ?? [];
   // Écrire est possible dans une conversation existante, ou pour démarrer avec une relation de 1er degré.
   const peutEcrire = !!existante || fiche.statutRelation === "en_relation";
-  const bloque =
-    modeSimule && !conversation?.demo ? "Unipile n'est pas encore branché : aucun message ne peut partir vers un vrai prospect" : undefined;
+  const bloque = modeSimule ? "Unipile n'est pas branché : aucune action LinkedIn ne peut partir" : undefined;
 
   if (!peutEcrire) {
     return <PasEnRelation statut={fiche.statutRelation} prenom={prenom} />;

@@ -3,7 +3,7 @@ import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { completerConversations } from "@/server/completion-conversations";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur } from "@/server/unipile/executeur";
-import { creerClientSimule } from "@/server/unipile/simule";
+import { creerClientSimule } from "../fixtures/client-simule";
 import type { ClientLinkedIn, ProfilLu } from "@/server/unipile/types";
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 7]);

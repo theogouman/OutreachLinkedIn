@@ -8,7 +8,7 @@
  *   2. l'action serveur est appelée (immédiatement pour un choix ou une date, 200 ms après la
  *      dernière frappe pour un texte) et sa réponse remplace la liste, exacte sur toute la base ;
  *   3. une réponse arrivée après une demande plus récente est ignorée.
- * Changer un filtre ramène à la page 1. Si le serveur rafraîchit la page (import, démo…), la
+ * Changer un filtre ramène à la page 1. Si le serveur rafraîchit la page (import, action…), la
  * liste est rechargée avec les filtres en cours.
  */
 
@@ -62,7 +62,7 @@ export function useListeFiltree<L, F extends { page: number }>({
     [charger],
   );
 
-  // Les données de départ changent quand le serveur rafraîchit la page (import, démo, action) :
+  // Les données de départ changent quand le serveur rafraîchit la page (import, action) :
   // on recharge avec les filtres en cours pour ne pas afficher une liste périmée.
   // Comparées par contenu (total et identifiants), pas par identité d'objet.
   const signature = `${initial.total}:${initial.lignes.map((x) => (x as { id?: string }).id ?? "").join(",")}`;

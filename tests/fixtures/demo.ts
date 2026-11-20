@@ -1,9 +1,10 @@
 import type { Pool, PoolClient } from "pg";
 
 /**
- * Données de démonstration (personnes et entreprises fictives). Marquées `demo` :
- * le client Unipile simulé ne traite qu'elles, et purgerDemo() les efface toutes,
- * historique et compteurs de quotas compris, avant le passage en réel.
+ * Jeu de données de test (personnes et entreprises fictives, marquées `demo`), avec son
+ * client LinkedIn simulé (./client-simule.ts). Plus utilisé par l'application depuis le
+ * passage aux données réelles (2026-11-20) : semerDemo() remplit une base de test,
+ * purgerDemo() l'efface, historique et compteurs de quotas compris.
  */
 
 type Etat = {

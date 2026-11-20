@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
-import { creerClientSimule } from "@/server/unipile/simule";
+import { creerClientSimule } from "../fixtures/client-simule";
 import { EnvoiRefuse, mettreMessageEnFile } from "@/server/mutations";
 import { filDepuis } from "@/server/donnees";
 
@@ -42,13 +42,12 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
       appliquerEffets: appliquerEffetsUnipile,
       maintenant: () => JEUDI_10H,
       aleatoire: () => 0,
-      seulementDemo: true,
     });
 
   it("met le message en file une seule fois, même si l'envoi est cliqué deux fois", async () => {
     const cle = randomUUID();
-    const a = await mettreMessageEnFile(db.pool, { conversationId: convDemo, texte: "  Bonjour Camille  ", cle }, { modeSimule: true });
-    const b = await mettreMessageEnFile(db.pool, { conversationId: convDemo, texte: "Bonjour Camille", cle }, { modeSimule: true });
+    const a = await mettreMessageEnFile(db.pool, { conversationId: convDemo, texte: "  Bonjour Camille  ", cle }, { modeSimule: false });
+    const b = await mettreMessageEnFile(db.pool, { conversationId: convDemo, texte: "Bonjour Camille", cle }, { modeSimule: false });
     expect(b.tacheId).toBe(a.tacheId);
     const t = await db.pool.query("select type_action, payload, prospect_id is not null as avec_prospect from public.taches");
     expect(t.rowCount).toBe(1);
@@ -58,23 +57,25 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
 
   it("refuse un texte vide, trop long, ou une conversation inconnue", async () => {
     const base = { conversationId: convDemo, cle: randomUUID() };
-    await expect(mettreMessageEnFile(db.pool, { ...base, texte: "   " }, { modeSimule: true })).rejects.toThrow();
-    await expect(mettreMessageEnFile(db.pool, { ...base, texte: "x".repeat(8001) }, { modeSimule: true })).rejects.toThrow();
-    await expect(mettreMessageEnFile(db.pool, { ...base, conversationId: "pas-un-uuid", texte: "ok" }, { modeSimule: true })).rejects.toThrow();
-    await expect(mettreMessageEnFile(db.pool, { ...base, conversationId: randomUUID(), texte: "ok" }, { modeSimule: true })).rejects.toThrow(EnvoiRefuse);
+    await expect(mettreMessageEnFile(db.pool, { ...base, texte: "   " }, { modeSimule: false })).rejects.toThrow();
+    await expect(mettreMessageEnFile(db.pool, { ...base, texte: "x".repeat(8001) }, { modeSimule: false })).rejects.toThrow();
+    await expect(mettreMessageEnFile(db.pool, { ...base, conversationId: "pas-un-uuid", texte: "ok" }, { modeSimule: false })).rejects.toThrow();
+    await expect(mettreMessageEnFile(db.pool, { ...base, conversationId: randomUUID(), texte: "ok" }, { modeSimule: false })).rejects.toThrow(EnvoiRefuse);
   });
 
-  it("tant qu'Unipile n'est pas branché, une vraie conversation ne reçoit rien", async () => {
-    await expect(
-      mettreMessageEnFile(db.pool, { conversationId: convReelle, texte: "Bonjour", cle: randomUUID() }, { modeSimule: true }),
-    ).rejects.toThrow(EnvoiRefuse);
+  it("tant qu'Unipile n'est pas branché, aucune conversation ne reçoit rien, même fictive", async () => {
+    for (const conversationId of [convReelle, convDemo]) {
+      await expect(mettreMessageEnFile(db.pool, { conversationId, texte: "Bonjour", cle: randomUUID() }, { modeSimule: true })).rejects.toThrow(
+        /pas branché/,
+      );
+    }
     // Branché (mode réel), la même demande est acceptée et attend son tour dans la file.
     const r = await mettreMessageEnFile(db.pool, { conversationId: convReelle, texte: "Bonjour", cle: randomUUID() }, { modeSimule: false });
     expect(r.tacheId).toBeTruthy();
   });
 
   it("le moteur envoie le message : il apparaît dans le fil, d'abord en file puis envoyé", async () => {
-    await mettreMessageEnFile(db.pool, { conversationId: convDemo, texte: "Bonjour Camille", cle: randomUUID() }, { modeSimule: true });
+    await mettreMessageEnFile(db.pool, { conversationId: convDemo, texte: "Bonjour Camille", cle: randomUUID() }, { modeSimule: false });
     // Le test simule un jeudi passé : la tâche doit être exécutable à cette date.
     await db.pool.query("update public.taches set executer_apres = '2026-11-01'");
     const avant = await filDepuis(db.pool, { conversationId: convDemo });
@@ -111,7 +112,7 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
       );
       return r.rows[0].id as string;
     }
-    const envoyer = (prospectId: string, modeSimule = true) =>
+    const envoyer = (prospectId: string, modeSimule = false) =>
       mettreMessageEnFile(db.pool, { prospectId, texte: "Bonjour Léa", cle: randomUUID() }, { modeSimule });
 
     it("refuse d'écrire à quelqu'un qui n'est pas une relation de 1er degré", async () => {
@@ -121,14 +122,15 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
       expect((await db.pool.query("select count(*)::int n from public.taches")).rows[0].n).toBe(0);
     });
 
-    it("tant qu'Unipile n'est pas branché, un vrai prospect ne reçoit rien", async () => {
-      await expect(envoyer(await prospect("en_relation", { demo: false }))).rejects.toThrow(EnvoiRefuse);
+    it("tant qu'Unipile n'est pas branché, aucun prospect ne reçoit rien, même fictif", async () => {
+      await expect(envoyer(await prospect("en_relation", { demo: false }), true)).rejects.toThrow(/pas branché/);
+      await expect(envoyer(await prospect("en_relation"), true)).rejects.toThrow(/pas branché/);
     });
 
     it("refuse un prospect inconnu, ou une demande qui vise à la fois conversation et prospect", async () => {
       await expect(envoyer(randomUUID())).rejects.toThrow(EnvoiRefuse);
       await expect(
-        mettreMessageEnFile(db.pool, { prospectId: randomUUID(), conversationId: convDemo, texte: "x", cle: randomUUID() }, { modeSimule: true }),
+        mettreMessageEnFile(db.pool, { prospectId: randomUUID(), conversationId: convDemo, texte: "x", cle: randomUUID() }, { modeSimule: false }),
       ).rejects.toThrow();
     });
 
@@ -197,7 +199,7 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
         "insert into public.messages (conversation_id, sens, texte, envoye_at) values ($1, 'sortant', 'Ancien message', '2026-10-29')",
         [arch.rows[0].id],
       );
-      const r = await mettreMessageEnFile(db.pool, { conversationId: arch.rows[0].id, texte: "Relance", cle: randomUUID() }, { modeSimule: true });
+      const r = await mettreMessageEnFile(db.pool, { conversationId: arch.rows[0].id, texte: "Relance", cle: randomUUID() }, { modeSimule: false });
       const t = await db.pool.query("select payload from public.taches where id = $1", [r.tacheId]);
       expect(t.rows[0].payload).toEqual({ prospect_id: id, texte: "Relance" });
       await db.pool.query("update public.taches set executer_apres = '2026-11-01'");
@@ -210,7 +212,7 @@ describe.skipIf(!TEST_DATABASE_URL)("rédaction et envoi de messages par la file
     it("conversation de l'archive sans prospect : réponse refusée (à faire depuis LinkedIn)", async () => {
       const arch = await db.pool.query("insert into public.conversations (linkedin_conversation_id, demo) values ('2-hors-crm', true) returning id");
       await expect(
-        mettreMessageEnFile(db.pool, { conversationId: arch.rows[0].id, texte: "x", cle: randomUUID() }, { modeSimule: true }),
+        mettreMessageEnFile(db.pool, { conversationId: arch.rows[0].id, texte: "x", cle: randomUUID() }, { modeSimule: false }),
       ).rejects.toThrow(/LinkedIn/);
     });
 

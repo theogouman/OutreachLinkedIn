@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur } from "@/server/unipile/executeur";
-import { creerClientSimule, idSimule } from "@/server/unipile/simule";
+import { creerClientSimule, idSimule } from "../fixtures/client-simule";
 import type { ClientLinkedIn } from "@/server/unipile/types";
 
 const JEUDI_10H = new Date("2026-11-05T09:00:00Z");

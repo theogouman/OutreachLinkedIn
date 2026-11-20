@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { inboxDepuis, prospectsDepuis } from "@/server/donnees";
-import { semerDemo } from "@/server/demo";
+import { semerDemo } from "../fixtures/demo";
 import { FILTRES_INBOX, type FiltresInbox } from "@/lib/filtres/inbox";
 import { appliquerLocalement } from "@/lib/filtres/definition";
 import { FILTRES_PROSPECTS, type FiltresProspects } from "@/lib/filtres/prospects";

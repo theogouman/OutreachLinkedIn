@@ -1,11 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { ACCEPTEES_DEMO, PROSPECTS_DEMO, providerDemo } from "@/server/demo";
-import type { ClientLinkedIn, PersonneListee, ProfilLu } from "./types";
+import { ACCEPTEES_DEMO, PROSPECTS_DEMO, providerDemo } from "./demo";
+import type { ClientLinkedIn, PersonneListee, ProfilLu } from "@/server/unipile/types";
 
 /**
- * Client simulé : aucun appel réseau. Utilisé tant que le compte Unipile n'est
- * pas branché, en preview et dans les tests. Réponses déterministes, alignées
- * sur les données de démonstration (src/server/demo.ts).
+ * Client LinkedIn simulé, pour les tests uniquement : aucun appel réseau, réponses
+ * déterministes alignées sur les données de démonstration (tests/fixtures/demo.ts).
  */
 export function idSimule(identifiant: string): string {
   if (identifiant.startsWith("demo-")) return providerDemo(identifiant);

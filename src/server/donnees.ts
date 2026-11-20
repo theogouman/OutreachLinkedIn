@@ -37,7 +37,6 @@ export interface EtatOutil {
   incertaines: number;
   etatFile: "en_cours" | "en_pause" | "gele";
   modeSimule: boolean;
-  prospectsDemo: number;
   nonLus: number;
 }
 
@@ -46,7 +45,6 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
   const f = await pool.query(
     `select count(*) filter (where statut = 'en_attente')::int as en_attente,
             count(*) filter (where statut = 'incertaine')::int as incertaines,
-            (select count(*) from public.prospects where demo)::int as demo,
             (select count(*) from public.conversations where non_lu)::int as non_lus
        from public.taches`,
   );
@@ -68,7 +66,6 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
     incertaines: f.rows[0].incertaines,
     etatFile: ctx.reglages.arretDurgence ? "en_pause" : unGel ? "gele" : "en_cours",
     modeSimule: envUnipile().mode === "simule",
-    prospectsDemo: f.rows[0].demo,
     nonLus: f.rows[0].non_lus,
   };
 }
@@ -190,7 +187,6 @@ export interface FicheProspect extends LigneProspect {
   historique: EvenementHistorique[];
   /** Profil LinkedIn issu d'un enrichissement externe, revalidé (src/lib/profil-linkedin.ts). */
   profil: ProfilLinkedIn | null;
-  demo: boolean;
   /** Invitation depuis la fiche : déjà en file ?, notes encore possibles ce mois-ci (null : sans plafond). */
   invitation: { enFile: boolean; notesRestantes: number | null; plafondNotes: number | null };
 }
@@ -199,7 +195,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
   const parse = z.uuid().safeParse(id);
   if (!parse.success) return null;
   const p = await pool.query(
-    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj, demo,
+    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie,
             exists (select 1 from public.taches t where t.prospect_id = prospects.id and t.type_action = 'invitation'
                      and t.statut in ('en_attente', 'en_cours', 'incertaine')) as invitation_en_file
@@ -224,7 +220,6 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
   const x = p.rows[0];
   return {
     profil: profilAffichable(profil.rows[0] ?? null),
-    demo: x.demo,
     invitation: { enFile: x.invitation_en_file, notesRestantes: notes.restantes, plafondNotes: notes.plafond },
     id: x.id,
     prenom: x.prenom,
@@ -414,7 +409,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
   const prospect = z.uuid().safeParse(cle.prospectId);
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
-    `select c.id, c.prospect_id, c.non_lu, c.demo, p.photo_maj, c.photo_maj as photo_conv_maj, c.interlocuteur_public_identifier,
+    `select c.id, c.prospect_id, c.non_lu, p.photo_maj, c.photo_maj as photo_conv_maj, c.interlocuteur_public_identifier,
             coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
             coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
@@ -429,7 +424,6 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     nom: string;
     sousTitre: string | null;
     nonLu: boolean;
-    demo: boolean;
     photo: string | null;
     /** Interlocuteur hors CRM : lien LinkedIn reconstruit depuis son identifiant public (carte d'infos). */
     lienLinkedIn: string | null;
@@ -441,21 +435,20 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
       nom: x.nom,
       sousTitre: x.sous_titre,
       nonLu: x.non_lu,
-      demo: x.demo,
       photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
       lienLinkedIn: x.prospect_id ? null : lienProfilLinkedIn(x.interlocuteur_public_identifier ? `https://www.linkedin.com/in/${x.interlocuteur_public_identifier}` : null),
     };
   } else {
     if (!prospect.success) return null;
     const p = await pool.query(
-      `select id, demo, photo_maj, coalesce(nullif(concat_ws(' ', prenom, nom), ''), 'Prospect') as nom,
+      `select id, photo_maj, coalesce(nullif(concat_ws(' ', prenom, nom), ''), 'Prospect') as nom,
               nullif(concat_ws(' · ', poste, entreprise), '') as sous_titre
          from public.prospects where id = $1`,
       [prospect.data],
     );
     if (!p.rowCount) return null;
     const y = p.rows[0];
-    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, demo: y.demo, photo: adressePhoto(y.id, y.photo_maj), lienLinkedIn: null };
+    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, photo: adressePhoto(y.id, y.photo_maj), lienLinkedIn: null };
   }
   const m = entete.id
     ? await pool.query(

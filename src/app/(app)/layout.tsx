@@ -107,7 +107,7 @@ async function Actions() {
                 className="rounded-full bg-amber-50 dark:bg-amber-400/15 px-2.5 py-1 caption-4 text-amber-800 dark:text-amber-300 ring-1 ring-inset ring-amber-200 dark:ring-amber-400/30"
                 title="Aucune action n'est envoyée à LinkedIn tant qu'Unipile n'est pas branché."
               >
-                Mode démo
+                Unipile non branché
               </span>
             ) : (
               <span />

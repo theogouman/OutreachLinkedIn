@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { etatOutil, ficheProspect, fil, prospects, referentiels, TAILLE_PAGE, vues } from "@/server/donnees";
 import { filtresProspectsDepuisUrl } from "@/lib/filtres/prospects";
-import { BoutonDemo } from "@/components/bouton-demo";
 import { EnTetePage, EtatVide, SqueletteLignes } from "@/components/interface/elements";
 import { IconeProspects } from "@/components/icones";
 import { ModaleFiche } from "./fiche";
@@ -65,16 +64,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
           <EtatVide
             icone={<IconeProspects taille={20} />}
             titre="Aucun prospect pour l'instant"
-            texte={
-              etat.modeSimule
-                ? "Demande à Claude d'importer une liste, ou charge des prospects fictifs pour essayer l'outil avant de brancher Unipile"
-                : "Demande à Claude d'importer une liste pour commencer"
-            }
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                {etat.modeSimule && etat.prospectsDemo === 0 && <BoutonDemo />}
-              </div>
-            }
+            texte="Demande à Claude d'importer une liste pour commencer"
           />
         }
       />

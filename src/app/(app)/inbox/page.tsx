@@ -123,7 +123,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                 cible={{ conversationId: ouvert.id }}
                 destinataire={ouvert.nom}
                 restants={restants}
-                bloque={etat.modeSimule && !ouvert.demo ? "Unipile n'est pas encore branché : seules les conversations de démonstration peuvent recevoir un message" : undefined}
+                bloque={etat.modeSimule ? "Unipile n'est pas branché : aucune action LinkedIn ne peut partir" : undefined}
               />
             </footer>
           </>

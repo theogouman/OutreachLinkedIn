@@ -4,7 +4,7 @@ import { synchroniserEtapes } from "@/server/etapes";
 import { enregistrerMessageRecu } from "@/server/conversations";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
-import { creerClientSimule } from "@/server/unipile/simule";
+import { creerClientSimule } from "../fixtures/client-simule";
 import { mettreMessageEnFile } from "@/server/mutations";
 import { randomUUID } from "node:crypto";
 
@@ -92,7 +92,7 @@ describe.skipIf(!TEST_DATABASE_URL)("étape synchronisée avec les faits (relati
   it("premier message envoyé depuis l'outil : « À contacter » → « Premier message »", async () => {
     const id = await prospect("demo-cam", "en_relation", "connecte", true);
     await db.pool.query("insert into public.conversations (unipile_chat_id, prospect_id, demo) values ('demo-chat-cam', $1, true)", [id]);
-    await mettreMessageEnFile(db.pool, { prospectId: id, texte: "Bonjour", cle: randomUUID() }, { modeSimule: true });
+    await mettreMessageEnFile(db.pool, { prospectId: id, texte: "Bonjour", cle: randomUUID() }, { modeSimule: false });
     await db.pool.query("update public.taches set executer_apres = '2026-11-01'");
     const bilan = await executerUnTour({
       pool: db.pool,
@@ -100,7 +100,6 @@ describe.skipIf(!TEST_DATABASE_URL)("étape synchronisée avec les faits (relati
       appliquerEffets: appliquerEffetsUnipile,
       maintenant: () => new Date("2026-11-05T09:00:00Z"),
       aleatoire: () => 0,
-      seulementDemo: true,
     });
     expect(bilan).toMatchObject({ resultat: "succes" });
     expect(await etape(id)).toBe("premier_message");

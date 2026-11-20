@@ -180,6 +180,9 @@ export const messageSchema = z
   })
   .refine((m) => !!m.conversationId !== !!m.prospectId, "Une conversation ou un prospect, pas les deux");
 
+/** Mode simulé (UNIPILE_MODE=simule) : aucune action LinkedIn n'est mise en file. */
+export const REFUS_NON_BRANCHE = "Unipile n'est pas branché : aucune action LinkedIn ne peut être mise en file.";
+
 export const REFUS_PAS_EN_RELATION =
   "Pas encore en relation de 1er degré : LinkedIn bloquerait ce message. Il pourra être écrit une fois l'invitation acceptée.";
 
@@ -201,21 +204,21 @@ async function insererTacheMessage(pool: Pool, prospectId: string | null, payloa
  * - Conversation existante : message dans cette conversation.
  * - Prospect sans conversation : premier message (message normal, jamais d'InMail), accepté
  *   seulement pour une relation de 1er degré ; la relation est revérifiée à l'envoi.
- * Tant qu'Unipile n'est pas branché, seules les données de démonstration sont acceptées.
+ * Tant qu'Unipile n'est pas branché (mode simulé), rien n'est accepté.
  */
 export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { modeSimule: boolean }) {
   const m = messageSchema.parse(entree);
-  const horsDemo = "Unipile n'est pas encore branché : seules les données de démonstration peuvent recevoir un message.";
+  if (opts.modeSimule) throw new EnvoiRefuse(REFUS_NON_BRANCHE);
 
-  let conv: { id: string; unipile_chat_id: string | null; prospect_id: string | null; demo: boolean } | null = null;
+  let conv: { id: string; unipile_chat_id: string | null; prospect_id: string | null } | null = null;
   if (m.conversationId) {
-    const r = await pool.query("select id, unipile_chat_id, prospect_id, demo from public.conversations where id = $1", [m.conversationId]);
+    const r = await pool.query("select id, unipile_chat_id, prospect_id from public.conversations where id = $1", [m.conversationId]);
     if (!r.rowCount) throw new EnvoiRefuse("Conversation introuvable.");
     conv = r.rows[0];
   } else {
     // Conversation déjà ouverte avec ce prospect : on y écrit.
     const r = await pool.query(
-      `select id, unipile_chat_id, prospect_id, demo from public.conversations
+      `select id, unipile_chat_id, prospect_id from public.conversations
         where prospect_id = $1 order by dernier_message_at desc nulls last limit 1`,
       [m.prospectId],
     );
@@ -223,7 +226,6 @@ export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { m
   }
 
   if (conv?.unipile_chat_id) {
-    if (opts.modeSimule && !conv.demo) throw new EnvoiRefuse(horsDemo);
     return insererTacheMessage(pool, conv.prospect_id, { conversation_id: conv.id, chat_id: conv.unipile_chat_id, texte: m.texte }, m.cle);
   }
 
@@ -231,10 +233,9 @@ export async function mettreMessageEnFile(pool: Pool, entree: unknown, opts: { m
   // le message passe par le démarrage de conversation, qui exige une relation de 1er degré.
   const prospectId = m.prospectId ?? conv?.prospect_id ?? null;
   if (!prospectId) throw new EnvoiRefuse("Cette conversation n'est pas encore reliée à LinkedIn : réponds-y depuis LinkedIn pour l'instant.");
-  const p = await pool.query("select statut_relation, demo from public.prospects where id = $1", [prospectId]);
+  const p = await pool.query("select statut_relation from public.prospects where id = $1", [prospectId]);
   if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
   if (p.rows[0].statut_relation !== "en_relation") throw new EnvoiRefuse(REFUS_PAS_EN_RELATION);
-  if (opts.modeSimule && !p.rows[0].demo) throw new EnvoiRefuse(horsDemo);
   return insererTacheMessage(pool, prospectId, { prospect_id: prospectId, texte: m.texte }, m.cle);
 }
 
@@ -285,11 +286,12 @@ export async function notesInvitationRestantes(c: Pool | PoolClient, maintenant 
  * Met une invitation en file depuis la fiche : seulement pour un prospect « à inviter », une seule
  * à la fois. Sans identifiant LinkedIn connu, une lecture du profil passe avant (ordre strict par
  * prospect) ; elle peut révéler une relation existante, et l'invitation est alors abandonnée à l'envoi.
- * Le statut est revérifié par l'exécuteur juste avant l'appel. Tant qu'Unipile n'est pas branché,
- * seules les données de démonstration sont acceptées.
+ * Le statut est revérifié par l'exécuteur juste avant l'appel. Tant qu'Unipile n'est pas branché
+ * (mode simulé), rien n'est accepté.
  */
 export async function mettreInvitationEnFile(pool: Pool, entree: unknown, opts: { modeSimule: boolean; maintenant?: Date }) {
   const m = invitationSchema.parse(entree);
+  if (opts.modeSimule) throw new EnvoiRefuse(REFUS_NON_BRANCHE);
   const cle = `invitation:${m.cle}`;
   const c = await pool.connect();
   try {
@@ -302,15 +304,12 @@ export async function mettreInvitationEnFile(pool: Pool, entree: unknown, opts: 
       return { tacheId: existante.rows[0].id as string, nouveau: false };
     }
     const p = await c.query(
-      "select statut_relation, demo, provider_id, public_identifier, linkedin_url from public.prospects where id = $1 for update",
+      "select statut_relation, provider_id, public_identifier, linkedin_url from public.prospects where id = $1 for update",
       [m.prospectId],
     );
     if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
     const x = p.rows[0];
     if (REFUS_STATUT[x.statut_relation]) throw new EnvoiRefuse(REFUS_STATUT[x.statut_relation]);
-    if (opts.modeSimule && !x.demo) {
-      throw new EnvoiRefuse("Unipile n'est pas encore branché : seules les données de démonstration peuvent être invitées.");
-    }
     const enFile = await c.query(
       "select 1 from public.taches where prospect_id = $1 and type_action = 'invitation' and statut in ('en_attente', 'en_cours', 'incertaine')",
       [m.prospectId],
