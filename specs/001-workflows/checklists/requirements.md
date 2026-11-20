@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — 3 restent (FR-013 cycles, FR-014 périmètre, FR-030 éditeur), en attente des réponses
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -34,3 +34,4 @@
 - Le nom du fournisseur LinkedIn (Unipile) apparaît dans le Contexte et les Assumptions comme une contrainte constatée (dépendance externe), pas comme un choix d'implémentation.
 - Pas de constitution Spec Kit dans le dépôt : les règles de `CLAUDE.md` (sécurité ASVS niveau 1, test qui échoue d'abord, tests des cas refusés) en tiennent lieu ; la rubrique sécurité est portée par FR-040 à FR-043.
 - Itération 1 de validation : un seul point ouvert, les 3 clarifications.
+- Itération 2 (2026-11-20) : clarifications intégrées (section Clarifications de la spec) ; tous les points passent.

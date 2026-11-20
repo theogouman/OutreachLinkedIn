@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-workflows`
 **Created**: 2026-11-20
-**Status**: Draft
+**Status**: Draft — clarifications intégrées le 2026-11-20
 **Input**: User description: « Une nouvelle page Workflow, dans la barre de navigation, qui héberge plusieurs automatisations régulières alimentant la file d'attente des actions exécutées automatiquement sur mon compte LinkedIn. Chaque automatisation est construite, brique par brique, dans un éditeur d'automatisation à partir de modules. Première automatisation : après un délai variable, si mon invitation est toujours en attente d'acceptation, la retirer, puis, en boucle, la renvoyer automatiquement trois semaines plus tard — LinkedIn interdit de retirer une invitation et de la renvoyer aussitôt, et je n'ai pas en tête la date d'envoi de chaque invitation. »
 
 ## Contexte (état constaté le 2026-11-20)
@@ -49,7 +49,9 @@ Je veux une page Workflow dans la barre de navigation qui liste mes automatisati
 
 ---
 
-### User Story 3 - Composer une automatisation à partir de modules (Priority: P3)
+### User Story 3 - Composer une automatisation à partir de modules (Priority: P3, reportée)
+
+> Reportée à une itération suivante (choix de l'utilisateur, 2026-11-20). Gardée ici pour que la P1 soit conçue de façon à pouvoir être reprise par l'éditeur (FR-030).
 
 Je veux construire une nouvelle automatisation dans un éditeur, en assemblant des modules (déclencheur, attente, condition, action LinkedIn, boucle), pour ajouter d'autres automatisations brique par brique sans attendre un développement dédié.
 
@@ -66,7 +68,9 @@ Je veux construire une nouvelle automatisation dans un éditeur, en assemblant d
 
 ### Edge Cases
 
-- Activation alors que de nombreuses invitations sont déjà éligibles (104 aujourd'hui) : les retraits sont étalés sur plusieurs jours sous un plafond quotidien, jamais tous le même jour.
+- Activation alors que de nombreuses invitations sont déjà éligibles (104 aujourd'hui) : les retraits sont étalés sur plusieurs jours sous un plafond quotidien, jamais tous le même jour (validé par l'utilisateur) ; les réinvitations correspondantes arrivent environ trois semaines plus tard, étalées de la même façon.
+- Réglage « sans limite » : la boucle continue tant que le prospect n'accepte pas ; chaque cycle reste espacé d'au moins le délai d'attente plus 21 jours.
+- Invitation manuelle demandée pendant le délai de réinvitation : refusée avec la date de déblocage (FR-027).
 - Invitation envoyée hors de l'outil (directement sur LinkedIn) : elle est prise en charge dès que la synchronisation des invitations a fourni son identifiant ; tant qu'il manque, elle est mise de côté avec un motif visible.
 - Invitation disparue de la liste LinkedIn sans acceptation (retirée à la main, expirée) : la boucle s'adapte au fait constaté (prochaine étape = réinvitation après le délai, calculé depuis la disparition constatée), sans retrait inutile.
 - Retrait refusé par LinkedIn ou par le fournisseur : l'étape n'est pas considérée comme faite ; nouvel essai plus tard, sans bloquer les autres prospects.
@@ -91,8 +95,8 @@ Je veux construire une nouvelle automatisation dans un éditeur, en assemblant d
 - **FR-010**: Le système MUST considérer comme éligible au retrait une invitation toujours en attente dont l'ancienneté dépasse un délai d'attente tiré au hasard, pour chaque invitation, dans une plage réglable (par défaut 21 à 28 jours).
 - **FR-011**: Le système MUST revérifier, juste avant l'exécution, que l'invitation est toujours en attente ; sinon le retrait n'est pas envoyé.
 - **FR-012**: Le système MUST mettre en file une nouvelle invitation à la même personne au plus tôt 21 jours après le retrait constaté, après un délai tiré au hasard dans une plage réglable dont le minimum ne peut pas descendre sous 21 jours (par défaut 21 à 25 jours).
-- **FR-013**: Le système MUST limiter le nombre de cycles retrait / réinvitation par prospect. [NEEDS CLARIFICATION: nombre maximal de cycles, et ce que devient le prospect ensuite]
-- **FR-014**: Le système MUST appliquer l'automatisation aux invitations en attente. [NEEDS CLARIFICATION: toutes, ou seulement certaines (par liste d'origine, par étape) ; invitations envoyées hors de l'outil comprises ou non]
+- **FR-013**: Le nombre de cycles retrait / réinvitation par prospect MUST être un réglage de l'automatisation : un nombre choisi (1, 2, 3…, borné par un maximum) ou « sans limite » (par défaut : 2). Le nombre atteint, la dernière invitation reste en attente, le prospect est mis de côté avec le motif « relances épuisées » et l'automatisation ne lui envoie plus rien.
+- **FR-014**: Le système MUST appliquer l'automatisation à toutes les invitations en attente adressées à des prospects présents dans le CRM, qu'elles aient été envoyées depuis l'outil ou directement sur LinkedIn ; une invitation en attente vers une personne absente du CRM n'est jamais touchée.
 - **FR-015**: Le système MUST renvoyer la réinvitation sans note par défaut, les notes étant limitées à quelques-unes par mois sur un compte gratuit.
 - **FR-016**: Le système MUST sortir un prospect de la boucle dès qu'il accepte, qu'il est supprimé, qu'il passe à une étape terminale ou qu'il envoie lui-même une invitation.
 
@@ -100,16 +104,17 @@ Je veux construire une nouvelle automatisation dans un éditeur, en assemblant d
 
 - **FR-020**: Toute action LinkedIn issue d'une automatisation MUST passer par la file d'attente, sous les mêmes quotas, plages horaires, délais entre actions, gels et arrêt d'urgence que les actions manuelles ; aucune exception.
 - **FR-021**: Les actions demandées par l'utilisateur MUST rester prioritaires sur celles des automatisations.
-- **FR-022**: Le retrait d'invitation MUST être une action LinkedIn à part entière : comptée, plafonnée par jour (plafond réglable, borné par un maximum), journalisée, annulable tant qu'elle n'est pas partie.
-- **FR-023**: Le système MUST plafonner le nombre d'actions qu'une automatisation peut mettre en file par jour, pour étaler l'effet d'une activation.
+- **FR-022**: Le retrait d'invitation MUST être une action LinkedIn à part entière, avec son propre quota (plafond quotidien réglable, borné par un maximum, par défaut 10), distinct du quota d'invitations : journalisée, annulable tant qu'elle n'est pas partie. Seules les automatisations retirent des invitations.
+- **FR-023**: Les réinvitations MUST consommer le même quota que les invitations manuelles (par jour et par semaine) ; le système MUST plafonner en plus, par automatisation et par jour, le nombre de réinvitations et de retraits qu'elle met en file (réglable, par défaut 10), pour étaler l'effet d'une activation et laisser une part du quota aux invitations manuelles.
+- **FR-027**: Pendant le délai de réinvitation d'un prospect (moins de 21 jours depuis le retrait), le système MUST refuser une invitation manuelle à ce prospect, avec la date à partir de laquelle elle sera possible.
 - **FR-024**: Chaque action d'une automatisation MUST être tracée (automatisation d'origine, étape, date, résultat) et visible dans l'historique de la fiche du prospect et dans la file d'attente.
 - **FR-025**: Une action d'automatisation MUST n'être jamais envoyée deux fois : une même étape pour un même prospect ne produit qu'une action, même si la décision est prise plusieurs fois.
 - **FR-026**: Mettre en pause ou désactiver une automatisation MUST arrêter toute nouvelle mise en file ; les actions déjà en file restent visibles et annulables.
 
 **Éditeur (P3)**
 
-- **FR-030**: Le système MUST permettre de composer une automatisation à partir d'un catalogue de modules (déclencheur, attente, condition, action, boucle). [NEEDS CLARIFICATION: éditeur visuel à blocs dès la première version, ou automatisations fournies et réglables d'abord, l'éditeur venant ensuite]
-- **FR-031**: Le système MUST refuser l'enregistrement d'un enchaînement invalide : boucle sans attente ou sans limite de cycles, action sans condition de sortie, délai sous le minimum imposé par LinkedIn.
+- **FR-030**: Dans cette itération, les automatisations sont fournies par l'outil et seulement réglables ; leur déroulé MUST toutefois être décrit comme un enchaînement de modules (déclencheur, attente, condition, action, boucle), pour pouvoir être repris tel quel par l'éditeur d'une itération suivante.
+- **FR-031** (itération suivante) : le système refusera l'enregistrement d'un enchaînement invalide : boucle sans attente, action sans condition de sortie, délai sous le minimum imposé par LinkedIn.
 
 **Sécurité (OWASP ASVS niveau 1)**
 
@@ -144,4 +149,15 @@ Je veux construire une nouvelle automatisation dans un éditeur, en assemblant d
 - Le retrait d'invitation passe par l'appel documenté du fournisseur (« Cancel a relation request ») ; ses refus ne sont pas documentés et seront classés comme ceux des invitations (refus propre à une personne : échec de la seule action ; autre refus : gel du type d'action).
 - Le fournisseur ne documente aucune limite propre aux retraits : un plafond quotidien prudent est imposé par défaut (ordre de grandeur : une dizaine par jour), à confirmer à l'usage.
 - Aucun signal n'arrive quand une invitation disparaît : l'état est constaté par la synchronisation des invitations envoyées, déjà quotidienne.
-- Hors périmètre de cette spécification : messages générés automatiquement, relances de messages, automatisations multi-comptes, déclencheurs externes (webhooks entrants autres que LinkedIn).
+- Hors périmètre de cette spécification : éditeur d'automatisations (P3, itération suivante), messages générés automatiquement, relances de messages, automatisations multi-comptes, déclencheurs externes (webhooks entrants autres que LinkedIn).
+- Les 226 invitations en attente concernent toutes des prospects dont l'identifiant LinkedIn est connu (vérifié le 2026-11-20) : le rattachement d'une invitation à son prospect est fiable.
+
+## Clarifications
+
+### Session 2026-11-20
+
+- Q: Combien de cycles retrait / réinvitation par prospect ? → A: un réglage : 1, 2, 3… ou sans limite (FR-013).
+- Q: Quelles invitations sont concernées ? → A: toutes celles adressées à des prospects du CRM, quelle que soit leur origine (FR-014).
+- Q: L'éditeur de modules dès la première version ? → A: plus tard ; automatisations fournies et réglables d'abord (FR-030, User Story 3 reportée).
+- Q: Activation sur les 104 invitations anciennes ? → A: étalées dans la file sous un plafond quotidien.
+- Q: Les invitations manuelles partagent-elles le quota de retrait ? → A: non : les retraits ont leur propre quota ; seules les réinvitations partagent le quota d'invitations (FR-022, FR-023).
