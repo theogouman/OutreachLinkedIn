@@ -1,21 +1,26 @@
 "use client";
 
 /*
- * Encadré extensible (page maître des Réglages). Fermé : une carte cliquable (icône, titre, résumé).
- * Ouvert : la même carte s'agrandit jusqu'à la hauteur du contenu.
+ * Encadré extensible (page maître des Réglages). Un seul en-tête, toujours présent : un bouton sur
+ * toute sa surface, qui ouvre ou referme l'encadré (Échap referme aussi). Fermé : icône, titre et
+ * résumé d'une ligne. Ouvert : un chevron « retour » se glisse à gauche, le résumé laisse place à la
+ * description, et le contenu apparaît dessous.
  *
- * Deux transitions Transitions.dev (valeurs d'origine, globals.css) :
- * - « Card resize » (.t-resize) : la hauteur de la carte passe de celle du résumé à celle du
- *   contenu, et inversement à la fermeture ;
- * - « Page side-by-side » (.t-page-slide) : le résumé sort vers la gauche en fondu et flou pendant
- *   que le contenu arrive de la droite ; l'inverse à la fermeture.
+ * Transitions Transitions.dev (valeurs d'origine, globals.css) :
+ * - « Card resize » (.t-resize) : la hauteur de la carte suit son contenu (mesurée en continu) ;
+ *   le chevron s'ouvre en largeur avec la même durée et la même courbe (.reglage-retour), si bien
+ *   que l'icône et le titre glissent au lieu de sauter ;
+ * - « Page side-by-side » (.t-page-slide) : le résumé sort vers la gauche et la description arrive
+ *   de la droite, en fondu et flou ; le contenu arrive de la droite de la même façon.
  *
- * Les deux « pages » restent dans le DOM (hauteurs mesurées d'avance) ; celle qui n'est pas affichée
- * est `inert` (ni focus, ni clic, ni lecteur d'écran). La page affichée reste dans le flux, l'autre
- * est posée par-dessus (absolue) le temps de sortir. Mouvement réduit : bascule sans animation.
+ * L'élément affiché reste dans le flux, l'autre est posé par-dessus (absolu) le temps de sortir.
+ * Le contenu fermé est `inert` (ni focus, ni clic, ni lecteur d'écran). Mouvement réduit : bascule
+ * sans animation.
  */
 
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+
+const EN_FLUX = { position: "relative" } as const;
 
 export function ReglageExtensible({
   id,
@@ -43,38 +48,27 @@ export function ReglageExtensible({
   children: ReactNode;
 }) {
   const carte = useRef<HTMLElement>(null);
-  const pageResume = useRef<HTMLDivElement>(null);
-  const pageContenu = useRef<HTMLDivElement>(null);
-  const boutonOuvrir = useRef<HTMLButtonElement>(null);
-  const boutonFermer = useRef<HTMLButtonElement>(null);
-  const [hauteurs, setHauteurs] = useState<{ resume: number; contenu: number } | null>(null);
-  // Focus déplacé seulement après une action de l'utilisateur (pas au premier affichage).
-  const interaction = useRef(false);
+  const interieur = useRef<HTMLDivElement>(null);
+  const [hauteur, setHauteur] = useState<number | null>(null);
+  // Fermeture demandée par l'utilisateur : la carte est ramenée en vue si elle a défilé hors de l'écran.
+  const fermeture = useRef(false);
   const titreId = useId();
-  const contenuId = useId();
+  const corpsId = useId();
 
-  // Hauteur de chaque page, suivie (largeur de l'écran, file qui se vide, formulaire qui s'allonge).
+  // Hauteur réelle du contenu, suivie (ouverture, largeur de l'écran, file qui se vide…).
   useLayoutEffect(() => {
-    const r = pageResume.current;
-    const c = pageContenu.current;
-    if (!r || !c) return;
-    const mesurer = () => setHauteurs({ resume: r.offsetHeight, contenu: c.offsetHeight });
+    const el = interieur.current;
+    if (!el) return;
+    const mesurer = () => setHauteur(el.offsetHeight);
     mesurer();
     const obs = new ResizeObserver(mesurer);
-    obs.observe(r);
-    obs.observe(c);
+    obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   useLayoutEffect(() => {
-    if (!interaction.current) return;
-    interaction.current = false;
-    if (ouvert) {
-      boutonFermer.current?.focus({ preventScroll: true });
-      return;
-    }
-    boutonOuvrir.current?.focus({ preventScroll: true });
-    // Carte refermée au-dessus du haut de l'écran (contenu long) : on la ramène en vue.
+    if (ouvert || !fermeture.current) return;
+    fermeture.current = false;
     const haut = carte.current?.getBoundingClientRect().top ?? 0;
     if (haut < 0) {
       const reduit = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -82,17 +76,10 @@ export function ReglageExtensible({
     }
   }, [ouvert]);
 
-  const ouvrir = () => {
-    interaction.current = true;
-    onOuvrir();
-  };
   const fermer = () => {
-    interaction.current = true;
+    fermeture.current = true;
     onFermer();
   };
-
-  // Page affichée dans le flux ; l'autre en absolu, par-dessus, le temps de sa sortie.
-  const enFlux = { position: "relative" } as const;
 
   return (
     <section
@@ -100,7 +87,7 @@ export function ReglageExtensible({
       id={`reglage-${id}`}
       aria-labelledby={titreId}
       className="carte t-resize scroll-mt-4 overflow-hidden md:scroll-mt-28"
-      style={{ height: hauteurs ? (ouvert ? hauteurs.contenu : hauteurs.resume) : undefined }}
+      style={{ height: hauteur ?? undefined }}
       onKeyDown={(e) => {
         if (e.key === "Escape" && ouvert) {
           e.stopPropagation();
@@ -108,68 +95,65 @@ export function ReglageExtensible({
         }
       }}
     >
-      <div className="t-page-slide">
-        <div ref={pageResume} className="t-page" data-position={ouvert ? "avant" : "actif"} inert={ouvert} style={ouvert ? undefined : enFlux}>
-          <button
-            ref={boutonOuvrir}
-            type="button"
-            aria-expanded={ouvert}
-            aria-controls={contenuId}
-            onClick={ouvrir}
-            className="group flex w-full items-center gap-3 px-5 py-4 text-left outline-none transition-colors duration-150 hover:bg-encre/[0.025] focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] sm:px-6 sm:py-5"
-          >
-            <Pastille>{icone}</Pastille>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span id={titreId} className="title-3 text-encre">
-                {titre}
-              </span>
-              <span className={`truncate caption-5 ${alerte ? "text-amber-800 dark:text-amber-300" : "text-encre-3"}`}>{resume}</span>
+      <div ref={interieur}>
+        <button
+          type="button"
+          aria-expanded={ouvert}
+          aria-controls={corpsId}
+          onClick={ouvert ? fermer : onOuvrir}
+          data-ouvert={ouvert}
+          className="reglage-entete group flex w-full items-start px-5 py-4 text-left outline-none transition-colors duration-150 hover:bg-encre/[0.025] focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] sm:px-6 sm:py-5"
+        >
+          <span className="reglage-retour text-encre-2" aria-hidden>
+            <svg viewBox="0 0 256 256" className="size-[18px] shrink-0" fill="currentColor">
+              <path d="M165.66 202.34a8 8 0 0 1-11.32 11.32l-80-80a8 8 0 0 1 0-11.32l80-80a8 8 0 0 1 11.32 11.32L91.31 128Z" />
+            </svg>
+          </span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-creux text-encre-2 ring-1 ring-trait" aria-hidden>
+            {icone}
+          </span>
+          <span className="ml-3 flex min-h-9 min-w-0 flex-1 flex-col justify-center">
+            <span id={titreId} className="title-3 text-encre">
+              {titre}
             </span>
-            <svg viewBox="0 0 256 256" className="size-4 shrink-0 text-encre-3 transition-transform duration-200 group-hover:translate-x-0.5" fill="currentColor" aria-hidden>
+            {/* Résumé (fermé) ↔ description (ouvert), en « Page side-by-side ». */}
+            <span className="t-page-slide block">
+              <span
+                className={`t-page block truncate caption-5 ${alerte ? "text-amber-800 dark:text-amber-300" : "text-encre-3"}`}
+                data-position={ouvert && description ? "avant" : "actif"}
+                style={ouvert && description ? undefined : EN_FLUX}
+              >
+                {resume}
+              </span>
+              {description && (
+                <span className="t-page block body-6 text-encre-3" data-position={ouvert ? "actif" : "apres"} style={ouvert ? EN_FLUX : undefined}>
+                  {description}
+                </span>
+              )}
+            </span>
+          </span>
+          <span className="reglage-ouvrir grid h-9 shrink-0 place-items-center text-encre-3" aria-hidden>
+            <svg viewBox="0 0 256 256" className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="currentColor">
               <path d="M181.66 133.66l-80 80a8 8 0 0 1-11.32-11.32L164.69 128 90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z" />
             </svg>
-          </button>
-        </div>
+          </span>
+        </button>
 
-        <div
-          ref={pageContenu}
-          id={contenuId}
-          className="t-page"
-          data-position={ouvert ? "actif" : "apres"}
-          inert={!ouvert}
-          style={ouvert ? enFlux : undefined}
-        >
-          <div className="flex items-start gap-3 px-5 pt-4 sm:px-6 sm:pt-5">
-            <button
-              ref={boutonFermer}
-              type="button"
-              onClick={fermer}
-              aria-label={`Fermer : ${titre}`}
-              title="Fermer"
-              className="-ml-1.5 grid size-9 shrink-0 place-items-center rounded-full text-encre-2 outline-none transition-colors duration-150 hover:bg-creux hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <svg viewBox="0 0 256 256" className="size-[18px]" fill="currentColor" aria-hidden>
-                <path d="M165.66 202.34a8 8 0 0 1-11.32 11.32l-80-80a8 8 0 0 1 0-11.32l80-80a8 8 0 0 1 11.32 11.32L91.31 128Z" />
-              </svg>
-            </button>
-            <Pastille>{icone}</Pastille>
-            <div className="min-w-0 flex-1 pt-0.5">
-              <h2 className="title-2 text-encre">{titre}</h2>
-              {description && <p className="mt-0.5 body-6 text-encre-3">{description}</p>}
-            </div>
+        <div className="t-page-slide">
+          <div
+            id={corpsId}
+            role="region"
+            aria-labelledby={titreId}
+            className="t-page"
+            data-position={ouvert ? "actif" : "apres"}
+            inert={!ouvert}
+            style={ouvert ? EN_FLUX : undefined}
+          >
+            {children}
           </div>
-          {children}
         </div>
       </div>
     </section>
-  );
-}
-
-function Pastille({ children }: { children: ReactNode }) {
-  return (
-    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-creux text-encre-2 ring-1 ring-trait" aria-hidden>
-      {children}
-    </span>
   );
 }
 

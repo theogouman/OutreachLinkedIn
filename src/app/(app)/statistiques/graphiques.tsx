@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { FunnelChart } from "@/components/charts/funnel-chart";
 import {
   HeatmapCells,
@@ -114,8 +114,7 @@ export function Graphiques({
             </div>
           ))}
         </dl>
-        <div className="-mx-2 overflow-x-auto px-2">
-          <div className="min-w-[640px]">
+        <DefilementDepuisLaDroite>
             <HeatmapInteractionProvider>
               <HeatmapInteractionBoundary>
                 <div className="flex w-full flex-col items-stretch gap-3">
@@ -129,10 +128,53 @@ export function Graphiques({
                 </div>
               </HeatmapInteractionBoundary>
             </HeatmapInteractionProvider>
-          </div>
-        </div>
+        </DefilementDepuisLaDroite>
         {somme("total") === 0 && <p className="text-center caption-5 text-encre-3">Aucune action LinkedIn sur la période.</p>}
       </section>
+    </div>
+  );
+}
+
+/**
+ * Frise plus large que l'écran (téléphone) : ouverte sur la droite, la période la plus récente.
+ * Recalée à droite tant que le graphique se mesure (largeur qui change), jusqu'au premier geste
+ * de l'utilisateur, qui garde ensuite la main.
+ */
+function DefilementDepuisLaDroite({ children }: { children: ReactNode }) {
+  const zone = useRef<HTMLDivElement>(null);
+  const contenu = useRef<HTMLDivElement>(null);
+  const touche = useRef(false);
+
+  useLayoutEffect(() => {
+    const z = zone.current;
+    const c = contenu.current;
+    if (!z || !c) return;
+    const caler = () => {
+      if (!touche.current) z.scrollLeft = z.scrollWidth;
+    };
+    caler();
+    const obs = new ResizeObserver(caler);
+    obs.observe(c);
+    obs.observe(z);
+    return () => obs.disconnect();
+  }, []);
+
+  const prendreLaMain = () => {
+    touche.current = true;
+  };
+
+  return (
+    <div
+      ref={zone}
+      className="-mx-2 overflow-x-auto px-2"
+      onPointerDown={prendreLaMain}
+      onWheel={prendreLaMain}
+      onKeyDown={prendreLaMain}
+      onTouchStart={prendreLaMain}
+    >
+      <div ref={contenu} className="min-w-[640px]">
+        {children}
+      </div>
     </div>
   );
 }

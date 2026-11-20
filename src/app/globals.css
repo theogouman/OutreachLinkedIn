@@ -843,7 +843,54 @@ html {
   will-change: width, height;
 }
 
+/* Encadrés extensibles des Réglages (reglage-extensible.tsx) : le chevron « retour » s'ouvre en
+   largeur avec la durée et la courbe de « Card resize », en fondu et flou, si bien que l'icône
+   et le titre glissent vers la droite au lieu de sauter ; le chevron « ouvrir » s'efface pareil. */
+.reglage-retour {
+  display: grid;
+  height: 36px;
+  width: 0;
+  margin-right: 0;
+  flex-shrink: 0;
+  place-items: center start;
+  overflow: hidden;
+  opacity: 0;
+  filter: blur(var(--page-blur));
+  transform: translateX(-6px);
+  transition:
+    width var(--resize-dur) var(--resize-ease),
+    margin var(--resize-dur) var(--resize-ease),
+    opacity var(--resize-dur) var(--resize-ease),
+    transform var(--resize-dur) var(--resize-ease),
+    filter var(--resize-dur) var(--resize-ease);
+}
+.reglage-entete[data-ouvert="true"] .reglage-retour {
+  width: 18px;
+  margin-right: 12px;
+  opacity: 1;
+  filter: blur(0);
+  transform: translateX(0);
+}
+.reglage-ouvrir {
+  width: 28px;
+  padding-left: 12px;
+  overflow: hidden;
+  transition:
+    width var(--resize-dur) var(--resize-ease),
+    padding var(--resize-dur) var(--resize-ease),
+    opacity var(--resize-dur) var(--resize-ease),
+    transform var(--resize-dur) var(--resize-ease);
+}
+.reglage-entete[data-ouvert="true"] .reglage-ouvrir {
+  width: 0;
+  padding-left: 0;
+  opacity: 0;
+  transform: translateX(6px);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .reglage-retour,
+  .reglage-ouvrir,
   .t-modal,
   .t-modal-fond,
   .t-tabs-pill,
