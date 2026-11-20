@@ -258,6 +258,8 @@ export function SaisieValeurs({
     // focus est donné pendant le toucher, sur un champ déjà modifiable.
     flushSync(() => setEdition(true));
     premier.current?.focus({ preventScroll: true });
+    // Valeur sélectionnée : la frappe la remplace, et le curseur ne clignote pas sur les chiffres.
+    premier.current?.select();
   };
   const valider = () => {
     if (!edition) return;

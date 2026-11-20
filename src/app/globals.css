@@ -594,6 +594,15 @@ html {
   z-index: 0;
   pointer-events: none;
 }
+/* Pastille avec la brillance « light shape » (.lumiere en enfant). Sombre : surface blanche à 10 %
+   par-dessus le rail, comme la grille des KPI et les boutons de YouTube ; clair : pastille blanche,
+   le liseré blanc éclaire son bord haut. */
+@media (prefers-color-scheme: dark) {
+  .t-tabs-pill {
+    background: linear-gradient(var(--lumiere-surface) 0 0), var(--color-creux);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
 
 /* Transitions.dev — Page side-by-side */
 :root {

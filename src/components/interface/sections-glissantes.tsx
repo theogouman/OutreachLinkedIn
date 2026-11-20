@@ -117,7 +117,10 @@ export function SectionsGlissantes({
     <div className={`flex flex-col gap-4 ${remplir ? "min-h-0 flex-1" : ""}`}>
       <div className={aCote ? "flex items-center gap-2" : "contents"}>
       <div ref={barre} className={`t-tabs t-tabs-plein ${aCote ? "min-w-0 flex-1" : ""}`} role="tablist" aria-label={libelle} onKeyDown={clavier}>
-        <span ref={pilule} className="t-tabs-pill" aria-hidden />
+        {/* Pastille de l'onglet actif avec la brillance « light shape » (relevé YouTube, .lumiere). */}
+        <span ref={pilule} className="t-tabs-pill" aria-hidden>
+          <span className="lumiere" />
+        </span>
         {sections.map((s, i) => (
           <button
             key={s.id}

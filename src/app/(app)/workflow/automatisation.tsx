@@ -136,7 +136,7 @@ function Interrupteur({ a }: { a: AutomatisationAffichee }) {
         aria-label={a.active ? "Mettre en pause" : "Activer"}
         aria-describedby={bulleId}
         className={`t-tt-trigger relative grid size-10 place-items-center rounded-full outline-none ring-1 ring-inset transition-[background-color,transform] duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 ${
-          a.active ? "bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-400/15 dark:text-emerald-300 dark:ring-emerald-400/30" : "bg-creux text-encre-2 ring-trait hover:bg-encre/[0.06] hover:text-encre"
+          a.active ? "bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100/70 dark:bg-emerald-400/15 dark:text-emerald-300 dark:ring-emerald-400/30 dark:hover:bg-emerald-400/[0.22]" : "bg-creux text-encre-2 ring-trait hover:bg-encre/[0.06] hover:text-encre"
         }`}
       >
         {a.active ? <IconePause taille={18} /> : <IconePlay taille={18} />}
@@ -310,7 +310,7 @@ function LigneAction({
           <Link
             href={`?prospect=${prospectId}`}
             scroll={false}
-            className="rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
+            className="-mx-1 rounded-md px-1 py-0.5 outline-none transition-colors duration-150 hover:bg-creux focus-visible:ring-2 focus-visible:ring-accent"
           >
             {nom}
           </Link>
@@ -357,19 +357,25 @@ function FormReglagesAutomatisation({ id, initial }: { id: string; initial: Regl
         />
       </Ligne>
       <Ligne libelle="Nombre de relances" aide="Par prospect, avant de le mettre de côté">
-        <select
-          aria-label="Nombre de relances"
-          value={r.cycles === null ? "sans" : String(r.cycles)}
-          onChange={(e) => setR((s) => ({ ...s, cycles: e.target.value === "sans" ? null : Number(e.target.value) }))}
-          className="champ w-auto"
-        >
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-          <option value="sans">Sans limite</option>
-        </select>
+        {/* Même pastille que les valeurs voisines (SaisieValeurs) : fond creux, 44 px, coins 12 px. */}
+        <span className="relative inline-flex">
+          <select
+            aria-label="Nombre de relances"
+            value={r.cycles === null ? "sans" : String(r.cycles)}
+            onChange={(e) => setR((s) => ({ ...s, cycles: e.target.value === "sans" ? null : Number(e.target.value) }))}
+            className="h-11 cursor-pointer appearance-none rounded-xl bg-creux pl-3.5 pr-9 text-base font-medium tabular-nums text-encre outline-none focus-visible:ring-2 focus-visible:ring-accent sm:text-[15px]"
+          >
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+            <option value="sans">Sans limite</option>
+          </select>
+          <svg viewBox="0 0 256 256" className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-encre-3" fill="currentColor" aria-hidden>
+            <path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z" />
+          </svg>
+        </span>
       </Ligne>
       <Ligne libelle="Actions par jour" aide="Retraits et réinvitations mis en file, au plus">
         <SaisieValeurs
