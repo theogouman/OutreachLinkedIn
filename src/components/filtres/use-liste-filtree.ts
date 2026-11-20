@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { appliquerLocalement, type DefinitionFiltre } from "@/lib/filtres/definition";
+import { appliquerLocalement, valeurActive, type DefinitionFiltre } from "@/lib/filtres/definition";
 
 const DELAI_TEXTE_MS = 200;
 
@@ -73,13 +73,13 @@ export function useListeFiltree<L, F extends { page: number }>({
     lancer(courant.current, 0);
   }, [signature, lancer]);
 
-  /** Change un filtre ; une chaîne vide le désactive. */
+  /** Change un filtre ; une valeur vide (chaîne ou liste) le désactive. */
   const changer = useCallback(
-    (cle: keyof F & string, valeur: string) => {
+    <K extends keyof F & string>(cle: K, valeur: F[K] | string) => {
       const def = definitions.find((d) => d.cle === cle);
-      const suivant = { ...courant.current, [cle]: valeur || undefined, page: 1 } as F;
+      const suivant = { ...courant.current, [cle]: valeurActive(valeur) ? valeur : undefined, page: 1 } as F;
       setFiltres(suivant);
-      lancer(suivant, def?.type === "texte" && valeur.trim() ? DELAI_TEXTE_MS : 0);
+      lancer(suivant, def?.type === "texte" && valeurActive(valeur) ? DELAI_TEXTE_MS : 0);
     },
     [definitions, lancer, setFiltres],
   );
@@ -100,10 +100,7 @@ export function useListeFiltree<L, F extends { page: number }>({
 
   // Affichage instantané : la dernière réponse, filtrée par les règles locales en attendant la suivante.
   const lignes = useMemo(() => appliquerLocalement(resultat.lignes, filtres, definitions), [resultat.lignes, filtres, definitions]);
-  const actifs = definitions.filter((d) => {
-    const v = filtres[d.cle];
-    return typeof v === "string" && v.trim() !== "";
-  }).length;
+  const actifs = definitions.filter((d) => valeurActive(filtres[d.cle])).length;
 
   // Tant que la réponse n'est pas arrivée, le total suit le filtrage instantané.
   const total = lignes.length === resultat.lignes.length ? resultat.total : lignes.length;

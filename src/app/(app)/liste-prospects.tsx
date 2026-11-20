@@ -6,9 +6,9 @@ import { TableTriable, type Colonne } from "@/components/interface/table-triable
 import { Avatar } from "@/components/interface/elements";
 import { IconeFermer, IconeRecherche } from "@/components/icones";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
+import { FiltresProspects as PanneauFiltres } from "@/components/filtres/filtres-prospects";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
 import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES, type FiltresProspects } from "@/lib/filtres/prospects";
-import { LIBELLES_STATUT } from "@/lib/statut-relation";
 import { actionListerProspects } from "@/app/actions";
 import type { LigneProspect } from "@/server/donnees";
 import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
@@ -80,7 +80,6 @@ export function ListeProspects({
     router.push(`${chemin}?${q}`, { scroll: false });
   };
 
-  const champ = "champ w-auto";
   const aucunResultat = l.lignes.length === 0 && l.actifs === 0 && l.total === 0;
 
   return (
@@ -122,42 +121,12 @@ export function ListeProspects({
             )}
           </span>
         </label>
-        <label>
-          <span className="sr-only">Relation</span>
-          <select value={f.statut ?? ""} onChange={(e) => l.changer("statut", e.target.value)} className={champ}>
-            <option value="">Toutes les relations</option>
-            {Object.entries(LIBELLES_STATUT).map(([code, libelle]) => (
-              <option key={code} value={code}>{libelle}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">Étape</span>
-          <select value={f.etape ?? ""} onChange={(e) => l.changer("etape", e.target.value)} className={champ}>
-            <option value="">Toutes les étapes</option>
-            {etapes.map((e) => (
-              <option key={e.code} value={e.code}>{e.libelle}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="sr-only">Liste d&apos;origine</span>
-          <select value={f.liste ?? ""} onChange={(e) => l.changer("liste", e.target.value)} className={champ}>
-            <option value="">Toutes les listes</option>
-            {listes.map((x) => (
-              <option key={x} value={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-2">
-          <span className="caption-4 text-encre-3">Relance avant le</span>
-          <input type="date" value={f.relanceAvant ?? ""} onChange={(e) => l.changer("relanceAvant", e.target.value)} className={champ} />
-        </label>
-        {l.actifs > 0 && (
-          <button type="button" onClick={l.reinitialiser} className="bouton bouton-discret">
-            Réinitialiser
-          </button>
-        )}
+        <PanneauFiltres
+          initiales={filtresInitiaux.conditions}
+          etapes={etapes}
+          listes={listes}
+          changer={(conditions) => l.changer("conditions", conditions)}
+        />
       </div>
 
       {l.erreur && (

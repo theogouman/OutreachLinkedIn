@@ -4,7 +4,7 @@ import { inboxDepuis, prospectsDepuis } from "@/server/donnees";
 import { semerDemo } from "../fixtures/demo";
 import { FILTRES_INBOX, type FiltresInbox } from "@/lib/filtres/inbox";
 import { appliquerLocalement } from "@/lib/filtres/definition";
-import { FILTRES_PROSPECTS, type FiltresProspects } from "@/lib/filtres/prospects";
+import { FILTRES_PROSPECTS, type Condition, type FiltresProspects } from "@/lib/filtres/prospects";
 
 /*
  * Cohérence du standard de filtres : pour chaque combinaison, le filtrage instantané du
@@ -22,35 +22,67 @@ describe.skipIf(!TEST_DATABASE_URL)("filtres des prospects : navigateur et serve
       ["a4", "Hélène", "Petit", "a_inviter", "a_contacter", null, "2026-11-05"],
       ["a5", "Paul", "Roux", "invitation_recue", "premier_message", "Webinaire", null],
     ];
+    const ids: Record<string, string> = {};
     for (const [id, prenom, nom, statut, etape, liste, relance] of lignes) {
-      await db.pool.query(
-        `insert into public.prospects (linkedin_url, url_normalisee, prenom, nom, statut_relation, etape, liste_origine, prochaine_relance)
-         values ($1, $1, $2, $3, $4, $5, $6, $7)`,
-        [`linkedin.com/in/${id}`, prenom, nom, statut, etape, liste, relance],
-      );
+      ids[id] = (
+        await db.pool.query(
+          `insert into public.prospects (linkedin_url, url_normalisee, provider_id, prenom, nom, statut_relation, etape, liste_origine, prochaine_relance)
+           values ($1, $1, $8, $2, $3, $4, $5, $6, $7) returning id`,
+          [`linkedin.com/in/${id}`, prenom, nom, statut, etape, liste, relance, `ACo${id}`],
+        )
+      ).rows[0].id;
     }
+    // Entrée en relation : lien LinkedIn par URL (a1) ou par identifiant (a3, deux liens : le plus récent compte).
+    // 2026-10-31 23:30 UTC = 1er novembre à Paris : le jour de Paris fait foi.
+    await db.pool.query(
+      `insert into public.liens_linkedin (type, url_normalisee, provider_id, date_lien, source) values
+         ('relation', 'linkedin.com/in/a1', null, '2026-10-31T23:30:00Z', 'csv'),
+         ('relation', 'linkedin.com/in/autre-url', 'ACoa3', '2026-11-15T10:00:00Z', 'sync'),
+         ('relation', 'linkedin.com/in/a3', null, '2026-09-01T10:00:00Z', 'csv'),
+         ('invitation_envoyee', 'linkedin.com/in/a2', null, '2026-11-12T10:00:00Z', 'sync')`,
+    );
+    // Dernier message : la conversation la plus récente du prospect.
+    await db.pool.query(
+      `insert into public.conversations (unipile_chat_id, prospect_id, dernier_message_at) values
+         ('c1', $1, '2026-11-18T09:00:00Z'), ('c2', $1, '2026-11-02T09:00:00Z'), ('c3', $2, '2026-11-01T09:00:00Z')`,
+      [ids.a1, ids.a5],
+    );
   });
   afterAll(async () => db?.drop());
 
-  const cas: Partial<FiltresProspects>[] = [
-    {},
-    { statut: "en_relation" },
-    { etape: "premier_message" },
-    { liste: "Webinaire" },
-    { relanceAvant: "2026-11-10" },
-    { recherche: "helene" },
-    { recherche: "b" },
-    { statut: "en_relation", liste: "Webinaire" },
-    { etape: "premier_message", recherche: "paul" },
-    { relanceAvant: "2026-12-31", statut: "en_attente" },
+  const cas: Condition[][] = [
+    [],
+    [{ champ: "statut", op: "est", valeurs: ["en_relation"] }],
+    [{ champ: "statut", op: "nest_pas", valeurs: ["en_relation", "a_inviter"] }],
+    [{ champ: "etape", op: "est", valeurs: ["premier_message"] }],
+    [{ champ: "etape", op: "nest_pas", valeurs: ["premier_message", "repondu"] }],
+    [{ champ: "liste", op: "est", valeurs: ["Webinaire"] }],
+    [{ champ: "liste", op: "nest_pas", valeurs: ["Webinaire"] }],
+    [{ champ: "relance", au: "2026-11-10" }],
+    [{ champ: "relance", du: "2026-11-10", au: "2026-11-20" }],
+    [{ champ: "relation", du: "2026-11-01" }],
+    [{ champ: "relation", au: "2026-10-31" }],
+    [{ champ: "message", du: "2026-11-10" }],
+    [{ champ: "message", au: "2026-11-01" }],
+    [{ champ: "statut", op: "est", valeurs: ["en_relation"] }, { champ: "liste", op: "est", valeurs: ["Webinaire"] }],
+    [{ champ: "relance", au: "2026-12-31" }, { champ: "statut", op: "est", valeurs: ["en_attente"] }],
   ];
+  const recherches = [undefined, "helene", "b"];
 
-  it.each(cas)("mêmes lignes pour %o", async (f) => {
-    const filtres = { page: 1, ...f } as FiltresProspects;
+  it.each(cas.flatMap((c) => recherches.map((r) => [c, r] as const)))("mêmes lignes pour %j (recherche %s)", async (conditions, recherche) => {
+    const filtres: FiltresProspects = { page: 1, ...(conditions.length ? { conditions } : {}), ...(recherche ? { recherche } : {}) };
     const tous = (await prospectsDepuis(db.pool, { page: 1 })).lignes;
     const serveur = (await prospectsDepuis(db.pool, filtres)).lignes.map((l) => l.id).sort();
     const local = appliquerLocalement(tous, filtres, FILTRES_PROSPECTS).map((l) => l.id).sort();
     expect(local).toEqual(serveur);
+  });
+
+  it("dates lues : relation (jour de Paris, lien le plus récent), dernier message", async () => {
+    const tous = (await prospectsDepuis(db.pool, { page: 1 })).lignes;
+    const de = (prenom: string) => tous.find((l) => l.prenom === prenom)!;
+    expect([de("Camille").relationLe, de("Camille").dernierMessageLe]).toEqual(["2026-11-01", "2026-11-18"]);
+    expect([de("Léa").relationLe, de("Léa").dernierMessageLe]).toEqual(["2026-11-15", null]);
+    expect([de("Hugo").relationLe, de("Paul").dernierMessageLe]).toEqual([null, "2026-11-01"]);
   });
 });
 

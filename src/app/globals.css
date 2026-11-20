@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Animations d'ouverture des popovers ReUI / shadcn (animate-in, fade-in, zoom-in…). */
+@import "tw-animate-css";
 
 /*
  * Système de design de l'outil, aligné sur la DA Notion Club (dépôt Notion-Club/Infrastructure) :
@@ -364,6 +366,20 @@ html {
   --color-background: var(--background);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--color-creux);
+  /* Jetons shadcn utilisés par ReUI (src/components/ui, src/components/reui). « accent » reste le
+     rouge de la marque : dans ces fichiers, le gris de survol shadcn (bg-accent) est écrit bg-muted. */
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--popover);
+  --color-card-foreground: var(--popover-foreground);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--color-accent);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--color-creux);
+  --color-secondary-foreground: var(--foreground);
+  --color-destructive: var(--color-rouge);
 }
 :root {
   --foreground: #000000;
@@ -372,6 +388,8 @@ html {
   --popover: #ffffff;
   --popover-foreground: #000000;
   --border: #e5e7eb;
+  --primary: #1a1a1a;
+  --primary-foreground: #fafafa;
 
   --chart-1: #e0625a; /* brand */
   --chart-2: #1a1a1a;
@@ -439,6 +457,8 @@ html {
     --popover: #1a1a1c;
     --popover-foreground: #f4f4f5;
     --border: #2f2f34;
+    --primary: #f4f4f5;
+    --primary-foreground: #1a1a1c;
     --chart-2: #f4f4f5;
     --chart-5: #f4f4f5;
     --chart-background: #1a1a1c;

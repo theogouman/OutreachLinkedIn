@@ -94,6 +94,9 @@ export interface LigneProspect {
   statutRelation: string;
   etape: string;
   prochaineRelance: string | null;
+  /** Entrée en relation (lien LinkedIn le plus récent) et dernier message, jours de Paris (AAAA-MM-JJ). */
+  relationLe: string | null;
+  dernierMessageLe: string | null;
   identifie: boolean;
   /** Photo de profil servie par l'outil (null : initiales). */
   photo: string | null;
@@ -102,26 +105,43 @@ export interface LigneProspect {
 export const TAILLE_PAGE = 50;
 
 export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
+  // Conditions du panneau « Filtres » (validées par Zod), toutes en ET ; même règle que
+  // correspondCondition (src/lib/filtres/prospects.ts). Dates en jours de Paris (AAAA-MM-JJ).
   const r = await pool.query(
-    `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape,
-            to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie,
+    `with base as (
+       select p.*, to_char(p.prochaine_relance, 'YYYY-MM-DD') as relance_le,
+              (select to_char(max(l.date_lien) at time zone 'Europe/Paris', 'YYYY-MM-DD') from public.liens_linkedin l
+                where l.type = 'relation'
+                  and (l.url_normalisee = p.url_normalisee or (p.provider_id is not null and l.provider_id = p.provider_id))) as relation_le,
+              (select to_char(max(c.dernier_message_at) at time zone 'Europe/Paris', 'YYYY-MM-DD') from public.conversations c
+                where c.prospect_id = p.id) as message_le
+         from public.prospects p
+     )
+     select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape,
+            relance_le as prochaine_relance, relation_le, message_le, provider_id is not null as identifie,
             photo_maj, count(*) over ()::int as total
-       from public.prospects
-      where ($1::public.statut_relation is null or statut_relation = $1)
-        and ($2::text is null or etape = $2)
-        and ($3::text is null or liste_origine = $3)
-        and ($4::date is null or prochaine_relance <= $4)
+       from base
+      where not exists (
+              select 1 from jsonb_array_elements($1::jsonb) as c
+               where not (
+                 case c->>'champ'
+                   when 'statut' then (statut_relation::text = any(array(select jsonb_array_elements_text(c->'valeurs')))) = (c->>'op' = 'est')
+                   when 'etape' then (etape = any(array(select jsonb_array_elements_text(c->'valeurs')))) = (c->>'op' = 'est')
+                   when 'liste' then coalesce(liste_origine = any(array(select jsonb_array_elements_text(c->'valeurs'))), false) = (c->>'op' = 'est')
+                   else coalesce(
+                     (case c->>'champ' when 'relance' then relance_le when 'relation' then relation_le else message_le end)
+                       between coalesce(c->>'du', '0000-01-01') and coalesce(c->>'au', '9999-12-31'),
+                     false)
+                 end)
+            )
         and not exists (
-              select 1 from unnest($5::text[]) as terme
-               where position(terme in translate(lower(concat_ws(' ', prenom, nom, entreprise, poste)), $8, $9)) = 0
+              select 1 from unnest($2::text[]) as terme
+               where position(terme in translate(lower(concat_ws(' ', prenom, nom, entreprise, poste)), $5, $6)) = 0
             )
       order by coalesce(nom, ''), coalesce(prenom, ''), id
-      limit $6 offset $7`,
+      limit $3 offset $4`,
     [
-      filtres.statut ?? null,
-      filtres.etape ?? null,
-      filtres.liste ?? null,
-      filtres.relanceAvant ?? null,
+      JSON.stringify(filtres.conditions ?? []),
       termesRecherche(filtres.recherche ?? ""),
       TAILLE_PAGE,
       (filtres.page - 1) * TAILLE_PAGE,
@@ -140,6 +160,8 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
     statutRelation: x.statut_relation,
     etape: x.etape,
     prochaineRelance: x.prochaine_relance,
+    relationLe: x.relation_le,
+    dernierMessageLe: x.message_le,
     identifie: x.identifie,
     photo: adressePhoto(x.id, x.photo_maj),
   }));
@@ -185,7 +207,7 @@ export interface EvenementHistorique {
   auto: boolean;
 }
 
-export interface FicheProspect extends LigneProspect {
+export interface FicheProspect extends Omit<LigneProspect, "relationLe" | "dernierMessageLe"> {
   notes: string | null;
   /** Informations propres à la liste d'origine, déjà filtrées et revalidées (src/lib/listes.ts). */
   informationsListe: ReturnType<typeof detailsAffichables>;
