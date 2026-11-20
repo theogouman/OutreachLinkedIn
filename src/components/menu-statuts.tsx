@@ -94,6 +94,8 @@ export function MenuStatuts({ etatFile, alerte, children }: { etatFile: keyof ty
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformOrigin: "top right" }}
             ref={panneau}
+            // Lien suivi depuis le panneau (ex. la file d'attente) : le menu se ferme.
+            onClick={(e) => (e.target as HTMLElement).closest("a") && setOuvert(false)}
             className="flottant dans-ecran absolute right-0 top-[calc(100%+10px)] z-50 w-[min(340px,calc(100vw-32px))] overflow-y-auto overscroll-contain rounded-[20px] p-4"
           >
             {/* Pont invisible : le pointeur passe du bouton au panneau sans le fermer. */}

@@ -46,7 +46,7 @@ export function LigneTache({ t }: { t: Tache }) {
   const incertaine = t.statut === "incertaine";
   return (
     <li
-      className={`flex animate-apparition flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5 ${incertaine ? "bg-amber-50/50 dark:bg-amber-400/10" : ""}`}
+      className={`flex animate-apparition flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3 sm:px-6 ${incertaine ? "bg-amber-50/50 dark:bg-amber-400/10" : ""}`}
     >
       <span className="hidden w-12 shrink-0 caption-4 tabular-nums text-encre-3 sm:block">{t.ordre}</span>
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-creux text-encre-2 ring-1 ring-trait">{type.icone}</span>

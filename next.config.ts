@@ -57,6 +57,10 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // La file d'attente vit dans les Réglages (encadré « File d'attente ») : anciens liens et favoris.
+  async redirects() {
+    return [{ source: "/file", destination: "/reglages?section=file", permanent: false }];
+  },
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },

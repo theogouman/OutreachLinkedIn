@@ -4,7 +4,9 @@ import { useState, useTransition, type ReactNode } from "react";
 import { actionPlafonds, actionReglages } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { Compteur } from "@/components/interface/compteur";
-import { IconeCalendrier, IconeHorloge, IconeFiltre } from "@/components/icones";
+import { IconeFermer, IconeHorloge } from "@/components/icones";
+import { CorpsReglage, PiedReglage } from "@/components/interface/reglage-extensible";
+import { PERIODES, periodesActives } from "@/lib/reglages";
 import { LIBELLES_QUOTA, MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 
 type Plafonds = Record<TypeQuota, { jour: number | null; semaine: number | null; mois: number | null }>;
@@ -15,28 +17,11 @@ type Reglages = {
   cadence: { relance_1_jours: number; relance_2_jours: number };
 };
 
-const PERIODES = ["jour", "semaine", "mois"] as const;
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
-export function Section({ icone, titre, description, children, pied }: { icone: ReactNode; titre: string; description?: string; children: ReactNode; pied?: ReactNode }) {
-  return (
-    <div className="carte overflow-hidden">
-      <div className="flex gap-3 px-6 pt-6">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-creux text-encre-2 ring-1 ring-trait" aria-hidden>{icone}</span>
-        <div className="min-w-0">
-          <h2 className="title-2 text-encre">{titre}</h2>
-          {description && <p className="mt-0.5 body-6 text-encre-3">{description}</p>}
-        </div>
-      </div>
-      <div className="flex flex-col gap-6 px-6 py-6">{children}</div>
-      {pied && <div className="flex items-center justify-end gap-3 border-t border-trait bg-creux px-6 py-3">{pied}</div>}
-    </div>
-  );
-}
 
 function Groupe({ titre, aide, children }: { titre: string; aide?: string; children: ReactNode }) {
   return (
-    <fieldset className="grid gap-3 sm:grid-cols-[220px_1fr] sm:gap-6">
+    <fieldset className="grid gap-3 sm:grid-cols-[200px_1fr] sm:gap-6">
       <legend className="contents">
         <span className="flex flex-col">
           <span className="title-4 text-encre">{titre}</span>
@@ -48,58 +33,64 @@ function Groupe({ titre, aide, children }: { titre: string; aide?: string; child
   );
 }
 
+/**
+ * Plafonds : une ligne par action, avec ses seules périodes plafonnées (pas de case vide).
+ * Téléphone : les périodes l'une sous l'autre (« Par jour  [−|20|+]  max 30 »), sans défilement
+ * horizontal. Écran large : colonnes jour / semaine / mois alignées sous un en-tête.
+ */
 export function FormPlafonds({ initial }: { initial: Plafonds }) {
   const [valeurs, setValeurs] = useState(initial);
   const [enCours, demarrer] = useTransition();
   const retourner = useRetour();
+  const colonnes = "sm:grid sm:grid-cols-[minmax(0,1fr)_repeat(3,136px)] sm:gap-4";
 
   return (
     <form action={() => demarrer(async () => retourner(await actionPlafonds(valeurs)))}>
-      <Section
-        icone={<IconeFiltre taille={18} />}
-        titre="Plafonds du compte LinkedIn"
-        description="Compte gratuit. Jamais au-dessus de la recommandation Unipile, indiquée sous chaque valeur"
-        pied={<button type="submit" disabled={enCours} className="bouton bouton-plein">{enCours ? "Enregistrement…" : "Enregistrer les plafonds"}</button>}
-      >
-        <div className="-mx-6 overflow-x-auto px-6">
-          <table className="w-full min-w-[560px]">
-            <thead>
-              <tr className="text-left caption-4 text-encre-3">
-                <th className="pb-3 font-medium">Action</th>
-                {PERIODES.map((p) => <th key={p} className="pb-3 font-medium">Par {p}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-trait">
-              {TYPES_QUOTA.map((t) => (
-                <tr key={t}>
-                  <td className="py-3 pr-4 title-4 text-encre">{LIBELLES_QUOTA[t]}</td>
+      <CorpsReglage>
+        <div className="flex flex-col">
+          <div className={`hidden pb-2 caption-4 text-encre-3 ${colonnes}`} aria-hidden>
+            <span>Action</span>
+            {PERIODES.map((p) => (
+              <span key={p}>Par {p}</span>
+            ))}
+          </div>
+          <ul className="divide-y divide-trait border-trait sm:border-t">
+            {TYPES_QUOTA.map((t) => {
+              const actives = periodesActives(t);
+              return (
+                <li key={t} className={`flex flex-col gap-2.5 py-4 first:pt-0 last:pb-0 sm:items-start sm:first:pt-4 ${colonnes}`}>
+                  <span className="title-4 text-encre sm:pt-1.5">{LIBELLES_QUOTA[t]}</span>
                   {PERIODES.map((p) => {
                     const max = MAXIMA[t][p];
+                    // Écran large : cellule vide pour garder les colonnes alignées.
+                    if (max === null || !actives.includes(p)) return <span key={p} className="hidden sm:block" aria-hidden />;
                     return (
-                      <td key={p} className="py-3 pr-4 align-top">
-                        {max === null ? (
-                          <span className="caption-5 text-encre-3" aria-label="Non plafonné sur cette période">—</span>
-                        ) : (
-                          <span className="flex flex-col gap-1">
-                            <Compteur
-                              valeur={valeurs[t][p] ?? 0}
-                              min={0}
-                              max={max}
-                              libelle={`${LIBELLES_QUOTA[t]} par ${p}`}
-                              onChange={(v) => setValeurs((s) => ({ ...s, [t]: { ...s[t], [p]: v } }))}
-                            />
-                            <span className="caption-5 text-encre-3">max {max}</span>
-                          </span>
-                        )}
-                      </td>
+                      <div key={p} className="flex items-center justify-between gap-3 sm:flex-col sm:items-start sm:justify-start sm:gap-1">
+                        <span className="caption-4 text-encre-2 sm:hidden">Par {p}</span>
+                        <span className="flex items-center gap-2.5 sm:flex-col sm:items-start sm:gap-1">
+                          <span className="caption-5 text-encre-3 sm:order-last">max {max}</span>
+                          <Compteur
+                            valeur={valeurs[t][p] ?? 0}
+                            min={0}
+                            max={max}
+                            libelle={`${LIBELLES_QUOTA[t]} par ${p}`}
+                            onChange={(v) => setValeurs((s) => ({ ...s, [t]: { ...s[t], [p]: v } }))}
+                          />
+                        </span>
+                      </div>
                     );
                   })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-      </Section>
+      </CorpsReglage>
+      <PiedReglage>
+        <button type="submit" disabled={enCours} className="bouton bouton-plein">
+          {enCours ? "Enregistrement…" : "Enregistrer les plafonds"}
+        </button>
+      </PiedReglage>
     </form>
   );
 }
@@ -113,51 +104,54 @@ export function FormReglages({ initial }: { initial: Reglages }) {
 
   return (
     <form action={() => demarrer(async () => retourner(await actionReglages(r)))}>
-      <Section
-        icone={<IconeCalendrier taille={18} />}
-        titre="Rythme d'activité"
-        description="Quand l'outil a le droit d'agir, et à quelle allure. Heure de Paris"
-        pied={<button type="submit" disabled={enCours} className="bouton bouton-plein">{enCours ? "Enregistrement…" : "Enregistrer"}</button>}
-      >
+      <CorpsReglage>
         <Groupe titre="Jours actifs" aide="Aucune action hors de ces jours.">
-          {JOURS.map((j, i) => {
-            const n = i + 1;
-            const actif = r.plages.jours.includes(n);
-            return (
-              <label
-                key={j}
-                className={`cursor-pointer select-none rounded-[10px] px-3.5 py-1.5 caption-3 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${actif ? "relief-marque" : "bg-carte text-encre-2 shadow-[inset_0_0_0_1px_var(--color-trait-fort)] hover:bg-creux"}`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={actif}
-                  onChange={() =>
-                    setR((s) => ({ ...s, plages: { ...s.plages, jours: actif ? s.plages.jours.filter((x) => x !== n) : [...s.plages.jours, n] } }))
-                  }
-                />
-                {j}
-              </label>
-            );
-          })}
+          {/* Téléphone : les sept jours sur une seule ligne. */}
+          <div className="grid w-full grid-cols-7 gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:gap-2">
+            {JOURS.map((j, i) => {
+              const n = i + 1;
+              const actif = r.plages.jours.includes(n);
+              return (
+                <label
+                  key={j}
+                  className={`cursor-pointer select-none rounded-[10px] py-1.5 text-center caption-3 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent sm:px-3.5 ${actif ? "relief-marque" : "bg-carte text-encre-2 shadow-[inset_0_0_0_1px_var(--color-trait-fort)] hover:bg-creux"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={actif}
+                    onChange={() =>
+                      setR((s) => ({ ...s, plages: { ...s.plages, jours: actif ? s.plages.jours.filter((x) => x !== n) : [...s.plages.jours, n] } }))
+                    }
+                  />
+                  {j}
+                </label>
+              );
+            })}
+          </div>
         </Groupe>
 
         <Groupe titre="Créneaux" aide="Jusqu'à six plages par jour.">
           <div className="flex w-full flex-col gap-2">
             {r.plages.creneaux.map((c, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
-                <IconeHorloge taille={16} className="text-encre-3" />
-                <input type="time" required aria-label={`Début du créneau ${i + 1}`} value={c.debut} onChange={(e) => majCreneau(i, "debut", e.target.value)} className="champ w-auto" />
+              // Une ligne par créneau, même sur téléphone : début, « à », fin, retrait.
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_36px] items-center gap-2 sm:flex">
+                <IconeHorloge taille={16} className="hidden text-encre-3 sm:block" />
+                <input type="time" required aria-label={`Début du créneau ${i + 1}`} value={c.debut} onChange={(e) => majCreneau(i, "debut", e.target.value)} className="champ min-w-0 sm:w-auto" />
                 <span className="caption-5 text-encre-3">à</span>
-                <input type="time" required aria-label={`Fin du créneau ${i + 1}`} value={c.fin} onChange={(e) => majCreneau(i, "fin", e.target.value)} className="champ w-auto" />
-                {r.plages.creneaux.length > 1 && (
+                <input type="time" required aria-label={`Fin du créneau ${i + 1}`} value={c.fin} onChange={(e) => majCreneau(i, "fin", e.target.value)} className="champ min-w-0 sm:w-auto" />
+                {r.plages.creneaux.length > 1 ? (
                   <button
                     type="button"
-                    className="bouton bouton-discret px-2 py-1 caption-4"
+                    aria-label={`Retirer le créneau ${i + 1}`}
+                    title="Retirer ce créneau"
+                    className="grid size-9 place-items-center rounded-full text-encre-3 outline-none transition-colors duration-150 hover:bg-creux hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
                     onClick={() => setR((s) => ({ ...s, plages: { ...s.plages, creneaux: s.plages.creneaux.filter((_, j) => j !== i) } }))}
                   >
-                    Retirer
+                    <IconeFermer taille={14} />
                   </button>
+                ) : (
+                  <span aria-hidden />
                 )}
               </div>
             ))}
@@ -173,29 +167,42 @@ export function FormReglages({ initial }: { initial: Reglages }) {
           </div>
         </Groupe>
 
-        <Groupe titre="Délai entre deux actions" aide="Tiré au hasard entre ces bornes, en minutes.">
-          <label className="flex items-center gap-2 caption-4 text-encre-2">
-            Entre
+        <Groupe titre="Délai entre deux actions" aide="Tiré au hasard entre ces bornes.">
+          <LigneValeur libelle="Minimum" unite="min">
             <Compteur valeur={Math.round(r.delaiMinS / 60)} min={1} max={60} libelle="Délai minimum en minutes" onChange={(v) => setR((s) => ({ ...s, delaiMinS: v * 60 }))} />
-          </label>
-          <label className="flex items-center gap-2 caption-4 text-encre-2">
-            et
+          </LigneValeur>
+          <LigneValeur libelle="Maximum" unite="min">
             <Compteur valeur={Math.round(r.delaiMaxS / 60)} min={1} max={120} libelle="Délai maximum en minutes" onChange={(v) => setR((s) => ({ ...s, delaiMaxS: v * 60 }))} />
-            min
-          </label>
+          </LigneValeur>
         </Groupe>
 
-        <Groupe titre="Cadence de relances" aide="En jours, sans réponse du prospect.">
-          <label className="flex items-center gap-2 caption-4 text-encre-2">
-            Relance 1
+        <Groupe titre="Cadence de relances" aide="Sans réponse du prospect.">
+          <LigneValeur libelle="Relance 1" unite="jours">
             <Compteur valeur={r.cadence.relance_1_jours} min={1} max={60} libelle="Jours avant la relance 1" onChange={(v) => setR((s) => ({ ...s, cadence: { ...s.cadence, relance_1_jours: v } }))} />
-          </label>
-          <label className="flex items-center gap-2 caption-4 text-encre-2">
-            Relance 2
+          </LigneValeur>
+          <LigneValeur libelle="Relance 2" unite="jours">
             <Compteur valeur={r.cadence.relance_2_jours} min={1} max={60} libelle="Jours entre relance 1 et relance 2" onChange={(v) => setR((s) => ({ ...s, cadence: { ...s.cadence, relance_2_jours: v } }))} />
-          </label>
+          </LigneValeur>
         </Groupe>
-      </Section>
+      </CorpsReglage>
+      <PiedReglage>
+        <button type="submit" disabled={enCours} className="bouton bouton-plein">
+          {enCours ? "Enregistrement…" : "Enregistrer"}
+        </button>
+      </PiedReglage>
     </form>
+  );
+}
+
+/** Une valeur réglable : libellé à gauche, compteur et unité à droite (pleine ligne sur téléphone). */
+function LigneValeur({ libelle, unite, children }: { libelle: string; unite: string; children: ReactNode }) {
+  return (
+    <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
+      <span className="caption-4 text-encre-2">{libelle}</span>
+      <span className="flex items-center gap-2">
+        {children}
+        <span className="w-9 caption-5 text-encre-3">{unite}</span>
+      </span>
+    </div>
   );
 }

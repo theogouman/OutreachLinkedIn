@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { IconePageFile, IconePageInbox, IconePageProspects, IconePageReglages, IconePageStats } from "./icones-pages";
+import { IconePageInbox, IconePageProspects, IconePageReglages, IconePageStats } from "./icones-pages";
 
 const LIENS = [
   { href: "/", libelle: "Prospects", Icone: IconePageProspects, compte: null },
   { href: "/inbox", libelle: "Inbox", Icone: IconePageInbox, compte: "nonLus" },
-  { href: "/file", libelle: "File", Icone: IconePageFile, compte: "enAttente" },
   { href: "/statistiques", libelle: "Stats", Icone: IconePageStats, compte: null },
   { href: "/reglages", libelle: "Réglages", Icone: IconePageReglages, compte: null },
 ] as const;
 
 
-type Comptes = { nonLus: number; enAttente: number };
+type Comptes = { nonLus: number };
 
 /**
  * Navigation principale (DA Notion Club) : pilule glissante sous l'onglet actif.
@@ -54,7 +53,7 @@ export function Navigation({ comptes, variante }: { comptes: Comptes; variante: 
 
   useLayoutEffect(() => {
     placer(true);
-  }, [chemin, comptes.nonLus, comptes.enAttente, placer]);
+  }, [chemin, comptes.nonLus, placer]);
 
   useLayoutEffect(() => {
     const ul = liste.current;

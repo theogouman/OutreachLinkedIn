@@ -5,7 +5,7 @@ import { MenuStatuts } from "@/components/menu-statuts";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Logo } from "@/components/logo";
-import { IconeDeconnexion } from "@/components/icones";
+import { IconeDeconnexion, IconeFile } from "@/components/icones";
 import { etatOutil, notifications } from "@/server/donnees";
 import { CentreNotifications } from "@/components/centre-notifications";
 import { exigerUtilisateur } from "@/server/auth";
@@ -79,7 +79,7 @@ function Marque() {
 function SqueletteNav() {
   return (
     <div className="flex gap-1">
-      {Array.from({ length: 5 }, (_, i) => (
+      {Array.from({ length: 4 }, (_, i) => (
         <span key={i} className="squelette h-9 w-24 rounded-full" />
       ))}
     </div>
@@ -88,7 +88,7 @@ function SqueletteNav() {
 
 async function NavigationAvecComptes({ variante }: { variante: "haut" | "bas" }) {
   const etat = await etatOutil();
-  return <Navigation variante={variante} comptes={{ nonLus: etat.nonLus, enAttente: etat.enAttente }} />;
+  return <Navigation variante={variante} comptes={{ nonLus: etat.nonLus }} />;
 }
 
 /** Droite de la barre : menu Statuts (point clignotant, ouvert au survol) puis déconnexion. */
@@ -100,6 +100,7 @@ async function Actions() {
       <MenuStatuts etatFile={etat.etatFile} alerte={etat.incertaines > 0 || etat.arretDurgence}>
         <div className="flex flex-col gap-4">
           <JaugeQuotas etat={etat} />
+          <LienFile enAttente={etat.enAttente} incertaines={etat.incertaines} />
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-trait pt-4">
             {etat.modeSimule ? (
               <span
@@ -121,5 +122,27 @@ async function Actions() {
         </button>
       </form>
     </div>
+  );
+}
+
+/** Accès à la file d'attente, rangée dans les Réglages (encadré « File d'attente » ouvert). */
+function LienFile({ enAttente, incertaines }: { enAttente: number; incertaines: number }) {
+  return (
+    <Link
+      href="/reglages?section=file"
+      className="flex items-center justify-between gap-3 rounded-xl bg-creux px-3 py-2 caption-3 text-encre outline-none transition-colors duration-150 hover:bg-encre/[0.06] focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      <span className="flex items-center gap-2">
+        <IconeFile taille={16} className="text-encre-2" />
+        File d&apos;attente
+      </span>
+      <span className="caption-4 tabular-nums text-encre-3">
+        {incertaines > 0 ? (
+          <span className="text-amber-800 dark:text-amber-300">{incertaines} à vérifier</span>
+        ) : (
+          `${enAttente} en attente`
+        )}
+      </span>
+    </Link>
   );
 }
