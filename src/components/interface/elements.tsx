@@ -1,4 +1,4 @@
-import { PhotoAvatar } from "./photo-avatar";
+import { AvatarPhoto } from "./avatar-photo";
 import type { ReactNode } from "react";
 
 /* Teintes d'avatar : douces, lisibles en encre foncée (contraste ≥ 4,5:1). */
@@ -20,15 +20,16 @@ export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: numb
       .slice(0, 2)
       .map((m) => m[0]?.toUpperCase())
       .join("") || "?";
-  // Initiales toujours dessous : la photo, si elle existe, apparaît par-dessus une fois chargée.
+  const style = { background: teinte(nom), color: ENCRE_AVATAR, fontSize: taille < 32 ? 11 : undefined };
+  // Avec photo : initiales en squelette, photo révélée par-dessus (avatar-photo.tsx).
+  if (photo) return <AvatarPhoto src={photo} initiales={initiales} taille={taille} style={style} />;
   return (
     <span
       aria-hidden
-      className="relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full caption-3 ring-1 ring-encre/5"
-      style={{ width: taille, height: taille, background: teinte(nom), color: ENCRE_AVATAR, fontSize: taille < 32 ? 11 : undefined }}
+      className="inline-grid shrink-0 place-items-center rounded-full caption-3 ring-1 ring-encre/5"
+      style={{ width: taille, height: taille, ...style }}
     >
       {initiales}
-      {photo && <PhotoAvatar src={photo} taille={taille} />}
     </span>
   );
 }
