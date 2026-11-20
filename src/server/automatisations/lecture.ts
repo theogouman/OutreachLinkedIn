@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { reglagesAffichables, type ReglagesRelance } from "@/lib/automatisations/catalogue";
 import { debutJour } from "@/server/queue/temps";
+import { adressePhoto } from "@/lib/photos";
 import type { EtatSuivi } from "./relance-invitations";
 
 /**
@@ -17,6 +18,7 @@ export interface ActionPrevue {
   action: "retrait" | "invitation";
   /** Déjà dans la file d'attente (sinon : décision prévue à cette date). */
   enFile: boolean;
+  photo: string | null;
 }
 
 export interface ActionFaite {
@@ -25,6 +27,7 @@ export interface ActionFaite {
   nom: string;
   action: "retrait" | "invitation";
   resultat: string;
+  photo: string | null;
 }
 
 export interface AutomatisationAffichee {
@@ -58,12 +61,12 @@ export async function automatisationsDepuis(pool: Pool, maintenant = new Date())
       ),
       pool.query(
         `select * from (
-           select coalesce(t.depart_estime, t.executer_apres) as date, t.prospect_id, ${NOM} as nom,
+           select coalesce(t.depart_estime, t.executer_apres) as date, t.prospect_id, ${NOM} as nom, p.photo_maj,
                   case t.type_action when 'retrait_invitation' then 'retrait' else 'invitation' end as action, true as en_file
              from public.taches t join public.prospects p on p.id = t.prospect_id
             where t.automatisation_id = $1 and t.statut in ('en_attente', 'en_cours', 'incertaine')
            union all
-           select s.prochaine_decision_le, s.prospect_id, ${NOM},
+           select s.prochaine_decision_le, s.prospect_id, ${NOM}, p.photo_maj,
                   case s.etat when 'attente_retrait' then 'retrait' else 'invitation' end, false
              from public.suivis_automatisation s join public.prospects p on p.id = s.prospect_id
             where s.automatisation_id = $1 and s.etat in ('attente_retrait', 'attente_reinvitation') and s.prochaine_decision_le is not null
@@ -71,7 +74,7 @@ export async function automatisationsDepuis(pool: Pool, maintenant = new Date())
         [x.id],
       ),
       pool.query(
-        `select a.created_at as date, a.prospect_id, ${NOM} as nom,
+        `select a.created_at as date, a.prospect_id, ${NOM} as nom, p.photo_maj,
                 case a.type when 'retrait_invitation' then 'retrait' else 'invitation' end as action, a.resultat
            from public.actions a
            join public.taches t on t.id = a.tache_id
@@ -93,8 +96,22 @@ export async function automatisationsDepuis(pool: Pool, maintenant = new Date())
       reglages,
       compteurs: parEtat,
       aujourdhui: { misEnFile: aujourdhui.rows[0].n, plafond: reglages.plafond_jour },
-      prochaines: prochaines.rows.map((r) => ({ date: r.date, prospectId: r.prospect_id, nom: r.nom, action: r.action, enFile: r.en_file })),
-      dernieres: dernieres.rows.map((r) => ({ date: r.date, prospectId: r.prospect_id, nom: r.nom, action: r.action, resultat: r.resultat })),
+      prochaines: prochaines.rows.map((r) => ({
+        date: r.date,
+        prospectId: r.prospect_id,
+        nom: r.nom,
+        action: r.action,
+        enFile: r.en_file,
+        photo: adressePhoto(r.prospect_id, r.photo_maj),
+      })),
+      dernieres: dernieres.rows.map((r) => ({
+        date: r.date,
+        prospectId: r.prospect_id,
+        nom: r.nom,
+        action: r.action,
+        resultat: r.resultat,
+        photo: r.prospect_id ? adressePhoto(r.prospect_id, r.photo_maj) : null,
+      })),
     });
   }
   return sortie;

@@ -12,6 +12,7 @@ import { chargerContexte } from "./queue/worker";
 import { dernierRetrait, notesInvitationRestantes } from "./mutations";
 import { reinvitationPossibleLe } from "@/lib/invitation";
 import { vuesDepuis } from "./vues";
+import { adressePhoto } from "@/lib/photos";
 import { automatisationsDepuis } from "./automatisations/lecture";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
@@ -639,9 +640,7 @@ export async function statistiques() {
 // ─── Photos de profil ─────────────────────────────────────────────────────────
 
 /** Adresse de la photo servie par l'outil (version dans l'URL : le cache suit les mises à jour). */
-export function adressePhoto(id: string, maj: Date | string | null): string | null {
-  return maj ? `/api/photos/${id}?v=${new Date(maj).getTime()}` : null;
-}
+export { adressePhoto } from "@/lib/photos";
 
 /** Photo d'un prospect, ou de l'interlocuteur d'une conversation hors CRM (même adresse /api/photos/<id>). */
 export async function photoProspect(id: string): Promise<{ contenu: Buffer; type: string } | null> {

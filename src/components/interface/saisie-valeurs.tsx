@@ -23,6 +23,7 @@
 import { getSvgPath } from "figma-squircle";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform, useVelocity, type MotionStyle, type MotionValue } from "motion/react";
 import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { bornerSaisie, cheminCrayonCoche, saisieEnCours } from "./saisie-valeurs-regles";
 
 const ECART_OUVERT = 8;
@@ -149,9 +150,17 @@ function Champ({
   const erreur = useSpring(0, RESSORT_ERREUR);
   const x = useTransform(() => balancement.get() + erreur.get());
 
+  // Largeur du texte suivie en continu : au premier chargement, la police arrive après le premier
+  // rendu (largeur fausse jusqu'ici) ; le ResizeObserver la remesure dès qu'elle est appliquée.
   useLayoutEffect(() => {
-    if (mesure.current) setLargeurTexte(mesure.current.offsetWidth);
-  }, [texte]);
+    const el = mesure.current;
+    if (!el) return;
+    const mesurer = () => setLargeurTexte(el.offsetWidth);
+    mesurer();
+    const obs = new ResizeObserver(mesurer);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const largeur = edition ? Math.max(44, largeurTexte + 20) : Math.max(largeurTexte + 12, 22);
   return (
@@ -174,7 +183,9 @@ function Champ({
             erreur.set(0);
           }
         }}
-        style={{ x, width: largeur }}
+        style={{ x }}
+        // Largeur posée sans animation au premier rendu (hydratation), animée ensuite seulement.
+        initial={false}
         animate={{ width: largeur }}
         transition={reduit ? { duration: 0 } : { type: "spring", ...RESSORT_LARGEUR }}
         className={`h-full bg-transparent text-center text-base font-medium tabular-nums text-encre outline-none sm:text-[15px] ${edition ? "" : "cursor-pointer"}`}
@@ -243,8 +254,10 @@ export function SaisieValeurs({
     if (disabled || edition) return;
     avant.current = textes;
     animer(true);
-    setEdition(true);
-    requestAnimationFrame(() => premier.current?.focus());
+    // Rendu immédiat puis focus dans le même geste : sur iPhone, le clavier ne s'ouvre que si le
+    // focus est donné pendant le toucher, sur un champ déjà modifiable.
+    flushSync(() => setEdition(true));
+    premier.current?.focus({ preventScroll: true });
   };
   const valider = () => {
     if (!edition) return;
@@ -304,7 +317,9 @@ export function SaisieValeurs({
               paddingRight: margeDroite,
               ...(premierSegment ? {} : { marginLeft: espacement, paddingLeft: margeGauche }),
             }}
-            className={`flex h-11 items-center gap-1 bg-creux ${premierSegment ? "pl-2" : ""}`}
+            // Arrondi CSS de repli aux extrémités : visible dès le HTML du serveur, avant que le
+            // squircle (clip-path calculé en JavaScript) prenne le relais, sans saut.
+            className={`flex h-11 items-center gap-1 bg-creux ${premierSegment ? "rounded-l-xl pl-2" : ""}`}
           >
             <Champ
               texte={textes[i] ?? ""}
@@ -329,7 +344,7 @@ export function SaisieValeurs({
         droite={RAYON}
         style={{ marginLeft: espacement }}
         bouton={{ onClick: edition ? valider : ouvrir, disabled, label: `${edition ? "Valider" : "Modifier"} : ${libelle}` }}
-        className="grid size-11 place-items-center bg-creux text-encre-3 outline-none transition-transform active:scale-90 focus-visible:text-encre disabled:active:scale-100"
+        className="grid size-11 place-items-center rounded-r-xl bg-creux text-encre-3 outline-none transition-transform active:scale-90 focus-visible:text-encre disabled:active:scale-100"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
           <motion.path

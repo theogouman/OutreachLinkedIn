@@ -946,6 +946,85 @@ html {
   transform: scale(1);
 }
 
+/* Brillance « light shape » (relevé de youtube.com, note de l'utilisateur du 2026-11-20) : un calque
+   posé par-dessus un groupe, qui simule une lumière venant du haut. 1) liseré de 0,5 px en dégradé
+   (couleur en haut, transparent à 75 % de la hauteur), anneau obtenu par un masque qui évide le
+   centre ; 2) halo flouté qui n'éclaire que la moitié haute. Sombre : valeurs de YouTube. Clair :
+   l'effet de YouTube y est invisible ; liseré et halo blancs sur une surface un cran plus sombre
+   que la carte (recommandation de la note). Le contenu passe au-dessus (z-index 1). */
+:root {
+  --lumiere-surface: rgba(0, 0, 0, 0.04);
+  --lumiere-lisere: rgba(255, 255, 255, 0.95);
+  --lumiere-halo: rgba(255, 255, 255, 0.6);
+  --lumiere-separateur: rgba(0, 0, 0, 0.08);
+}
+/* Sombre : valeurs relevées sur YouTube (déclarées après les valeurs claires, qu'elles remplacent). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lumiere-surface: rgba(255, 255, 255, 0.1);
+    --lumiere-lisere: rgba(255, 255, 255, 0.1);
+    --lumiere-halo: rgba(255, 255, 255, 0.05);
+    --lumiere-separateur: rgba(255, 255, 255, 0.2);
+  }
+}
+.lumiere-groupe {
+  position: relative;
+  overflow: hidden;
+  background: var(--lumiere-surface);
+}
+.lumiere {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.lumiere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0.5px;
+  background: linear-gradient(var(--lumiere-lisere), transparent 75%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box exclude,
+    linear-gradient(#fff 0 0);
+}
+.lumiere::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lumiere-halo);
+  filter: blur(10px);
+}
+/* Grille sous la lumière : séparateurs de 1 px à la couleur de YouTube (20 % en sombre), entre
+   colonnes et entre lignes, jamais au bord (la marge négative les pousse hors du groupe). */
+.grille-lumiere {
+  margin: 0 -1px -1px 0;
+}
+.grille-lumiere > * {
+  border-right: 1px solid var(--lumiere-separateur);
+  border-bottom: 1px solid var(--lumiere-separateur);
+}
+
+/* Avatars des logs (Workflow) : forme de l'« Avatar group » de Transitions.dev, sans l'animation
+   au survol ; rond, liseré de la couleur de la carte, ombre légère. */
+.avatar-groupe {
+  display: inline-flex;
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 2px var(--color-carte),
+    0 1px 3px color-mix(in srgb, var(--color-encre) 14%, transparent);
+}
+
 /* Tableau blanc du déroulé d'une automatisation (page Workflow) : grille de points, étiquettes reliées
    par des traits ; branches (oui / non) en arbre, chaque étape d'une branche reliée à la précédente. */
 .tableau-blanc {

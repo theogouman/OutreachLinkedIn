@@ -45,7 +45,9 @@ describe.skipIf(!TEST_DATABASE_URL)("page Workflow : lecture et actions serveur"
         "insert into public.suivis_automatisation (automatisation_id, prospect_id, etat, invitation_envoyee_le, prochaine_decision_le) values ($1, $2, $3, '2026-10-01', $4)",
         [id, prospect, etat, prochaine],
       );
-    await suivre(await p("lea"), "attente_retrait", "2026-11-25T10:00:00Z");
+    const lea = await p("lea");
+    await db.pool.query("update public.prospects set photo_maj = '2026-11-01T00:00:00Z' where id = $1", [lea]);
+    await suivre(lea, "attente_retrait", "2026-11-25T10:00:00Z");
     await suivre(await p("tom"), "attente_reinvitation", "2026-11-22T10:00:00Z");
     await suivre(await p("max"), "mis_de_cote", null);
 
@@ -59,9 +61,9 @@ describe.skipIf(!TEST_DATABASE_URL)("page Workflow : lecture et actions serveur"
       compteurs: { attente_retrait: 1, retrait_en_file: 0, attente_reinvitation: 1, reinvitation_en_file: 0, mis_de_cote: 1, termine: 0 },
       aujourdhui: { misEnFile: 0, plafond: 10 },
     });
-    expect(a!.prochaines.map((x) => [x.nom, x.action])).toEqual([
-      ["tom Martin", "invitation"],
-      ["lea Martin", "retrait"],
+    expect(a!.prochaines.map((x) => [x.nom, x.action, x.photo])).toEqual([
+      ["tom Martin", "invitation", null],
+      ["lea Martin", "retrait", "/api/photos/" + a!.prochaines[1]!.prospectId + "?v=" + new Date("2026-11-01T00:00:00Z").getTime()],
     ]);
   });
 

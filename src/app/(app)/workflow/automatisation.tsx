@@ -10,6 +10,7 @@ import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
 import { IconeHorloge, IconeInviter, IconePause, IconePlay, IconeRetirer, IconeSynchro } from "@/components/icones";
 import { IconePageWorkflow } from "@/components/icones-pages";
+import { Avatar } from "@/components/interface/elements";
 import type { ReglagesRelance } from "@/lib/automatisations/catalogue";
 import type { AutomatisationAffichee } from "@/server/automatisations/lecture";
 import type { EtatSuivi } from "@/server/automatisations/relance-invitations";
@@ -78,14 +79,18 @@ function resume(a: AutomatisationAffichee) {
 function ContenuAutomatisation({ a }: { a: AutomatisationAffichee }) {
   return (
     <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 sm:py-6">
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-trait ring-1 ring-trait sm:grid-cols-3 lg:grid-cols-6">
-        {ETAPES.map((e) => (
-          <div key={e.etat} className="flex flex-col gap-0.5 bg-carte px-4 py-3">
-            <dt className="caption-5 text-encre-3">{e.libelle}</dt>
-            <dd className="title-3 tabular-nums text-encre">{a.compteurs[e.etat]}</dd>
-          </div>
-        ))}
-      </dl>
+      {/* Brillance « light shape » (relevé YouTube, docs : globals.css .lumiere) sur la grille. */}
+      <div className="lumiere-groupe rounded-2xl">
+        <dl className="grille-lumiere relative z-[1] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          {ETAPES.map((e) => (
+            <div key={e.etat} className="flex flex-col gap-0.5 px-4 py-3">
+              <dt className="caption-5 text-encre-3">{e.libelle}</dt>
+              <dd className="title-3 tabular-nums text-encre">{a.compteurs[e.etat]}</dd>
+            </div>
+          ))}
+        </dl>
+        <span className="lumiere" aria-hidden />
+      </div>
       <SectionsGlissantes
         libelle={`Détail : ${a.nom}`}
         aCote={<Interrupteur a={a} />}
@@ -244,7 +249,7 @@ function Logs({ a }: { a: AutomatisationAffichee }) {
         {a.prochaines.length ? (
           <ul className="divide-y divide-trait rounded-2xl ring-1 ring-inset ring-trait">
             {a.prochaines.map((x, i) => (
-              <LigneAction key={`${x.prospectId}-${i}`} prospectId={x.prospectId} nom={x.nom} action={ACTIONS[x.action]} date={x.date}>
+              <LigneAction key={`${x.prospectId}-${i}`} prospectId={x.prospectId} nom={x.nom} photo={x.photo} action={ACTIONS[x.action]} date={x.date}>
                 {x.enFile ? <span className="rounded-full bg-creux px-2 py-0.5 caption-4 text-encre-2">en file</span> : null}
               </LigneAction>
             ))}
@@ -258,7 +263,7 @@ function Logs({ a }: { a: AutomatisationAffichee }) {
         {a.dernieres.length ? (
           <ul className="divide-y divide-trait rounded-2xl ring-1 ring-inset ring-trait">
             {a.dernieres.map((x, i) => (
-              <LigneAction key={`${x.prospectId}-${i}`} prospectId={x.prospectId} nom={x.nom} action={ACTIONS[x.action]} date={x.date}>
+              <LigneAction key={`${x.prospectId}-${i}`} prospectId={x.prospectId} nom={x.nom} photo={x.photo} action={ACTIONS[x.action]} date={x.date}>
                 {x.resultat !== "succes" ? (
                   <span className="caption-4 text-amber-800 dark:text-amber-300">{x.resultat === "echec" ? "échec" : "à vérifier"}</span>
                 ) : null}
@@ -277,10 +282,29 @@ function Logs({ a }: { a: AutomatisationAffichee }) {
  * Une action : le nom ouvre la fiche du prospect par-dessus la page Workflow (?prospect=…) —
  * modale centrée sur ordinateur, panneau du bas sur téléphone, avec ses gestes — sans quitter la page.
  */
-function LigneAction({ prospectId, nom, action, date, children }: { prospectId: string | null; nom: string; action: string; date: Date; children?: ReactNode }) {
+function LigneAction({
+  prospectId,
+  nom,
+  photo,
+  action,
+  date,
+  children,
+}: {
+  prospectId: string | null;
+  nom: string;
+  photo: string | null;
+  action: string;
+  date: Date;
+  children?: ReactNode;
+}) {
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
       <span className="w-20 shrink-0 caption-4 tabular-nums text-encre-3">{fmtJour.format(new Date(date))}</span>
+      {/* Forme de l'« Avatar group » de Transitions.dev (sans l'animation au survol) : rond, liseré
+          de la couleur de la carte, ombre légère ; photo révélée par « Skeleton loader and reveal ». */}
+      <span className="avatar-groupe shrink-0">
+        <Avatar nom={nom} photo={photo} taille={28} />
+      </span>
       <span className="min-w-0 flex-1 truncate body-6 text-encre">
         {prospectId ? (
           <Link
