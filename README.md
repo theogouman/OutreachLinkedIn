@@ -9,3 +9,7 @@ Application Next.js + Supabase déployée sur Vercel, développée majoritaireme
 Production : https://outreach.gouman.fr (Vercel, déploiement à chaque push). Pas d'environnement local pour l'instant.
 
 Règle : chaque push sur `main` est déployé en production, sans PR (voir CLAUDE.md).
+
+## Crédits
+
+Composant de saisie des valeurs adapté du « Duration Picker » de [Rare UI](https://rareui.com) (© 2026 Swami Malode). Autres composants et licences : [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

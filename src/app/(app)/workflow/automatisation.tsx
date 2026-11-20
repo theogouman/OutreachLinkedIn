@@ -4,7 +4,7 @@ import { useId, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { actionBasculerAutomatisation, actionReglerAutomatisation } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
-import { Compteur } from "@/components/interface/compteur";
+import { SaisieValeurs } from "@/components/interface/saisie-valeurs";
 import { ReglageExtensible } from "@/components/interface/reglage-extensible";
 import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
@@ -306,28 +306,31 @@ function FormReglagesAutomatisation({ id, initial }: { id: string; initial: Regl
   const [r, setR] = useState(initial);
   const [enCours, demarrer] = useTransition();
   const retourner = useRetour();
-  const plage = (cle: "attente_jours" | "reinvitation_jours", bout: "min" | "max", v: number) =>
-    setR((s) => {
-      const p = { ...s[cle], [bout]: v };
-      // Plage toujours cohérente : le minimum ne dépasse jamais le maximum.
-      if (bout === "min" && p.max < v) p.max = v;
-      if (bout === "max" && p.min > v) p.min = v;
-      return { ...s, [cle]: p };
-    });
+  // Plage toujours cohérente : bornes remises dans l'ordre si besoin.
+  const plage = (cle: "attente_jours" | "reinvitation_jours", [a, b]: number[]) =>
+    setR((s) => ({ ...s, [cle]: { min: Math.min(a!, b!), max: Math.max(a!, b!) } }));
 
   return (
     <form action={() => demarrer(async () => retourner(await actionReglerAutomatisation({ id, reglages: r })))} className="flex flex-col gap-5">
-      <Ligne libelle="Attente avant le retrait" aide="Depuis l'envoi de l'invitation, tirée au hasard">
-        <Compteur valeur={r.attente_jours.min} min={7} max={120} libelle="Attente minimum, en jours" onChange={(v) => plage("attente_jours", "min", v)} />
-        <span className="caption-5 text-encre-3">à</span>
-        <Compteur valeur={r.attente_jours.max} min={7} max={120} libelle="Attente maximum, en jours" onChange={(v) => plage("attente_jours", "max", v)} />
-        <span className="caption-5 text-encre-3">j</span>
+      <Ligne libelle="Attente avant le retrait" aide="Depuis l'envoi de l'invitation, tirée au hasard entre ces deux durées">
+        <SaisieValeurs
+          libelle="Attente avant le retrait"
+          segments={[
+            { valeur: r.attente_jours.min, min: 7, max: 120, suffixe: "j", libelle: "Attente minimum, en jours" },
+            { valeur: r.attente_jours.max, min: 7, max: 120, suffixe: "j", libelle: "Attente maximum, en jours" },
+          ]}
+          onChange={(v) => plage("attente_jours", v)}
+        />
       </Ligne>
-      <Ligne libelle="Délai avant de réinviter" aide="Depuis le retrait ; LinkedIn impose 21 jours au moins">
-        <Compteur valeur={r.reinvitation_jours.min} min={21} max={90} libelle="Délai minimum, en jours" onChange={(v) => plage("reinvitation_jours", "min", v)} />
-        <span className="caption-5 text-encre-3">à</span>
-        <Compteur valeur={r.reinvitation_jours.max} min={21} max={90} libelle="Délai maximum, en jours" onChange={(v) => plage("reinvitation_jours", "max", v)} />
-        <span className="caption-5 text-encre-3">j</span>
+      <Ligne libelle="Délai avant de réinviter" aide="Depuis le retrait, entre ces deux durées ; LinkedIn impose 21 jours au moins">
+        <SaisieValeurs
+          libelle="Délai avant de réinviter"
+          segments={[
+            { valeur: r.reinvitation_jours.min, min: 21, max: 90, suffixe: "j", libelle: "Délai minimum, en jours" },
+            { valeur: r.reinvitation_jours.max, min: 21, max: 90, suffixe: "j", libelle: "Délai maximum, en jours" },
+          ]}
+          onChange={(v) => plage("reinvitation_jours", v)}
+        />
       </Ligne>
       <Ligne libelle="Nombre de relances" aide="Par prospect, avant de le mettre de côté">
         <select
@@ -345,7 +348,11 @@ function FormReglagesAutomatisation({ id, initial }: { id: string; initial: Regl
         </select>
       </Ligne>
       <Ligne libelle="Actions par jour" aide="Retraits et réinvitations mis en file, au plus">
-        <Compteur valeur={r.plafond_jour} min={1} max={20} libelle="Actions par jour" onChange={(v) => setR((s) => ({ ...s, plafond_jour: v }))} />
+        <SaisieValeurs
+          libelle="Actions par jour"
+          segments={[{ valeur: r.plafond_jour, min: 1, max: 20, suffixe: "/ jour", libelle: "Actions par jour, 20 au plus" }]}
+          onChange={([v]) => setR((s) => ({ ...s, plafond_jour: v! }))}
+        />
       </Ligne>
       <div className="flex justify-end border-t border-trait pt-4">
         <button type="submit" disabled={enCours} className="bouton bouton-plein">

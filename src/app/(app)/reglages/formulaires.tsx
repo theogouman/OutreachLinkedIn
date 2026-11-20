@@ -3,7 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { actionPlafonds, actionReglages } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
-import { Compteur } from "@/components/interface/compteur";
+import { SaisieValeurs } from "@/components/interface/saisie-valeurs";
 import { IconeFermer, IconeHorloge } from "@/components/icones";
 import { CorpsReglage, PiedReglage } from "@/components/interface/reglage-extensible";
 import { PERIODES, periodesActives } from "@/lib/reglages";
@@ -42,7 +42,7 @@ export function FormPlafonds({ initial }: { initial: Plafonds }) {
   const [valeurs, setValeurs] = useState(initial);
   const [enCours, demarrer] = useTransition();
   const retourner = useRetour();
-  const colonnes = "sm:grid sm:grid-cols-[minmax(0,1fr)_repeat(3,136px)] sm:gap-4";
+  const colonnes = "sm:grid sm:grid-cols-[minmax(0,1fr)_repeat(3,152px)] sm:gap-4";
 
   return (
     <form action={() => demarrer(async () => retourner(await actionPlafonds(valeurs)))}>
@@ -67,16 +67,12 @@ export function FormPlafonds({ initial }: { initial: Plafonds }) {
                     return (
                       <div key={p} className="flex items-center justify-between gap-3 sm:flex-col sm:items-start sm:justify-start sm:gap-1">
                         <span className="caption-4 text-encre-2 sm:hidden">Par {p}</span>
-                        <span className="flex items-center gap-2.5 sm:flex-col sm:items-start sm:gap-1">
-                          <span className="caption-5 text-encre-3 sm:order-last">max {max}</span>
-                          <Compteur
-                            valeur={valeurs[t][p] ?? 0}
-                            min={0}
-                            max={max}
-                            libelle={`${LIBELLES_QUOTA[t]} par ${p}`}
-                            onChange={(v) => setValeurs((s) => ({ ...s, [t]: { ...s[t], [p]: v } }))}
-                          />
-                        </span>
+                        {/* Le maximum recommandé s'affiche dans la saisie (« 20 / 30 »). */}
+                        <SaisieValeurs
+                          libelle={`${LIBELLES_QUOTA[t]} par ${p}`}
+                          segments={[{ valeur: valeurs[t][p] ?? 0, min: 0, max, suffixe: `/ ${max}`, libelle: `${LIBELLES_QUOTA[t]} par ${p}, ${max} au plus` }]}
+                          onChange={([v]) => setValeurs((s) => ({ ...s, [t]: { ...s[t], [p]: v! } }))}
+                        />
                       </div>
                     );
                   })}
@@ -168,20 +164,36 @@ export function FormReglages({ initial }: { initial: Reglages }) {
         </Groupe>
 
         <Groupe titre="Délai entre deux actions" aide="Tiré au hasard entre ces bornes.">
-          <LigneValeur libelle="Minimum" unite="min">
-            <Compteur valeur={Math.round(r.delaiMinS / 60)} min={1} max={60} libelle="Délai minimum en minutes" onChange={(v) => setR((s) => ({ ...s, delaiMinS: v * 60 }))} />
+          <LigneValeur libelle="Minimum">
+            <SaisieValeurs
+              libelle="Délai minimum"
+              segments={[{ valeur: Math.round(r.delaiMinS / 60), min: 1, max: 60, suffixe: "min", libelle: "Délai minimum en minutes" }]}
+              onChange={([v]) => setR((s) => ({ ...s, delaiMinS: v! * 60 }))}
+            />
           </LigneValeur>
-          <LigneValeur libelle="Maximum" unite="min">
-            <Compteur valeur={Math.round(r.delaiMaxS / 60)} min={1} max={120} libelle="Délai maximum en minutes" onChange={(v) => setR((s) => ({ ...s, delaiMaxS: v * 60 }))} />
+          <LigneValeur libelle="Maximum">
+            <SaisieValeurs
+              libelle="Délai maximum"
+              segments={[{ valeur: Math.round(r.delaiMaxS / 60), min: 1, max: 120, suffixe: "min", libelle: "Délai maximum en minutes" }]}
+              onChange={([v]) => setR((s) => ({ ...s, delaiMaxS: v! * 60 }))}
+            />
           </LigneValeur>
         </Groupe>
 
         <Groupe titre="Cadence de relances" aide="Sans réponse du prospect.">
-          <LigneValeur libelle="Relance 1" unite="jours">
-            <Compteur valeur={r.cadence.relance_1_jours} min={1} max={60} libelle="Jours avant la relance 1" onChange={(v) => setR((s) => ({ ...s, cadence: { ...s.cadence, relance_1_jours: v } }))} />
+          <LigneValeur libelle="Relance 1">
+            <SaisieValeurs
+              libelle="Relance 1"
+              segments={[{ valeur: r.cadence.relance_1_jours, min: 1, max: 60, suffixe: "jours", libelle: "Jours avant la relance 1" }]}
+              onChange={([v]) => setR((s) => ({ ...s, cadence: { ...s.cadence, relance_1_jours: v! } }))}
+            />
           </LigneValeur>
-          <LigneValeur libelle="Relance 2" unite="jours">
-            <Compteur valeur={r.cadence.relance_2_jours} min={1} max={60} libelle="Jours entre relance 1 et relance 2" onChange={(v) => setR((s) => ({ ...s, cadence: { ...s.cadence, relance_2_jours: v } }))} />
+          <LigneValeur libelle="Relance 2">
+            <SaisieValeurs
+              libelle="Relance 2"
+              segments={[{ valeur: r.cadence.relance_2_jours, min: 1, max: 60, suffixe: "jours", libelle: "Jours entre relance 1 et relance 2" }]}
+              onChange={([v]) => setR((s) => ({ ...s, cadence: { ...s.cadence, relance_2_jours: v! } }))}
+            />
           </LigneValeur>
         </Groupe>
       </CorpsReglage>
@@ -194,15 +206,12 @@ export function FormReglages({ initial }: { initial: Reglages }) {
   );
 }
 
-/** Une valeur réglable : libellé à gauche, compteur et unité à droite (pleine ligne sur téléphone). */
-function LigneValeur({ libelle, unite, children }: { libelle: string; unite: string; children: ReactNode }) {
+/** Une valeur réglable : libellé à gauche, saisie (avec son unité) à droite (pleine ligne sur téléphone). */
+function LigneValeur({ libelle, children }: { libelle: string; children: ReactNode }) {
   return (
     <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-start">
-      <span className="caption-4 text-encre-2">{libelle}</span>
-      <span className="flex items-center gap-2">
-        {children}
-        <span className="w-9 caption-5 text-encre-3">{unite}</span>
-      </span>
+      <span className="caption-4 text-encre-2 sm:w-20">{libelle}</span>
+      {children}
     </div>
   );
 }
