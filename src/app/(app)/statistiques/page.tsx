@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { EnTetePage } from "@/components/interface/elements";
-import { statistiques } from "@/server/donnees";
+import { statistiques, statsProspects } from "@/server/donnees";
+import { SqueletteCartes } from "@/components/interface/elements";
+import { Indicateurs } from "./indicateurs";
 import { Graphiques } from "./graphiques";
 
 export default function PageStatistiques() {
@@ -17,6 +19,7 @@ export default function PageStatistiques() {
 function Squelette() {
   return (
     <div className="flex flex-col gap-6" aria-busy="true" aria-label="Chargement">
+      <SqueletteCartes />
       <div className="carte flex flex-col gap-4 p-6">
         <span className="squelette h-4 w-48" />
         <span className="squelette h-56 w-full rounded-2xl" />
@@ -30,6 +33,11 @@ function Squelette() {
 }
 
 async function Contenu() {
-  const { entonnoir, activite } = await statistiques();
-  return <Graphiques entonnoir={entonnoir} activite={activite} />;
+  const [{ entonnoir, activite }, stats] = await Promise.all([statistiques(), statsProspects()]);
+  return (
+    <div className="flex flex-col gap-6">
+      <Indicateurs stats={stats} />
+      <Graphiques entonnoir={entonnoir} activite={activite} />
+    </div>
+  );
 }

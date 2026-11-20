@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableTriable, type Colonne } from "@/components/interface/table-triable";
-import { Avatar, Chiffre } from "@/components/interface/elements";
+import { Avatar } from "@/components/interface/elements";
 import { IconeFermer, IconeRecherche } from "@/components/icones";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
-import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES } from "@/lib/filtres/prospects";
+import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES, type FiltresProspects } from "@/lib/filtres/prospects";
 import { LIBELLES_STATUT } from "@/lib/statut-relation";
 import { actionListerProspects } from "@/app/actions";
-import type { LigneProspect, StatsProspects } from "@/server/donnees";
+import type { LigneProspect } from "@/server/donnees";
 import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 import { BarreVues } from "@/components/vues/barre-vues";
 import { GalerieProspects } from "@/components/vues/galerie";
@@ -22,7 +21,6 @@ import { MISES_EN_PAGE, type Vue } from "@/lib/vues/catalogue";
 /** Aucune vue en base (cas anormal) : la table par défaut, sans enregistrement. */
 const VUE_SECOURS: Vue = { id: "00000000-0000-4000-8000-000000000000", nom: "Table", type: "table", options: MISES_EN_PAGE.table.defaut };
 
-const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Liste des prospects : indicateurs, filtres et tableau, sur le standard des listes filtrées
@@ -30,7 +28,7 @@ const aujourdhui = () => new Date().toISOString().slice(0, 10);
  */
 export function ListeProspects({
   initial,
-  stats,
+  filtresInitiaux = FILTRES_PROSPECTS_VIDES,
   etapes,
   listes,
   vues,
@@ -40,7 +38,8 @@ export function ListeProspects({
   charger = actionListerProspects,
 }: {
   initial: { lignes: LigneProspect[]; total: number };
-  stats: StatsProspects;
+  /** Filtres appliqués au chargement (lien direct depuis les cartes de la page Statistiques). */
+  filtresInitiaux?: FiltresProspects;
   etapes: { code: string; libelle: string }[];
   listes: string[];
   /** Vues enregistrées (au moins une) et vue ouverte au chargement (?vue=). */
@@ -53,7 +52,7 @@ export function ListeProspects({
 }) {
   const l = useListeFiltree({
     initial,
-    filtresInitiaux: FILTRES_PROSPECTS_VIDES,
+    filtresInitiaux,
     definitions: FILTRES_PROSPECTS,
     charger,
   });
@@ -61,7 +60,6 @@ export function ListeProspects({
   const f = l.filtres;
   const libellesEtapes = Object.fromEntries(etapes.map((e) => [e.code, e.libelle]));
   const pages = Math.max(1, Math.ceil(l.total / taillePage));
-  const basculer = (cle: "statut" | "relanceAvant", valeur: string) => l.changer(cle, f[cle] === valeur ? "" : valeur);
   const ctx: ContexteProprietes = { etapes: libellesEtapes, listes };
 
   // Vue ouverte : gardée dans l'URL (?vue=) sans recharger la page, pour la retrouver et la partager.
@@ -82,43 +80,11 @@ export function ListeProspects({
     router.push(`${chemin}?${q}`, { scroll: false });
   };
 
-  const cartes = [
-    { libelle: "En relation", valeur: stats.parStatut.en_relation, aide: `sur ${stats.total} prospects`, actif: f.statut === "en_relation", agir: () => basculer("statut", "en_relation") },
-    { libelle: "Invitations en attente", valeur: stats.parStatut.en_attente, aide: "acceptation non reçue", actif: f.statut === "en_attente", agir: () => basculer("statut", "en_attente") },
-    { libelle: "Réponses à traiter", valeur: stats.aTraiter, aide: "dernier message reçu", href: "/inbox?filtre=a_traiter", accent: stats.aTraiter > 0 },
-    { libelle: "Relances dues", valeur: stats.relancesDues, aide: "aujourd'hui ou en retard", actif: !!f.relanceAvant && f.relanceAvant === aujourdhui(), agir: () => basculer("relanceAvant", aujourdhui()), accent: stats.relancesDues > 0 },
-  ];
-  const classeCarte = (actif?: boolean) =>
-    `carte flex min-w-0 flex-col gap-2 p-4 text-left sm:gap-3 sm:p-5 outline-none transition-[background-color,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-creux focus-visible:shadow-[0_0_0_3px_rgba(224,98,90,0.35)] ${actif ? "shadow-[inset_0_0_0_2px_var(--color-accent)]" : ""}`;
-  const contenuCarte = (c: (typeof cartes)[number]) => (
-    <>
-      <span className="body-6 text-encre-2">{c.libelle}</span>
-      <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <Chiffre valeur={c.valeur} className={`chiffre-cle ${c.accent ? "text-rouge" : "text-encre"}`} />
-        <span className="caption-5 text-encre-3">{c.aide}</span>
-      </span>
-    </>
-  );
-
   const champ = "champ w-auto";
   const aucunResultat = l.lignes.length === 0 && l.actifs === 0 && l.total === 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {cartes.map((c) =>
-          c.href ? (
-            <Link key={c.libelle} href={c.href} className={classeCarte()}>
-              {contenuCarte(c)}
-            </Link>
-          ) : (
-            <button key={c.libelle} type="button" onClick={c.agir} aria-pressed={c.actif} className={classeCarte(c.actif)}>
-              {contenuCarte(c)}
-            </button>
-          ),
-        )}
-      </div>
-
       <div className="flex flex-wrap items-center gap-2" role="search" aria-label="Filtrer les prospects">
         <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
           <span className="sr-only">Rechercher un prospect</span>

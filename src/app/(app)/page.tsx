@@ -1,7 +1,8 @@
 import { Suspense } from "react";
-import { etatOutil, ficheProspect, fil, prospects, referentiels, statsProspects, TAILLE_PAGE, vues } from "@/server/donnees";
+import { etatOutil, ficheProspect, fil, prospects, referentiels, TAILLE_PAGE, vues } from "@/server/donnees";
+import { filtresProspectsDepuisUrl } from "@/lib/filtres/prospects";
 import { BoutonDemo } from "@/components/bouton-demo";
-import { EnTetePage, EtatVide, SqueletteCartes, SqueletteLignes } from "@/components/interface/elements";
+import { EnTetePage, EtatVide, SqueletteLignes } from "@/components/interface/elements";
 import { IconeProspects } from "@/components/icones";
 import { ModaleFiche } from "./fiche";
 import { ListeProspects } from "./liste-prospects";
@@ -13,7 +14,6 @@ export default function PageProspects({ searchParams }: PageProps<"/">) {
       <Suspense
         fallback={
           <>
-            <SqueletteCartes />
             <span className="squelette block h-10 w-full max-w-xl rounded-xl" />
             <SqueletteLignes />
           </>
@@ -38,11 +38,13 @@ function premier(v: string | string[] | undefined) {
 async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
   const sp = await searchParams;
   const idFiche = premier(sp.prospect);
-  const [initial, refs, etat, stats, fiche, conversation, listeVues] = await Promise.all([
-    prospects({ page: 1 }),
+  // Lien direct depuis les cartes de la page Statistiques (?statut=, ?relance=dues).
+  const aujourdhui = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+  const filtresInitiaux = filtresProspectsDepuisUrl({ statut: premier(sp.statut), relance: premier(sp.relance) }, aujourdhui);
+  const [initial, refs, etat, fiche, conversation, listeVues] = await Promise.all([
+    prospects(filtresInitiaux),
     referentiels(),
     etatOutil(),
-    statsProspects(),
     idFiche ? ficheProspect(idFiche) : null,
     idFiche ? fil({ prospectId: idFiche }) : null,
     vues(),
@@ -53,7 +55,7 @@ async function Liste({ searchParams }: { searchParams: PageProps<"/">["searchPar
     <>
       <ListeProspects
         initial={initial}
-        stats={stats}
+        filtresInitiaux={filtresInitiaux}
         etapes={refs.etapes.map((e) => ({ code: e.code, libelle: e.libelle }))}
         listes={refs.listes}
         vues={listeVues}

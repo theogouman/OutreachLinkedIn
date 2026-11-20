@@ -40,6 +40,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  experimental: {
+    // Cache client des pages déjà visitées (5 min) : changer d'onglet réaffiche la page aussitôt,
+    // ses données sont relues en arrière-plan (src/components/rafraichissement.tsx). Mémoire du
+    // navigateur seulement, vidée à la fermeture ou au rechargement ; les actions qui modifient
+    // des données rafraîchissent la page (refresh) et invalident ce cache.
+    staleTimes: { dynamic: 300 },
+  },
   partialPrefetching: true,
   poweredByHeader: false,
   turbopack: {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appliquerLocalement, filtresActifs } from "./definition";
-import { FILTRES_PROSPECTS, filtresProspectsSchema, type ProspectFiltrable } from "./prospects";
+import { FILTRES_PROSPECTS, filtresProspectsDepuisUrl, filtresProspectsSchema, type ProspectFiltrable } from "./prospects";
 
 const p = (x: Partial<ProspectFiltrable>): ProspectFiltrable => ({
   prenom: "Camille", nom: "Durand", poste: "CEO", entreprise: "Studio Nord", listeOrigine: "Salon",
@@ -34,5 +34,14 @@ describe("filtres des prospects (règles locales)", () => {
     expect(filtresProspectsSchema.safeParse({ statut: "inconnu" }).success).toBe(false);
     expect(filtresProspectsSchema.safeParse({ relanceAvant: "pas-une-date" }).success).toBe(false);
     expect(filtresProspectsSchema.parse({}).page).toBe(1);
+  });
+});
+
+describe("lien direct vers la liste filtrée (cartes de la page Statistiques)", () => {
+  it("lit le statut de relation et les relances dues ; ignore le reste", () => {
+    expect(filtresProspectsDepuisUrl({ statut: "en_relation" }, "2026-11-20")).toEqual({ page: 1, statut: "en_relation" });
+    expect(filtresProspectsDepuisUrl({ relance: "dues" }, "2026-11-20")).toEqual({ page: 1, relanceAvant: "2026-11-20" });
+    expect(filtresProspectsDepuisUrl({ statut: "'; drop table", relance: "hier" }, "2026-11-20")).toEqual({ page: 1 });
+    expect(filtresProspectsDepuisUrl({}, "2026-11-20")).toEqual({ page: 1 });
   });
 });

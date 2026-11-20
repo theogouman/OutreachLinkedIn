@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { PhotoAvatar } from "./photo-avatar";
 import type { ReactNode } from "react";
 
 /* Teintes d'avatar : douces, lisibles en encre foncée (contraste ≥ 4,5:1). */
@@ -13,20 +13,6 @@ function teinte(nom: string) {
 }
 
 export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: number; photo?: string | null }) {
-  if (photo) {
-    return (
-      // Photo servie par l'outil (/api/photos) : déjà petite, pas d'optimisation Next.
-      <Image
-        src={photo}
-        alt=""
-        width={taille}
-        height={taille}
-        unoptimized
-        className="shrink-0 rounded-full bg-creux object-cover ring-1 ring-encre/5"
-        style={{ width: taille, height: taille }}
-      />
-    );
-  }
   const initiales =
     nom
       .split(/\s+/)
@@ -34,13 +20,15 @@ export function Avatar({ nom, taille = 36, photo }: { nom: string; taille?: numb
       .slice(0, 2)
       .map((m) => m[0]?.toUpperCase())
       .join("") || "?";
+  // Initiales toujours dessous : la photo, si elle existe, apparaît par-dessus une fois chargée.
   return (
     <span
       aria-hidden
-      className="inline-grid shrink-0 place-items-center rounded-full caption-3 ring-1 ring-encre/5"
+      className="relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full caption-3 ring-1 ring-encre/5"
       style={{ width: taille, height: taille, background: teinte(nom), color: ENCRE_AVATAR, fontSize: taille < 32 ? 11 : undefined }}
     >
       {initiales}
+      {photo && <PhotoAvatar src={photo} taille={taille} />}
     </span>
   );
 }
@@ -96,7 +84,7 @@ export function SqueletteLignes({ lignes = 8 }: { lignes?: number }) {
 
 export function SqueletteCartes({ nombre = 4 }: { nombre?: number }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true" aria-label="Chargement">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-busy="true" aria-label="Chargement">
       {Array.from({ length: nombre }, (_, i) => (
         <div key={i} className="carte flex flex-col gap-3 p-4">
           <span className="squelette h-3 w-24" />

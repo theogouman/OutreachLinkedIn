@@ -41,3 +41,17 @@ export const FILTRES_PROSPECTS: readonly Def[] = [
 ];
 
 export const FILTRES_PROSPECTS_VIDES: FiltresProspects = { page: 1 };
+
+/**
+ * Lien direct vers la liste déjà filtrée (cartes d'indicateurs de la page Statistiques) :
+ * `?statut=<statut de relation>`, `?relance=dues` (relance aujourd'hui ou en retard, `aujourdhui`
+ * au format AAAA-MM-JJ, heure de Paris). Valeur inconnue : ignorée.
+ */
+export function filtresProspectsDepuisUrl(p: { statut?: string; relance?: string }, aujourdhui: string): FiltresProspects {
+  const statut = filtresProspectsSchema.shape.statut.safeParse(p.statut);
+  return {
+    page: 1,
+    ...(statut.success && statut.data ? { statut: statut.data } : {}),
+    ...(p.relance === "dues" ? { relanceAvant: aujourdhui } : {}),
+  };
+}

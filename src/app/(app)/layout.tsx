@@ -10,6 +10,7 @@ import { etatOutil, notifications } from "@/server/donnees";
 import { CentreNotifications } from "@/components/centre-notifications";
 import { exigerUtilisateur } from "@/server/auth";
 import { seDeconnecter } from "../actions-auth";
+import { RafraichissementArrierePlan } from "@/components/rafraichissement";
 
 /*
  * Coque de l'application, DA Notion Club : fond à taches latérales, barre de navigation
@@ -50,6 +51,7 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
         </Suspense>
       </div>
 
+      <RafraichissementArrierePlan />
       <main id="contenu" className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 px-4 pb-32 pt-4 md:px-6 md:pb-16 md:pt-[calc(env(safe-area-inset-top)+104px)] lg:px-0">
         {children}
       </main>
