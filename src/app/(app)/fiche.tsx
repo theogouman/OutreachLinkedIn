@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Modale, useModale } from "@/components/interface/modale";
+import { Modale, useModale, type Apercu } from "@/components/interface/modale";
 import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
 import { IconeFermer, IconeLienExterne } from "@/components/icones";
 import { BadgeEtape, BadgeStatut } from "@/components/badges";
@@ -80,16 +80,22 @@ export function ModaleFiche({
   // Fiches voisines préchargées : un glisser (ou une flèche) affiche aussitôt la fiche suivante,
   // pendant que l'URL et les données du serveur suivent. Les données du serveur l'emportent dès
   // qu'elles portent sur la fiche affichée (plus récentes).
-  const cache = useRef(new Map<string, DonneesFiche>());
+  const [cache, setCache] = useState<Record<string, DonneesFiche>>({});
+  const demandees = useRef(new Set<string>()); // fiches déjà demandées au serveur (une lecture chacune)
   const [locale, setLocale] = useState<DonneesFiche | null>(null);
+  // Fiche demandée pas encore chargée (glisser très rapide) : squelette jusqu'aux données serveur.
+  const [attente, setAttente] = useState<string | null>(null);
   const affichee: DonneesFiche =
     locale && locale.fiche.id !== ficheServeur.id
       ? locale
       : { fiche: ficheServeur, libelleEtape: libelleServeur, conversation: conversationServeur };
   const { fiche, libelleEtape, conversation } = affichee;
-  useEffect(() => {
-    cache.current.set(ficheServeur.id, { fiche: ficheServeur, libelleEtape: libelleServeur, conversation: conversationServeur });
-  }, [ficheServeur, libelleServeur, conversationServeur]);
+  const serveur: DonneesFiche = { fiche: ficheServeur, libelleEtape: libelleServeur, conversation: conversationServeur };
+  const lire = (id: string): DonneesFiche | undefined => (id === ficheServeur.id ? serveur : (cache[id] ?? (locale?.fiche.id === id ? locale : undefined)));
+  const enAttente = !!attente && attente !== ficheServeur.id && attente !== locale?.fiche.id;
+  // Même onglet pour la fiche et ses voisines : le glisser arrive sur l'onglet déjà ouvert.
+  const [onglet, setOnglet] = useState(params.get("onglet") === "conversation" ? "conversation" : "informations");
+  const telephone = useEstTelephone();
 
   const fermer = () => {
     const q = new URLSearchParams(params);
@@ -105,8 +111,9 @@ export function ModaleFiche({
   const rang = ordre.indexOf(fiche.id);
   const aller = (id: string | undefined) => {
     if (!id) return;
-    const deja = cache.current.get(id);
+    const deja = lire(id);
     if (deja) setLocale(deja);
+    setAttente(deja ? null : id);
     const q = new URLSearchParams(params);
     q.set("prospect", id);
     demarrer(() => router.replace(`${chemin}?${q}`, { scroll: false }));
@@ -122,10 +129,12 @@ export function ModaleFiche({
   useEffect(() => {
     // Une lecture arrivée après un nouveau glisser reste utile : le cache est indexé par fiche.
     for (const id of voisines ? voisines.split(",") : []) {
-      if (cache.current.has(id)) continue;
+      if (demandees.current.has(id)) continue;
+      demandees.current.add(id);
       actionLireFiche(id)
         .then((d) => {
-          if (d) cache.current.set(id, d);
+          // L'aperçu de la voisine s'affiche dès son arrivée.
+          if (d) setCache((c) => ({ ...c, [id]: d }));
         })
         .catch(() => {});
     }
@@ -147,13 +156,95 @@ export function ModaleFiche({
     return () => document.removeEventListener("keydown", touche);
   }, []);
 
+  // Aperçus des voisines (téléphone seulement : carrousel du glisser), depuis le cache.
+  const apercu = (id: string | undefined): Apercu | undefined => {
+    if (!telephone || !id) return undefined;
+    const d = lire(id);
+    if (!d) return { enTete: <EnTeteSquelette />, contenu: <CorpsSquelette /> };
+    const n = [d.fiche.prenom, d.fiche.nom].filter(Boolean).join(" ") || "Prospect";
+    return {
+      enTete: <EnTeteFiche fiche={d.fiche} nom={n} nav={{ ...nav, precedent: undefined, suivant: undefined }} modeSimule={modeSimule} apercu />,
+      contenu: <CorpsFiche {...d} nom={n} restants={restants} modeSimule={modeSimule} onglet={onglet} changerOnglet={setOnglet} />,
+    };
+  };
+
   return (
     // Taille fixe : une longue conversation défile dans son encadré, la modale ne bouge pas.
-    <Modale fermer={fermer} hauteurFixe glisserHorizontal={{ precedent: nav.precedent, suivant: nav.suivant }} enTete={<EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} />}>
+    <Modale
+      fermer={fermer}
+      hauteurFixe
+      glisserHorizontal={{ precedent: nav.precedent, suivant: nav.suivant }}
+      voisins={nav.position ? { precedent: nav.precedent && apercu(ordre[rang - 1]), suivant: nav.suivant && apercu(ordre[rang + 1]) } : undefined}
+      enTete={enAttente ? <EnTeteSquelette /> : <EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} />}
+    >
+      {enAttente ? (
+        <CorpsSquelette />
+      ) : (
+        <CorpsFiche
+          fiche={fiche}
+          libelleEtape={libelleEtape}
+          conversation={conversation}
+          nom={nom}
+          restants={restants}
+          modeSimule={modeSimule}
+          onglet={onglet}
+          changerOnglet={setOnglet}
+        />
+      )}
+    </Modale>
+  );
+}
+
+/** Téléphone (< 640 px) : seul cas où les voisines sont rendues (carrousel du glisser). */
+function useEstTelephone() {
+  return useSyncExternalStore(
+    (rappel) => {
+      const m = window.matchMedia("(max-width: 639px)");
+      m.addEventListener("change", rappel);
+      return () => m.removeEventListener("change", rappel);
+    },
+    () => window.matchMedia("(max-width: 639px)").matches,
+    () => false,
+  );
+}
+
+function EnTeteSquelette() {
+  return (
+    <header className="flex shrink-0 flex-col gap-4 px-6 pb-5 pt-5 sm:px-8 sm:pt-7" aria-busy="true">
+      <span className="squelette size-14 rounded-full" />
+      <span className="squelette h-8 w-56 rounded-xl" />
+      <span className="squelette h-4 w-40" />
+    </header>
+  );
+}
+
+function CorpsSquelette() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pb-6 pt-1 sm:px-8" aria-busy="true">
+      <span className="squelette h-9 w-full rounded-full" />
+      <span className="squelette h-40 w-full rounded-2xl" />
+      <span className="squelette h-24 w-full rounded-2xl" />
+    </div>
+  );
+}
+
+/** Corps de la fiche (onglets) : fiche affichée et aperçus des voisines. */
+function CorpsFiche({
+  fiche,
+  libelleEtape,
+  conversation,
+  nom,
+  restants,
+  modeSimule,
+  onglet,
+  changerOnglet,
+}: DonneesFiche & { nom: string; restants: number; modeSimule: boolean; onglet: string; changerOnglet: (id: string) => void }) {
+  return (
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
           remplir
-          initial={params.get("onglet") === "conversation" ? "conversation" : undefined}
+          actifId={onglet}
+          surChangement={changerOnglet}
           libelle="Fiche du prospect"
           sections={[
             {
@@ -286,7 +377,6 @@ export function ModaleFiche({
           ]}
         />
       </div>
-    </Modale>
   );
 }
 
@@ -374,7 +464,20 @@ function SupprimerProspect({ prospectId, prenom }: { prospectId: string; prenom:
   );
 }
 
-function EnTeteFiche({ fiche, nom, nav, modeSimule }: { fiche: FicheProspect; nom: string; nav: Navigation; modeSimule: boolean }) {
+function EnTeteFiche({
+  fiche,
+  nom,
+  nav,
+  modeSimule,
+  apercu = false,
+}: {
+  fiche: FicheProspect;
+  nom: string;
+  nav: Navigation;
+  modeSimule: boolean;
+  /** Aperçu d'une voisine (carrousel) : pas d'identifiant de titre, rien de focalisable. */
+  apercu?: boolean;
+}) {
   const { fermer, titreId } = useModale();
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
   const sousTitre = [fiche.poste, fiche.entreprise, fiche.profil?.localisation].filter(Boolean).join(" · ");
@@ -409,7 +512,7 @@ function EnTeteFiche({ fiche, nom, nav, modeSimule }: { fiche: FicheProspect; no
       </div>
       <div className={`flex flex-col gap-1.5 transition-opacity duration-150 ${nav.enCours ? "opacity-50" : ""}`}>
         <h2
-          id={titreId}
+          id={apercu ? undefined : titreId}
           className="text-[28px] font-medium leading-tight tracking-[-0.02em] text-encre sm:text-[32px]"
         >
           {nom}

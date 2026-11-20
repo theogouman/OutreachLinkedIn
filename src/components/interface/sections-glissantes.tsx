@@ -21,14 +21,25 @@ export function SectionsGlissantes({
   libelle,
   remplir = false,
   initial,
+  actifId,
+  surChangement,
 }: {
   sections: Section[];
   libelle: string;
   remplir?: boolean;
   /** Section ouverte au départ (id), la première sinon. */
   initial?: string;
+  /** Mode piloté : section active (id) tenue par le parent (ex. fiches voisines sur le même onglet). */
+  actifId?: string;
+  surChangement?: (id: string) => void;
 }) {
-  const [actif, setActif] = useState(() => Math.max(0, sections.findIndex((s) => s.id === initial)));
+  const [actifLocal, setActifLocal] = useState(() => Math.max(0, sections.findIndex((s) => s.id === initial)));
+  const pilote = actifId !== undefined;
+  const actif = pilote ? Math.max(0, sections.findIndex((s) => s.id === actifId)) : Math.min(actifLocal, sections.length - 1);
+  const setActif = (i: number) => {
+    if (pilote) surChangement?.(sections[i]!.id);
+    else setActifLocal(i);
+  };
   const base = useId();
   const barre = useRef<HTMLDivElement>(null);
   const pilule = useRef<HTMLSpanElement>(null);
