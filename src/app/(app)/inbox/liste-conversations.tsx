@@ -7,6 +7,7 @@
  */
 
 import Link from "next/link";
+import { MenuConversation } from "./menu-conversation";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
 import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
@@ -115,7 +116,7 @@ export function ListeConversations({
           {l.lignes.map((c) => {
             const actif = c.id === ouverte;
             return (
-              <li key={c.id} className="animate-apparition border-b border-trait last:border-0">
+              <li key={c.id} className="group relative animate-apparition border-b border-trait last:border-0">
                 <Link
                   href={`/inbox?conversation=${c.id}`}
                   data-conversation={c.id}
@@ -141,6 +142,14 @@ export function ListeConversations({
                     {!c.prospectId && <span className="mt-0.5 self-start rounded-full bg-amber-50 dark:bg-amber-400/15 px-1.5 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>}
                   </span>
                 </Link>
+                {/* Menu « ⋯ » de la ligne : au survol sur ordinateur (et au focus clavier), à droite. */}
+                <MenuConversation
+                  id={c.id}
+                  nonLu={c.nonLu}
+                  nom={c.nom}
+                  variante="ligne"
+                  className="absolute right-3 top-1/2 hidden -translate-y-1/2 md:block md:opacity-0 md:transition-opacity md:duration-150 md:group-hover:opacity-100 md:focus-within:opacity-100 md:data-[ouvert]:opacity-100"
+                />
               </li>
             );
           })}

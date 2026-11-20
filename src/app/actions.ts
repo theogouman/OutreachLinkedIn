@@ -5,6 +5,7 @@ import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
 import { annulerTache, basculerArret, basculerAutomatisation, reglerAutomatisation, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, modifierPropriete, supprimerConversation, trancherIncertaine } from "@/server/mutations";
+import { texteCopieDepuis } from "@/server/copie";
 import { creerVue, majOptionsVue, renommerVue, supprimerVue } from "@/server/vues";
 import { envUnipile } from "@/server/env-serveur";
 import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
@@ -194,6 +195,21 @@ export async function actionSupprimerProspect(id: unknown): Promise<Retour> {
     await supprimerProspect(poolServeur(), id);
     return "Prospect supprimé, avec toutes ses données.";
   });
+}
+
+// ─── Inbox : copier le profil et / ou la conversation ──────────────────────────
+
+/** Texte à copier (lecture seule, utilisateur vérifié, entrée validée) ; null si introuvable. */
+export async function actionTexteCopie(entree: unknown): Promise<{ ok: true; texte: string } | { ok: false; message: string }> {
+  await exigerUtilisateur();
+  try {
+    const texte = await texteCopieDepuis(poolServeur(), entree);
+    return texte === null ? { ok: false, message: "Conversation introuvable." } : { ok: true, texte };
+  } catch (e) {
+    if (e instanceof z.ZodError) return { ok: false, message: "Valeurs invalides." };
+    console.error("[action:%s]", "texte-copie", e);
+    return { ok: false, message: ERREUR };
+  }
 }
 
 // ─── Automatisations (page Workflow) ──────────────────────────────────────────

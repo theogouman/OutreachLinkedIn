@@ -12,6 +12,8 @@ const ICONES = [
   ["IconePageProspects", "figure.walk.motion", null],
   ["IconePageInbox", "bubble.left.and.text.bubble.right", null],
   ["IconePageWorkflow", "bolt.fill", null],
+  ["IconeEnveloppeOuverte", "envelope.open", null],
+  ["IconeCopier", "document.on.document.fill", null],
   ["IconePageFile", "list.bullet.indent", null],
   ["IconePageStats", "chart.line.uptrend.xyaxis", null],
   ["IconePageReglages", "gear", null],
