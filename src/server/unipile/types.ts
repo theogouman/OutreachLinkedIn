@@ -26,6 +26,8 @@ export interface PersonneListee {
   photoUrl?: string | null;
   /** Nom affiché, si la liste le donne (rapprochement quand l'URL manque). */
   nom?: string | null;
+  /** Listes d'invitations : identifiant de l'invitation chez LinkedIn, nécessaire pour la retirer. */
+  invitationId?: string | null;
 }
 
 /** Une page d'une liste LinkedIn ; `suivant` : curseur de la page suivante (null : dernière page). */

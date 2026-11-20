@@ -69,7 +69,7 @@ type Donnees =
   | { genre: "liste"; liste: Liste; personnes: PersonneListee[]; photos: Map<string, Photo>; suivant: string | null; payload: PayloadLectureListe }
   | { genre: "message"; conversationId: string; texte: string; messageId: string | null }
   | { genre: "conversation"; prospectId: string; chatId: string; providerId: string; texte: string; messageId: string | null }
-  | { genre: "invitation"; prospectId: string; providerId: string };
+  | { genre: "invitation"; prospectId: string; providerId: string; invitationId: string | null };
 
 /** État du destinataire d'un premier message, relu juste avant l'appel LinkedIn. */
 export interface Destinataire {
@@ -233,7 +233,12 @@ export function creerExecuteur(
         if (d.statutRelation === "invitation_recue") return invalide("invitation_recue");
         if (!d.providerId) return invalide("identifiant_linkedin_inconnu");
         const r = await client.inviter(d.providerId, p.data.note);
-        return r.ok ? { ok: true, donnees: { genre: "invitation", prospectId: p.data.prospect_id, providerId: d.providerId } satisfies Donnees } : r;
+        return r.ok
+          ? {
+              ok: true,
+              donnees: { genre: "invitation", prospectId: p.data.prospect_id, providerId: d.providerId, invitationId: r.donnees.invitationId } satisfies Donnees,
+            }
+          : r;
       }
       return invalide("non_disponible");
     },
@@ -289,7 +294,13 @@ async function effetsProfil(c: PoolClient, prospectId: string | null, tacheId: s
 
 async function effetsListe(c: PoolClient, tacheId: string, d: Extract<Donnees, { genre: "liste" }>) {
   const { liste, personnes } = d;
-  const liens = personnes.map((p) => ({ type: TYPE_LIEN[liste], urlNormalisee: urlDe(p), providerId: p.providerId, date: p.date }));
+  const liens = personnes.map((p) => ({
+    type: TYPE_LIEN[liste],
+    urlNormalisee: urlDe(p),
+    providerId: p.providerId,
+    date: p.date,
+    invitationId: p.invitationId ?? null,
+  }));
   await enregistrerLiens(c, liens, "sync");
   const transitions = await recalculerStatuts(c, { urls: liens.map((l) => l.urlNormalisee), providerIds: liens.map((l) => l.providerId) });
   await traiterAcceptations(c, transitions);
@@ -299,6 +310,12 @@ async function effetsListe(c: PoolClient, tacheId: string, d: Extract<Donnees, {
     [liste, personnes.length],
   );
   if (d.payload.complete) await pageSuivante(c, tacheId, d);
+  else if (liste === "invitations_envoyees" && !d.suivant && personnes.length > 0 && personnes.length < d.payload.limite) {
+    // Lecture du jour qui tient en une page (ni curseur ni page pleine) : la liste est entière,
+    // les invitations disparues peuvent être constatées dès aujourd'hui.
+    const lue = await c.query("select max(created_at) as quand from public.actions where tache_id = $1", [tacheId]);
+    await finParcours(c, liste, lue.rows[0]?.quand ?? new Date());
+  }
 }
 
 /**
@@ -422,6 +439,15 @@ async function finParcours(c: PoolClient, liste: Liste, debut: Date) {
     [debut],
   );
   if (!disparues.rowCount) return;
+  // Garde-fou : plus de 10 invitations et plus de la moitié de celles en attente disparues d'un coup,
+  // c'est plus probablement une réponse partielle du fournisseur qu'un fait : on ne conclut rien.
+  const total = await c.query(
+    "select count(*)::int as n from public.prospects where not demo and statut_relation = 'en_attente' and provider_id is not null",
+  );
+  if (disparues.rowCount > 10 && disparues.rowCount * 2 > total.rows[0].n) {
+    console.warn("[listes] disparition massive d'invitations ignorée : %d sur %d", disparues.rowCount, total.rows[0].n);
+    return;
+  }
   const urls = disparues.rows.map((x) => x.url_normalisee as string);
   const ids = disparues.rows.map((x) => x.provider_id as string);
   await c.query(
@@ -433,7 +459,12 @@ async function finParcours(c: PoolClient, liste: Liste, debut: Date) {
   const retour = transitions.filter((t) => t.avant === "en_attente" && t.apres === "a_inviter").map((t) => t.prospectId);
   if (!retour.length) return;
   const maj = await c.query(
-    "update public.prospects set etape = 'a_contacter', updated_at = now() where id = any($1) and etape = 'invitation_envoyee' returning id",
+    // Prospect suivi par une automatisation (relance en cours) : l'étape reste « Invitation envoyée ».
+    `update public.prospects set etape = 'a_contacter', updated_at = now()
+      where id = any($1) and etape = 'invitation_envoyee'
+        and not exists (select 1 from public.suivis_automatisation s
+                         where s.prospect_id = prospects.id and s.etat not in ('mis_de_cote', 'termine'))
+      returning id`,
     [retour],
   );
   for (const r of maj.rows) {
@@ -568,7 +599,12 @@ async function effetsInvitation(c: PoolClient, tacheId: string, d: Extract<Donne
   const url: string = p.rows[0].url_normalisee;
   const a = await c.query("select created_at from public.actions where tache_id = $1 order by created_at desc limit 1", [tacheId]);
   const quand: Date = a.rows[0]?.created_at ?? new Date();
-  await enregistrerLiens(c, [{ type: "invitation_envoyee", urlNormalisee: url, providerId: d.providerId, date: quand }], "outil", quand);
+  await enregistrerLiens(
+    c,
+    [{ type: "invitation_envoyee", urlNormalisee: url, providerId: d.providerId, date: quand, invitationId: d.invitationId }],
+    "outil",
+    quand,
+  );
   await recalculerStatuts(c, { urls: [url], providerIds: [d.providerId] });
   const maj = await c.query(
     "update public.prospects set etape = 'invitation_envoyee', updated_at = $2 where id = $1 and etape = 'a_contacter' returning id",

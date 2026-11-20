@@ -215,6 +215,9 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
     };
     expect(await tour(client)).toMatchObject({ resultat: "succes" });
     expect(recus).toEqual([["ACoLEA123", "Ravi d'échanger"]]);
+    // L'identifiant de l'invitation est gardé sur le lien : il servira à la retirer.
+    const l = await db.pool.query("select invitation_id from public.liens_linkedin where type = 'invitation_envoyee' and provider_id = 'ACoLEA123'");
+    expect(l.rows).toEqual([{ invitation_id: "inv_1" }]);
   });
 
   // ─── Acceptation ────────────────────────────────────────────────────────────

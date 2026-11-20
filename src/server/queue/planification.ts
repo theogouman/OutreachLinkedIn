@@ -9,6 +9,13 @@ import { partiesLocales, prochainDebutPlage, type Plages } from "./temps";
  */
 export const LISTES = ["relations", "invitations_envoyees", "invitations_recues"] as const;
 
+/**
+ * Taille lue chaque jour. Les invitations envoyées sont lues en entier (une page de 500, le maximum
+ * d'Unipile) : les plus anciennes, celles qu'une automatisation retire, ont besoin de leur identifiant,
+ * et une liste lue en entier permet de constater chaque jour les invitations disparues.
+ */
+const LIMITE_JOUR: Record<(typeof LISTES)[number], number> = { relations: 50, invitations_envoyees: 500, invitations_recues: 50 };
+
 /** Fenêtre de tirage après le début de plage, pour étaler les lectures. */
 const FENETRE_MS = 4 * 60 * 60 * 1000;
 
@@ -30,7 +37,7 @@ export async function planifierSynchronisations(pool: Pool, maintenant: Date, al
       `insert into public.taches (type_action, payload, cle_idempotence, executer_apres)
        values ('lecture_liste', $1, $2, $3)
        on conflict (cle_idempotence) do nothing`,
-      [{ liste, limite: 50 }, `sync:${liste}:${cleJour}`, quand],
+      [{ liste, limite: LIMITE_JOUR[liste] }, `sync:${liste}:${cleJour}`, quand],
     );
     creees += r.rowCount ?? 0;
   }

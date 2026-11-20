@@ -43,6 +43,8 @@ const relationsSchema = z.object({
   next_cursor: curseurSchema,
 });
 
+/** Identifiant d'une invitation chez LinkedIn : sert de `request_id` pour la retirer. */
+const identifiantInvitation = z.string().min(1).max(300);
 const invitationsSchema = z.object({
   data: z.array(z.object({ id: z.string(), created_at: z.string().nullish(), user: utilisateurSchema.nullish() })),
   next_cursor: curseurSchema,
@@ -327,7 +329,10 @@ export function creerClientUnipileV2(opts: OptionsClient): ClientLinkedIn {
       return {
         ok: true,
         donnees: {
-          personnes: r.donnees.data.flatMap((x) => (x.user ? [personne(x.user, x.created_at)] : [])),
+          // Identifiant de l'invitation (« request_id » du retrait) : gardé s'il est valide, sinon null.
+          personnes: r.donnees.data.flatMap((x) =>
+            x.user ? [{ ...personne(x.user, x.created_at), invitationId: identifiantInvitation.safeParse(x.id).data ?? null }] : [],
+          ),
           suivant: r.donnees.next_cursor ?? null,
         },
       };

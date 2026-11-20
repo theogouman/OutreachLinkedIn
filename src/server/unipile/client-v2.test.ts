@@ -92,6 +92,8 @@ describe("client Unipile v2", () => {
         // Identifiant public absent : repris de l'URL du profil, sauf si elle ne contient que l'identifiant interne.
         { id: "req3", type: "sent", user: { id: "ACoU3", display_name: "Tom", profile_url: "https://www.linkedin.com/in/tom-d" } },
         { id: "req4", type: "sent", user: { id: "ACoU4", profile_url: "https://www.linkedin.com/in/ACoU4" } },
+        // Identifiant d'invitation trop long : ignoré (jamais tronqué ni deviné), la personne reste.
+        { id: "x".repeat(301), type: "sent", created_at: "2026-10-01T08:00:00Z", user: { id: "ACoU5" } },
       ],
     });
     const r = await creerClientUnipileV2({ ...OPTS, fetch: f as unknown as typeof fetch }).lireListe("invitations_envoyees", 500, undefined, 100);
@@ -99,9 +101,11 @@ describe("client Unipile v2", () => {
       ok: true,
       donnees: {
         personnes: [
-          { providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null, nom: "Léa Martin" },
-          { providerId: "ACoU3", publicIdentifier: "tom-d", date: null, photoUrl: null, nom: "Tom" },
-          { providerId: "ACoU4", publicIdentifier: null, date: null, photoUrl: null, nom: null },
+          // Chaque invitation garde son identifiant : il sert à la retirer.
+          { providerId: "ACoU2", publicIdentifier: null, date: null, photoUrl: null, nom: "Léa Martin", invitationId: "req1" },
+          { providerId: "ACoU3", publicIdentifier: "tom-d", date: null, photoUrl: null, nom: "Tom", invitationId: "req3" },
+          { providerId: "ACoU4", publicIdentifier: null, date: null, photoUrl: null, nom: null, invitationId: "req4" },
+          { providerId: "ACoU5", publicIdentifier: null, date: new Date("2026-10-01T08:00:00Z"), photoUrl: null, nom: null, invitationId: null },
         ],
         suivant: null,
       },

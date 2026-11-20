@@ -18,7 +18,7 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
   beforeEach(async () => {
     tours = 0;
     await db.pool.query(
-      "truncate public.actions, public.taches, public.prospects, public.liens_linkedin, public.sync_runs, public.conversations cascade",
+      "truncate public.actions, public.taches, public.prospects, public.liens_linkedin, public.sync_runs, public.conversations, public.suivis_automatisation cascade",
     );
     await db.pool.query("update public.reglages set prochaine_action_possible_a = null");
     await db.pool.query("update public.quotas set plafond_jour = 80 where type_quota = 'lecture_liste'");
@@ -135,6 +135,94 @@ describe.skipIf(!TEST_DATABASE_URL)("lecture complète des listes : identifiant 
       [partie],
     );
     expect(journal.rows.map((x) => x.details)).toEqual([{ vers: "a_contacter", cause: "invitation_disparue" }]);
+  });
+
+  it("invitations envoyées : l'identifiant de chaque invitation est gardé sur le lien, et remplacé par la liste suivante", async () => {
+    const lea = await prospect("lea", "en_attente");
+    await db.pool.query("update public.prospects set provider_id = 'AColea' where id = $1", [lea]);
+    const lire = async (invitationId: string | null, cle: string) => {
+      await db.pool.query(
+        `insert into public.taches (type_action, payload, cle_idempotence, executer_apres) values ('lecture_liste', $1, $2, '2026-11-01')`,
+        [{ liste: "invitations_envoyees", limite: 500 }, cle],
+      );
+      const client = clientPagine({ debut: { personnes: [{ providerId: "AColea", publicIdentifier: null, date: null, invitationId }], suivant: null } }, []);
+      expect(await tour(client)).toMatchObject({ resultat: "succes" });
+    };
+    const lien = async () =>
+      (await db.pool.query("select invitation_id from public.liens_linkedin where type = 'invitation_envoyee' and provider_id = 'AColea'")).rows;
+    await lire("inv-1", "jour-1");
+    expect(await lien()).toEqual([{ invitation_id: "inv-1" }]);
+    await lire("inv-2", "jour-2");
+    expect(await lien()).toEqual([{ invitation_id: "inv-2" }]);
+    await lire(null, "jour-3"); // identifiant absent : on garde le dernier connu
+    expect(await lien()).toEqual([{ invitation_id: "inv-2" }]);
+  });
+
+  describe("lecture quotidienne des invitations envoyées (liste entière en une page)", () => {
+    /** Prospects en attente, identifiés, avec leur lien d'invitation. */
+    async function enAttente(ids: string[]) {
+      const sortie: Record<string, string> = {};
+      for (const id of ids) {
+        sortie[id] = await prospect(id, "en_attente");
+        await db.pool.query("update public.prospects set provider_id = $2, etape = 'invitation_envoyee' where id = $1", [sortie[id], `ACo${id}`]);
+        await db.pool.query(
+          "insert into public.liens_linkedin (type, url_normalisee, provider_id, source, vu_le) values ('invitation_envoyee', $1, $2, 'sync', '2026-10-01')",
+          [`linkedin.com/in/${id}`, `ACo${id}`],
+        );
+      }
+      return sortie;
+    }
+    const lireDuJour = async (listees: string[], suivant: string | null = null) => {
+      await db.pool.query(
+        `insert into public.taches (type_action, payload, cle_idempotence, executer_apres) values ('lecture_liste', $1, 'jour', '2026-11-01')`,
+        [{ liste: "invitations_envoyees", limite: 500 }],
+      );
+      const personnes = listees.map((id) => ({ providerId: `ACo${id}`, publicIdentifier: null, date: null }));
+      expect(await tour(clientPagine({ debut: { personnes, suivant } }, []))).toMatchObject({ resultat: "succes" });
+    };
+    const statuts = async (ids: Record<string, string>) =>
+      Object.fromEntries(
+        (await db.pool.query("select id, statut_relation, etape from public.prospects where id = any($1)", [Object.values(ids)])).rows.map((x) => [
+          Object.keys(ids).find((k) => ids[k] === x.id),
+          `${x.statut_relation}/${x.etape}`,
+        ]),
+      );
+
+    it("liste entière (page non pleine, sans suite) : une invitation disparue est constatée le jour même", async () => {
+      const ids = await enAttente(["reste", "partie"]);
+      await lireDuJour(["reste"]);
+      expect(await statuts(ids)).toEqual({ reste: "en_attente/invitation_envoyee", partie: "a_inviter/a_contacter" });
+    });
+
+    it("liste avec une suite (curseur) : rien n'est conclu", async () => {
+      const ids = await enAttente(["reste", "partie"]);
+      await lireDuJour(["reste"], "page-2");
+      expect(await statuts(ids)).toEqual({ reste: "en_attente/invitation_envoyee", partie: "en_attente/invitation_envoyee" });
+    });
+
+    it("liste vide : rien n'est conclu (réponse douteuse)", async () => {
+      const ids = await enAttente(["a", "b"]);
+      await lireDuJour([]);
+      expect(await statuts(ids)).toEqual({ a: "en_attente/invitation_envoyee", b: "en_attente/invitation_envoyee" });
+    });
+
+    it("disparition massive (plus de 10 et plus de la moitié des invitations en attente) : rien n'est conclu", async () => {
+      const noms = Array.from({ length: 12 }, (_, i) => `p${i}`);
+      const ids = await enAttente(noms);
+      await lireDuJour(["p0"]);
+      expect(Object.values(await statuts(ids)).every((x) => x === "en_attente/invitation_envoyee")).toBe(true);
+    });
+
+    it("prospect suivi par une automatisation : statut recalculé, étape conservée (la relance est en cours)", async () => {
+      const ids = await enAttente(["reste", "suivi"]);
+      await db.pool.query(
+        `insert into public.suivis_automatisation (automatisation_id, prospect_id, etat, invitation_envoyee_le)
+         select id, $1, 'attente_retrait', '2026-10-01' from public.automatisations`,
+        [ids.suivi],
+      );
+      await lireDuJour(["reste"]);
+      expect((await statuts(ids)).suivi).toBe("a_inviter/invitation_envoyee");
+    });
   });
 
   it("page de 500 demandée, 100 reçues sans curseur (plafond du fournisseur) : la suite est lue, rien ne redescend", async () => {

@@ -8,6 +8,8 @@ export interface LienLinkedIn {
   urlNormalisee: string;
   providerId?: string | null;
   date?: Date | null;
+  /** Invitation envoyée : son identifiant chez LinkedIn (nécessaire pour la retirer). Le plus récent l'emporte. */
+  invitationId?: string | null;
 }
 
 export type SourceLien = "csv" | "sync" | "webhook" | "notion" | "outil";
@@ -18,12 +20,13 @@ export async function enregistrerLiens(c: PoolClient, liens: LienLinkedIn[], sou
   for (let i = 0; i < liens.length; i += TAILLE) {
     const lot = liens.slice(i, i + TAILLE);
     await c.query(
-      `insert into public.liens_linkedin (type, url_normalisee, provider_id, date_lien, source, vu_le)
-       select t, u, p, d, $5, $6
-         from unnest($1::public.type_lien[], $2::text[], $3::text[], $4::timestamptz[]) as x(t, u, p, d)
+      `insert into public.liens_linkedin (type, url_normalisee, provider_id, date_lien, source, vu_le, invitation_id)
+       select t, u, p, d, $5, $6, i
+         from unnest($1::public.type_lien[], $2::text[], $3::text[], $4::timestamptz[], $7::text[]) as x(t, u, p, d, i)
        on conflict (type, url_normalisee) do update
          set provider_id = coalesce(excluded.provider_id, public.liens_linkedin.provider_id),
              date_lien = coalesce(public.liens_linkedin.date_lien, excluded.date_lien),
+             invitation_id = coalesce(excluded.invitation_id, public.liens_linkedin.invitation_id),
              vu_le = excluded.vu_le`,
       [
         lot.map((l) => l.type),
@@ -32,6 +35,7 @@ export async function enregistrerLiens(c: PoolClient, liens: LienLinkedIn[], sou
         lot.map((l) => l.date ?? null),
         source,
         maintenant,
+        lot.map((l) => (l.type === "invitation_envoyee" ? (l.invitationId ?? null) : null)),
       ],
     );
   }

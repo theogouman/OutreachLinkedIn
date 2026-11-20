@@ -16,6 +16,8 @@ describe.skipIf(!TEST_DATABASE_URL)("planification des synchronisations", () => 
     expect(await planifierSynchronisations(db.pool, new Date("2026-11-05T10:00:00Z"), () => 0.1)).toBe(0);
     const t = await db.pool.query("select payload, executer_apres from public.taches order by ordre");
     expect(t.rows.map((r) => r.payload.liste)).toEqual(["relations", "invitations_envoyees", "invitations_recues"]);
+    // Invitations envoyées lues en entier (une page de 500) : les plus anciennes, à retirer, y figurent.
+    expect(t.rows.map((r) => r.payload.limite)).toEqual([50, 500, 50]);
     const plages = { jours: [1, 2, 3, 4, 5], creneaux: [{ debut: "09:00", fin: "12:30" }, { debut: "14:00", fin: "18:30" }] };
     for (const r of t.rows) expect(dansPlage(r.executer_apres, plages, "Europe/Paris")).toBe(true);
   });
