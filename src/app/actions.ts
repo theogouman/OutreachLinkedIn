@@ -5,7 +5,7 @@ import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
 import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, modifierPropriete, supprimerConversation, trancherIncertaine } from "@/server/mutations";
-import { DemoDejaChargee, purgerDemo, semerDemo } from "@/server/demo";
+import { DemoDejaChargee, semerDemo } from "@/server/demo";
 import { creerVue, majOptionsVue, renommerVue, supprimerVue } from "@/server/vues";
 import { envUnipile } from "@/server/env-serveur";
 import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
@@ -74,13 +74,6 @@ export async function actionChargerDemo(): Promise<Retour> {
     if (envUnipile().mode !== "simule") throw new EnvoiRefuse("Données de démonstration indisponibles : Unipile est branché.");
     const r = await semerDemo(poolServeur());
     return `${r.prospects} prospects fictifs chargés.`;
-  });
-}
-
-export async function actionPurgerDemo(): Promise<Retour> {
-  return executer("purger-demo", async () => {
-    const r = await purgerDemo(poolServeur());
-    return r.prospects ? `${r.prospects} prospects fictifs supprimés, historique compris.` : "Aucune donnée de démonstration.";
   });
 }
 

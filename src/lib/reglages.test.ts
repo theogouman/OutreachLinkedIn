@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { periodesActives, resumeDemo, resumeFile, resumePlafonds, resumeRythme, sectionDepuis } from "./reglages";
+import { periodesActives, resumeFile, resumePlafonds, resumeRythme, sectionDepuis } from "./reglages";
 
 describe("sectionDepuis", () => {
   it("accepte les sections connues", () => {
     expect(sectionDepuis("file")).toBe("file");
     expect(sectionDepuis("plafonds")).toBe("plafonds");
     expect(sectionDepuis("rythme")).toBe("rythme");
-    expect(sectionDepuis("demo")).toBe("demo");
   });
 
   it("ignore toute autre valeur", () => {
@@ -16,6 +15,8 @@ describe("sectionDepuis", () => {
     expect(sectionDepuis("FILE")).toBeNull();
     expect(sectionDepuis("constructor")).toBeNull();
     expect(sectionDepuis("<script>")).toBeNull();
+    // Section retirée (données de démonstration) : un ancien lien ouvre la page fermée.
+    expect(sectionDepuis("demo")).toBeNull();
     expect(sectionDepuis(["file"])).toBeNull();
   });
 });
@@ -75,14 +76,5 @@ describe("resumeRythme", () => {
   });
   it("signale l'absence de jour actif", () => {
     expect(resumeRythme({ jours: [], creneaux })).toBe("Aucun jour actif");
-  });
-});
-
-describe("resumeDemo", () => {
-  it("décrit l'état des données fictives", () => {
-    expect(resumeDemo(true, 0)).toBe("Aucune donnée de démonstration");
-    expect(resumeDemo(true, 24)).toBe("24 prospects fictifs chargés");
-    expect(resumeDemo(false, 0)).toBe("Unipile branché : désactivé");
-    expect(resumeDemo(false, 3)).toBe("3 prospects fictifs à supprimer");
   });
 });

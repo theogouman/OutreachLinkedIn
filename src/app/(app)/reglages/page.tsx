@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 import { etatOutil, fileAttente, reglages } from "@/server/donnees";
 import { EnTetePage } from "@/components/interface/elements";
-import { IconeCalendrier, IconeDemo, IconeFile, IconeFiltre } from "@/components/icones";
-import { resumeDemo, resumeFile, resumePlafonds, resumeRythme } from "@/lib/reglages";
-import { PanneauDemo } from "./demo";
+import { IconeCalendrier, IconeFile, IconeFiltre } from "@/components/icones";
+import { resumeFile, resumePlafonds, resumeRythme } from "@/lib/reglages";
 import { ContenuFile } from "./file";
 import { FormPlafonds, FormReglages } from "./formulaires";
 import { ReglagesMaitre } from "./reglages-maitre";
@@ -27,7 +26,7 @@ export default function PageReglages() {
 function SqueletteReglages() {
   return (
     <div className="flex flex-col gap-3" aria-busy="true" aria-label="Chargement">
-      {[0, 1, 2, 3].map((i) => (
+      {[0, 1, 2].map((i) => (
         <div key={i} className="carte flex items-center gap-3 px-5 py-4 sm:px-6 sm:py-5">
           <span className="squelette size-9 rounded-xl" />
           <span className="flex flex-1 flex-col gap-2">
@@ -69,14 +68,6 @@ async function Contenu() {
           description: "Quand l'outil a le droit d'agir, et à quelle allure. Heure de Paris",
           resume: resumeRythme(r.plages),
           contenu: <FormReglages initial={{ plages: r.plages, delaiMinS: r.delaiMinS, delaiMaxS: r.delaiMaxS, cadence: r.cadence }} />,
-        },
-        {
-          cle: "demo",
-          icone: <IconeDemo taille={18} />,
-          titre: "Données de démonstration",
-          description: "Prospects, entreprises et conversations fictifs avec trois semaines d'historique, pour essayer l'outil sans Unipile",
-          resume: resumeDemo(etat.modeSimule, etat.prospectsDemo),
-          contenu: <PanneauDemo modeSimule={etat.modeSimule} prospectsDemo={etat.prospectsDemo} />,
         },
       ]}
     />

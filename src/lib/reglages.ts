@@ -6,7 +6,7 @@ import { MAXIMA, TYPES_QUOTA, type TypeQuota } from "./plafonds";
  * Les résumés s'affichent sur l'encadré fermé.
  */
 
-export const SECTIONS_REGLAGES = ["file", "plafonds", "rythme", "demo"] as const;
+export const SECTIONS_REGLAGES = ["file", "plafonds", "rythme"] as const;
 export type SectionReglages = (typeof SECTIONS_REGLAGES)[number];
 
 export function sectionDepuis(valeur: unknown): SectionReglages | null {
@@ -66,9 +66,4 @@ export function resumeRythme(plages: { jours: number[]; creneaux: { debut: strin
   if (!j) return "Aucun jour actif";
   const creneaux = plages.creneaux.map((c) => `${c.debut}–${c.fin}`).join(", ");
   return creneaux ? `${j} · ${creneaux}` : j;
-}
-
-export function resumeDemo(modeSimule: boolean, prospectsDemo: number): string {
-  if (prospectsDemo > 0) return modeSimule ? `${prospectsDemo} prospects fictifs chargés` : `${prospectsDemo} prospects fictifs à supprimer`;
-  return modeSimule ? "Aucune donnée de démonstration" : "Unipile branché : désactivé";
 }
