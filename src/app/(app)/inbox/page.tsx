@@ -66,7 +66,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
       <InboxGlissante
         idOuverte={ouvert?.id ?? null}
         ouverteExplicitement={!!idDemande && !!ouvert}
-        liste={<ListeConversations initial={initial} filtresInitiaux={filtresInitiaux} ouverte={ouvert?.id ?? null} />}
+        liste={<ListeConversations initial={initial} filtresInitiaux={filtresInitiaux} ouverte={ouvert?.id ?? null} ouverteParDefaut={!idDemande} />}
         conversation={
       <div className="carte flex flex-col overflow-hidden">
         {ouvert ? (

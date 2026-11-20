@@ -6,7 +6,8 @@ import { z } from "zod";
  * carte de galerie…). Ajouter une propriété ici la rend disponible dans toutes les vues.
  * `modifiable` : modification sur place dans les vues, validée côté serveur
  * (src/server/mutations.ts, `modifierPropriete`). Le statut de relation reste en lecture seule :
- * il découle de LinkedIn. L'étape suit les faits (src/server/etapes.ts).
+ * il découle de LinkedIn. L'étape suit les faits (src/server/etapes.ts) et se change aussi à la
+ * main (ex. « Gagné »), changement noté au journal.
  */
 
 export type TypePropriete = "texte" | "statut" | "etape" | "date" | "liste";
@@ -26,7 +27,7 @@ export const PROPRIETES_PROSPECTS: Record<ClePropriete, DefinitionPropriete> = {
   entreprise: { cle: "entreprise", libelle: "Entreprise", type: "texte", modifiable: false },
   poste: { cle: "poste", libelle: "Poste", type: "texte", modifiable: false },
   relation: { cle: "relation", libelle: "Relation", type: "statut", modifiable: false },
-  etape: { cle: "etape", libelle: "Étape", type: "etape", modifiable: false },
+  etape: { cle: "etape", libelle: "Étape", type: "etape", modifiable: true },
   relance: { cle: "relance", libelle: "Prochaine relance", type: "date", modifiable: false },
   liste: { cle: "liste", libelle: "Liste d'origine", type: "liste", modifiable: true },
 };

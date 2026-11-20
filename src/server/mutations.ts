@@ -369,21 +369,55 @@ export async function mettreInvitationEnFile(pool: Pool, entree: unknown, opts: 
 
 /**
  * Une entrée par propriété modifiable du catalogue (src/lib/proprietes/prospects.ts) : toute autre
- * propriété est refusée. Liste d'origine : une des listes déjà présentes, ou aucune.
+ * propriété est refusée. Liste d'origine : une des listes déjà présentes, ou aucune. Étape : une des
+ * étapes de la table `etapes` (ex. « Gagné » qu'aucun fait LinkedIn ne peut constater).
  */
 export const proprieteSchema = z.discriminatedUnion("cle", [
   z.object({ prospectId: z.uuid(), cle: z.literal("liste"), valeur: valeurListe }),
+  z.object({ prospectId: z.uuid(), cle: z.literal("etape"), valeur: z.string().min(1).max(40) }),
 ]);
 
 export async function modifierPropriete(pool: Pool, entree: unknown) {
   const m = proprieteSchema.parse(entree);
   if (!PROPRIETES_PROSPECTS[m.cle].modifiable) throw new EnvoiRefuse("Cette propriété n'est pas modifiable.");
+  if (m.cle === "etape") return changerEtape(pool, m.prospectId, m.valeur);
   if (m.valeur !== null) {
     const existe = await pool.query("select 1 from public.prospects where liste_origine = $1 limit 1", [m.valeur]);
     if (!existe.rowCount) throw new EnvoiRefuse("Liste inconnue : choisis une des listes existantes.");
   }
   const r = await pool.query("update public.prospects set liste_origine = $2, updated_at = now() where id = $1", [m.prospectId, m.valeur]);
   if (!r.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+}
+
+/**
+ * Étape changée à la main, notée au journal (`changement_etape`, cause « manuel », étape d'avant).
+ * La synchronisation sur les faits (src/server/etapes.ts) ne recule jamais et ne touche plus une
+ * étape terminale : « Gagné » posé à la main reste ; une étape non terminale peut encore avancer.
+ */
+async function changerEtape(pool: Pool, prospectId: string, etape: string) {
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    const p = await c.query("select etape from public.prospects where id = $1 for update", [prospectId]);
+    if (!p.rowCount) throw new EnvoiRefuse("Prospect introuvable.");
+    const connue = await c.query("select 1 from public.etapes where code = $1", [etape]);
+    if (!connue.rowCount) throw new EnvoiRefuse("Étape inconnue : choisis une des étapes du pipeline.");
+    const avant = p.rows[0].etape as string;
+    if (avant !== etape) {
+      await c.query("update public.prospects set etape = $2, updated_at = now() where id = $1", [prospectId, etape]);
+      await c.query(
+        `insert into public.actions (prospect_id, type, sortante, resultat, details)
+         values ($1, 'changement_etape', false, 'succes', jsonb_build_object('de', $2::text, 'vers', $3::text, 'cause', 'manuel'))`,
+        [prospectId, avant, etape],
+      );
+    }
+    await c.query("commit");
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
 // ─── Notes du prospect ────────────────────────────────────────────────────────

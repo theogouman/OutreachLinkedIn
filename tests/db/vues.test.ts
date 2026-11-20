@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { asUser, createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { creerVue, majOptionsVue, renommerVue, supprimerVue, vuesDepuis } from "@/server/vues";
 import { EnvoiRefuse, modifierPropriete } from "@/server/mutations";
+import { synchroniserEtapes } from "@/server/etapes";
 
 const AUTORISE = "theo@example.com";
 
@@ -68,7 +69,7 @@ describe.skipIf(!TEST_DATABASE_URL)("vues enregistrées et propriétés modifiab
     expect(g?.options.proprietes).toEqual(["entreprise", "relation", "etape", "liste"]);
   });
 
-  it("liste d'origine modifiable parmi les listes existantes ; rien d'autre", async () => {
+  it("liste d'origine modifiable parmi les listes existantes ; relation refusée", async () => {
     const r = await db.pool.query(
       `insert into public.prospects (linkedin_url, url_normalisee, liste_origine) values
          ('a', 'linkedin.com/in/a', 'Salon'), ('b', 'linkedin.com/in/b', 'Webinar') returning id`,
@@ -80,11 +81,41 @@ describe.skipIf(!TEST_DATABASE_URL)("vues enregistrées et propriétés modifiab
     expect((await db.pool.query("select liste_origine from public.prospects where id = $1", [a])).rows[0].liste_origine).toBeNull();
 
     await expect(modifierPropriete(db.pool, { prospectId: a, cle: "liste", valeur: "Inventée" })).rejects.toThrow(EnvoiRefuse);
-    await expect(modifierPropriete(db.pool, { prospectId: a, cle: "etape", valeur: "gagne" })).rejects.toThrow();
     await expect(modifierPropriete(db.pool, { prospectId: a, cle: "relation", valeur: "en_relation" })).rejects.toThrow();
     await expect(modifierPropriete(db.pool, { prospectId: "x", cle: "liste", valeur: "Salon" })).rejects.toThrow();
     await expect(
       modifierPropriete(db.pool, { prospectId: "00000000-0000-4000-8000-000000000000", cle: "liste", valeur: "Salon" }),
     ).rejects.toThrow(EnvoiRefuse);
+  });
+
+  it("étape modifiable à la main : étape connue seulement, journal « manuel », sans doublon ; synchro sans recul", async () => {
+    const a = (
+      await db.pool.query("insert into public.prospects (linkedin_url, url_normalisee, etape) values ('e', 'linkedin.com/in/e', 'repondu') returning id")
+    ).rows[0].id as string;
+    const etape = async () => (await db.pool.query("select etape from public.prospects where id = $1", [a])).rows[0].etape;
+    const journal = async () =>
+      (await db.pool.query("select details from public.actions where prospect_id = $1 and type = 'changement_etape' order by created_at", [a])).rows.map((r) => r.details);
+
+    await modifierPropriete(db.pool, { prospectId: a, cle: "etape", valeur: "gagne" });
+    expect(await etape()).toBe("gagne");
+    expect(await journal()).toEqual([{ de: "repondu", vers: "gagne", cause: "manuel" }]);
+    // Même étape : rien n'est noté.
+    await modifierPropriete(db.pool, { prospectId: a, cle: "etape", valeur: "gagne" });
+    expect(await journal()).toHaveLength(1);
+    // Étape terminale posée à la main : la synchronisation ne la touche plus.
+    const c = await db.pool.connect();
+    try {
+      await synchroniserEtapes(c, [a], "synchro");
+    } finally {
+      c.release();
+    }
+    expect(await etape()).toBe("gagne");
+
+    await expect(modifierPropriete(db.pool, { prospectId: a, cle: "etape", valeur: "inventee" })).rejects.toThrow(EnvoiRefuse);
+    await expect(modifierPropriete(db.pool, { prospectId: a, cle: "etape", valeur: "x".repeat(200) })).rejects.toThrow();
+    await expect(
+      modifierPropriete(db.pool, { prospectId: "00000000-0000-4000-8000-000000000000", cle: "etape", valeur: "gagne" }),
+    ).rejects.toThrow(EnvoiRefuse);
+    expect(await etape()).toBe("gagne");
   });
 });

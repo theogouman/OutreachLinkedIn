@@ -202,6 +202,8 @@ export interface FicheProspect extends LigneProspect {
   };
   /** Relance automatique des invitations (Workflow) : où en est ce prospect (null : pas suivi). */
   relance: { etat: string; prochaineLe: Date | null; cycle: number } | null;
+  /** Étapes du pipeline, dans l'ordre : choix possibles pour changer l'étape à la main. */
+  etapes: { code: string; libelle: string }[];
 }
 
 export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = new Date()): Promise<FicheProspect | null> {
@@ -238,6 +240,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
     [parse.data],
   );
   const notes = await notesInvitationRestantes(pool, maintenant);
+  const etapes = await pool.query("select code, libelle from public.etapes order by ordre");
   const x = p.rows[0];
   return {
     profil: profilAffichable(profil.rows[0] ?? null),
@@ -262,6 +265,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
     notes: x.notes,
     informationsListe: detailsAffichables(x.liste_origine, x.details),
     historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file, auto: r.auto })),
+    etapes: etapes.rows as { code: string; libelle: string }[],
     relance: relance.rows[0] ? { etat: relance.rows[0].etat, prochaineLe: relance.rows[0].prochaine_decision_le, cycle: relance.rows[0].cycle } : null,
   };
 }

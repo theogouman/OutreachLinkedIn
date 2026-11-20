@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Modale, useModale, type Apercu } from "@/components/interface/modale";
 import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
 import { IconeFermer, IconeLienExterne } from "@/components/icones";
-import { BadgeEtape, BadgeStatut } from "@/components/badges";
+import { BadgeStatut } from "@/components/badges";
+import { ChoixEtape } from "@/components/vues/proprietes";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
 import { RedactionMessage } from "@/components/redaction-message";
@@ -232,7 +233,6 @@ function CorpsSquelette() {
 /** Corps de la fiche (onglets) : fiche affichée et aperçus des voisines. */
 function CorpsFiche({
   fiche,
-  libelleEtape,
   conversation,
   nom,
   restants,
@@ -260,7 +260,10 @@ function CorpsFiche({
                         t: "Relation",
                         d: <BadgeStatut statut={fiche.statutRelation} />,
                       },
-                      { t: "Étape", d: <BadgeEtape libelle={libelleEtape} /> },
+                      {
+                        t: "Étape",
+                        d: <ChoixEtape key={`${fiche.id}:${fiche.etape}`} prospectId={fiche.id} nom={nom} etape={fiche.etape} etapes={fiche.etapes} />,
+                      },
                       {
                         t: "Prochaine relance",
                         d: jourRelance(fiche.prochaineRelance),

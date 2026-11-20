@@ -32,11 +32,17 @@ export function ListeConversations({
   initial,
   filtresInitiaux,
   ouverte,
+  ouverteParDefaut = false,
   charger = actionListerConversations,
 }: {
   initial: { lignes: LigneConversation[]; total: number };
   filtresInitiaux: FiltresInbox;
   ouverte: string | null;
+  /**
+   * Conversation ouverte d'office (la plus récente, sans ?conversation=) : affichée à côté de la
+   * liste sur grand écran seulement ; sous 1024 px, la liste est seule et rien n'y est sélectionné.
+   */
+  ouverteParDefaut?: boolean;
   /** Source des résultats filtrés (l'action serveur ; remplaçable dans les tests). */
   charger?: typeof actionListerConversations;
 }) {
@@ -115,14 +121,15 @@ export function ListeConversations({
         <ul className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
           {l.lignes.map((c) => {
             const actif = c.id === ouverte;
+            const fond = !actif ? "hover:bg-creux" : ouverteParDefaut ? "hover:bg-creux lg:bg-accent-doux lg:hover:bg-accent-doux" : "bg-accent-doux";
             return (
               <li key={c.id} className="group relative animate-apparition border-b border-trait last:border-0">
                 <Link
                   href={`/inbox?conversation=${c.id}`}
                   data-conversation={c.id}
                   scroll={false}
-                  aria-current={actif ? "true" : undefined}
-                  className={`relative flex gap-3 px-4 py-3 outline-none transition-colors duration-150 focus-visible:bg-accent-doux ${actif ? "bg-accent-doux" : "hover:bg-creux"}`}
+                  aria-current={actif && !ouverteParDefaut ? "true" : undefined}
+                  className={`relative flex gap-3 px-4 py-3 outline-none transition-colors duration-150 focus-visible:bg-accent-doux ${fond}`}
                 >
                   <Avatar nom={c.nom} photo={c.photo} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -142,6 +149,14 @@ export function ListeConversations({
                     {!c.prospectId && <span className="mt-0.5 self-start rounded-full bg-amber-50 dark:bg-amber-400/15 px-1.5 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>}
                   </span>
                 </Link>
+                {/* Fondu sous le bouton « ⋯ » : la fin de la date et de l'aperçu s'efface au lieu d'être
+                    recouverte, à la couleur de la ligne (survol, ou conversation ouverte). */}
+                <span
+                  aria-hidden
+                  className={`pointer-events-none absolute inset-y-0 right-0 hidden w-28 bg-linear-to-l from-45% to-transparent opacity-0 transition-opacity duration-150 md:block md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:group-has-data-ouvert:opacity-100 ${
+                    actif && !ouverteParDefaut ? "from-accent-doux" : actif ? "from-creux lg:from-accent-doux" : "from-creux"
+                  }`}
+                />
                 {/* Menu « ⋯ » de la ligne : au survol sur ordinateur (et au focus clavier), à droite. */}
                 <MenuConversation
                   id={c.id}
