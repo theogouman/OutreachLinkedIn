@@ -11,6 +11,7 @@
 
 import { createContext, useContext, useState, type MouseEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SqueletteConversation } from "./squelette-inbox";
 
 const PETIT_ECRAN = "(max-width: 1023px)";
 
@@ -91,17 +92,7 @@ export function InboxGlissante({
         </div>
         <div className="inbox-volet" data-position={vue === "conversation" ? "actif" : "apres"}>
           {conversation}
-          {enChargement && (
-            <div className="carte absolute inset-0 flex flex-col gap-4 p-5 lg:hidden" aria-busy="true" aria-label="Chargement de la conversation">
-              <div className="flex items-center gap-3">
-                <span className="squelette size-10 rounded-full" />
-                <span className="squelette h-4 w-40" />
-              </div>
-              <span className="squelette h-12 w-2/3 rounded-2xl" />
-              <span className="squelette ml-auto h-12 w-1/2 rounded-2xl" />
-              <span className="squelette h-12 w-3/5 rounded-2xl" />
-            </div>
-          )}
+          {enChargement && <SqueletteConversation className="absolute inset-0 lg:hidden" />}
         </div>
       </div>
     </Contexte>

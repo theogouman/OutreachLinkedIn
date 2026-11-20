@@ -14,6 +14,7 @@ import { BoutonNouveauMessage } from "./nouveau-message";
 import { InboxGlissante, RetourListe } from "./inbox-glissante";
 import { CarteInterlocuteur } from "./carte-interlocuteur";
 import { RedactionMessage } from "@/components/redaction-message";
+import { SqueletteInbox } from "./squelette-inbox";
 
 export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
   return (
@@ -31,26 +32,6 @@ export default function PageInbox({ searchParams }: PageProps<"/inbox">) {
         <Contenu searchParams={searchParams} />
       </Suspense>
     </section>
-  );
-}
-
-function SqueletteInbox() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-[360px_1fr]" aria-busy="true" aria-label="Chargement">
-      <div className="carte flex flex-col">
-        <div className="h-12 border-b border-trait" />
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="flex gap-3 border-b border-trait px-4 py-3 last:border-0">
-            <span className="squelette size-9 rounded-full" />
-            <span className="flex flex-1 flex-col gap-2">
-              <span className="squelette h-3 w-32" />
-              <span className="squelette h-3 w-48" />
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="carte hidden min-h-[60vh] lg:block" />
-    </div>
   );
 }
 
