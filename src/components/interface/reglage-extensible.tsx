@@ -102,7 +102,7 @@ export function ReglageExtensible({
           aria-controls={corpsId}
           onClick={ouvert ? fermer : onOuvrir}
           data-ouvert={ouvert}
-          className="reglage-entete group flex w-full items-start px-5 py-4 text-left outline-none transition-colors duration-150 hover:bg-encre/[0.025] focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] sm:px-6 sm:py-5"
+          className="reglage-entete group flex w-full items-start px-5 py-4 text-left outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] sm:px-6 sm:py-5"
         >
           <span className="reglage-retour text-encre-2" aria-hidden>
             <svg viewBox="0 0 256 256" className="size-[18px] shrink-0" fill="currentColor">
