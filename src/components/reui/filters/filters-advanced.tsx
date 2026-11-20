@@ -2012,6 +2012,28 @@ export interface FiltersAdvancedProps {
   className?: string
 }
 
+/** Ajout local (OutreachLinkedIn) : la hauteur du panneau suit son contenu avec la transition
+ *  « Card resize » de Transitions.dev (`.t-resize`, globals.css) ; mesurée par ResizeObserver,
+ *  posée sans animation au premier affichage. */
+function RedimensionCarte({ children }: { children: React.ReactNode }) {
+  const interieur = React.useRef<HTMLDivElement>(null)
+  const [hauteur, setHauteur] = React.useState<number | null>(null)
+  React.useLayoutEffect(() => {
+    const el = interieur.current
+    if (!el) return
+    const mesurer = () => setHauteur(el.offsetHeight)
+    mesurer()
+    const obs = new ResizeObserver(mesurer)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+  return (
+    <div className="t-resize overflow-hidden" style={{ height: hauteur ?? undefined }}>
+      <div ref={interieur}>{children}</div>
+    </div>
+  )
+}
+
 export function FiltersAdvanced<V, O>({
   mode = "popover",
   trigger,
@@ -2082,7 +2104,9 @@ export function FiltersAdvanced<V, O>({
         className={cn("w-[42rem] max-w-[95vw] p-0", className)}
       >
         {/* `mode` defaults to "popover", which keeps the panel's padding. */}
-        <FiltersAdvancedPanel<V, O> reorderable={reorderable} />
+        <RedimensionCarte>
+          <FiltersAdvancedPanel<V, O> reorderable={reorderable} />
+        </RedimensionCarte>
       </PopoverContent>
     </Popover>
   )

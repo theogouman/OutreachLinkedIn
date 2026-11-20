@@ -4,14 +4,13 @@ import { useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableTriable, type Colonne } from "@/components/interface/table-triable";
 import { Avatar } from "@/components/interface/elements";
-import { IconeFermer, IconeRecherche } from "@/components/icones";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
 import { FiltresProspects as PanneauFiltres } from "@/components/filtres/filtres-prospects";
+import { RechercheRepliable } from "@/components/filtres/recherche-repliable";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
 import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES, type FiltresProspects } from "@/lib/filtres/prospects";
 import { actionListerProspects } from "@/app/actions";
 import type { LigneProspect } from "@/server/donnees";
-import { TexteSaisieAnime } from "@/components/interface/texte-saisie-anime";
 import { BarreVues } from "@/components/vues/barre-vues";
 import { GalerieProspects } from "@/components/vues/galerie";
 import { ValeurPropriete, valeurPropriete, type ContexteProprietes } from "@/components/vues/proprietes";
@@ -84,51 +83,6 @@ export function ListeProspects({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2" role="search" aria-label="Filtrer les prospects">
-        <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
-          <span className="sr-only">Rechercher un prospect</span>
-          <IconeRecherche taille={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-encre-3" />
-          <input
-            type="search"
-            value={f.recherche ?? ""}
-            onChange={(e) => l.changer("recherche", e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape" && f.recherche) {
-                e.preventDefault();
-                l.changer("recherche", "");
-              }
-            }}
-            maxLength={100}
-            autoComplete="off"
-            spellCheck={false}
-            className="champ pl-9 pr-9 [&::-webkit-search-cancel-button]:appearance-none"
-          />
-          <TexteSaisieAnime valeur={f.recherche ?? ""} placeholder="Rechercher" />
-          <span className="absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center">
-            {l.enCours ? (
-              <span className="size-3.5 animate-spin rounded-full border-2 border-trait border-t-accent" role="status" aria-label="Chargement des résultats" />
-            ) : (
-              f.recherche && (
-                <button
-                  type="button"
-                  onClick={() => l.changer("recherche", "")}
-                  aria-label="Effacer la recherche"
-                  className="grid size-6 place-items-center rounded-full text-encre-3 outline-none hover:bg-encre/[0.05] hover:text-encre focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <IconeFermer taille={12} />
-                </button>
-              )
-            )}
-          </span>
-        </label>
-        <PanneauFiltres
-          initiales={filtresInitiaux.conditions}
-          etapes={etapes}
-          listes={listes}
-          changer={(conditions) => l.changer("conditions", conditions)}
-        />
-      </div>
-
       {l.erreur && (
         <p role="alert" className="rounded-xl bg-accent-doux px-4 py-3 body-6 text-rouge">
           {l.erreur}
@@ -139,7 +93,22 @@ export function ListeProspects({
         videSansFiltre
       ) : (
         <>
-          <BarreVues vues={vues} active={vue} choisir={choisirVue} />
+          <BarreVues
+            vues={vues}
+            active={vue}
+            choisir={choisirVue}
+            aDroite={
+              <div className="flex shrink-0 items-center gap-2" aria-label="Rechercher et filtrer les prospects" role="group">
+                <RechercheRepliable valeur={f.recherche ?? ""} changer={(v) => l.changer("recherche", v)} enCours={l.enCours} decalageDroite={48} />
+                <PanneauFiltres
+                  initiales={filtresInitiaux.conditions}
+                  etapes={etapes}
+                  listes={listes}
+                  changer={(conditions) => l.changer("conditions", conditions)}
+                />
+              </div>
+            }
+          />
           {vue.type === "galerie" ? (
             <GalerieProspects
               lignes={l.lignes}

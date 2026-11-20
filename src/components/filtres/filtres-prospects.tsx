@@ -51,6 +51,9 @@ export function FiltresProspects({
 }) {
   const [requete, setRequete] = useState<FilterQuery>(() => requeteDepuisConditions(initiales) as FilterQuery);
   const nombre = useMemo(() => conditionsDepuisRequete(requete as GroupeFiltre).length, [requete]);
+  // Panneau étroit tant qu'aucun champ n'est choisi (vide, ou choix du champ en cours) ; il s'élargit
+  // avec « Card resize » quand l'opérateur et la valeur apparaissent.
+  const etendu = (requete.rules as GroupeFiltre["rules"]).some((r) => r.type === "rule" && r.path.length > 0);
 
   const champs = useMemo<FilterField[]>(
     () => [
@@ -117,7 +120,7 @@ export function FiltresProspects({
       operatorLabels={OPERATEURS_FILTRES}
       // Panneau plus large que le défaut de ReUI (42rem) : « Date › Dernier message » tient en entier ;
       // sur téléphone, chaque condition sur deux lignes (champ, puis opérateur et valeur).
-      className="w-[46rem] [--filter-field-width:15rem] [--filter-operator-width:7.5rem] [--filter-value-width:14rem] max-sm:[--filter-operator-width:5.5rem] max-sm:[--filter-value-width:10rem]"
+      className={`t-resize ${etendu ? "w-[48rem]" : "w-[24rem]"} [--filter-field-width:15rem] [--filter-operator-width:9.5rem] [--filter-value-width:14rem] max-sm:[--filter-operator-width:5.5rem] max-sm:[--filter-value-width:10rem]`}
       query={requete}
       onQueryChange={(q) => {
         setRequete(q);
@@ -126,12 +129,17 @@ export function FiltresProspects({
       trigger={
         <Button
           variant="outline"
-          className={`h-10 gap-2 rounded-full px-4 font-normal ${nombre > 0 ? "border-accent/30 bg-accent-doux text-rouge hover:bg-accent-doux hover:text-rouge" : ""}`}
+          // Téléphone : icône seule (le libellé reste pour les lecteurs d'écran).
+          className={`h-10 gap-2 rounded-full px-4 font-normal max-sm:w-10 max-sm:px-0 ${nombre > 0 ? "border-accent/30 bg-accent-doux text-rouge hover:bg-accent-doux hover:text-rouge" : ""}`}
           aria-label={nombre > 0 ? `Filtres, ${LIBELLES_FILTRES.countAnnouncement(nombre)}` : "Filtres"}
         >
-          <IconeFiltresListe taille={16} />
-          Filtres
-          {nombre > 0 && <span className="rounded-full bg-accent/15 px-1.5 text-xs tabular-nums">{nombre}</span>}
+          <IconeFiltresListe taille={17} />
+          <span className="max-sm:hidden">Filtres</span>
+          {nombre > 0 && (
+            <span className="rounded-full bg-accent/15 px-1.5 text-xs tabular-nums max-sm:absolute max-sm:-right-1 max-sm:-top-1 max-sm:bg-accent max-sm:text-white">
+              {nombre}
+            </span>
+          )}
         </Button>
       }
     />
