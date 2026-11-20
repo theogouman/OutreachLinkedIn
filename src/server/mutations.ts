@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { MAXIMA, TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { messageReinvitationTropTot, NOTE_INVITATION_MAX, reinvitationPossibleLe } from "@/lib/invitation";
+import { reglagesRelanceSchema } from "@/lib/automatisations/catalogue";
 import { identifiantVersProfil, normaliserUrlLinkedIn } from "@/lib/linkedin-url";
 import { debutMois } from "@/server/queue/temps";
 import { PROPRIETES_PROSPECTS, valeurListe } from "@/lib/proprietes/prospects";
@@ -433,4 +434,32 @@ export async function supprimerProspect(pool: Pool, id: unknown) {
   } finally {
     c.release();
   }
+}
+
+// ─── Automatisations (page Workflow, spec 001-workflows) ──────────────────────
+
+export const basculeAutomatisationSchema = z.object({ id: z.uuid(), active: z.boolean() }).strict();
+
+/** Active ou met en pause. En pause, le moteur ne met plus rien en file ; les tâches déjà en file restent annulables. */
+export async function basculerAutomatisation(pool: Pool, entree: unknown, maintenant = new Date()) {
+  const m = basculeAutomatisationSchema.parse(entree);
+  const r = await pool.query(
+    `update public.automatisations
+        set active = $2, active_le = case when $2 then $3 else active_le end, updated_at = $3
+      where id = $1`,
+    [m.id, m.active, maintenant],
+  );
+  if (!r.rowCount) throw new EnvoiRefuse("Automatisation introuvable.");
+}
+
+export const reglagesAutomatisationSchema = z.object({ id: z.uuid(), reglages: reglagesRelanceSchema }).strict();
+
+/** Réglages bornés (Zod, puis contraintes SQL) ; ils s'appliquent aux décisions suivantes, pas aux tâches déjà en file. */
+export async function reglerAutomatisation(pool: Pool, entree: unknown) {
+  const m = reglagesAutomatisationSchema.parse(entree);
+  const r = await pool.query(
+    "update public.automatisations set reglages = $2, updated_at = now() where id = $1 and code = 'relance_invitations'",
+    [m.id, m.reglages],
+  );
+  if (!r.rowCount) throw new EnvoiRefuse("Automatisation introuvable.");
 }

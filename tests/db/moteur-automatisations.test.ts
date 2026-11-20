@@ -5,6 +5,7 @@ import { executerAutomatisations } from "@/server/automatisations/moteur";
 import { executerUnTour } from "@/server/queue/worker";
 import { appliquerEffetsUnipile, creerExecuteur, lireDestinataireDepuis } from "@/server/unipile/executeur";
 import { annulerTache } from "@/server/mutations";
+import { ficheProspectDepuis } from "@/server/donnees";
 import { creerClientSimule } from "../fixtures/client-simule";
 
 const JOUR = 86_400_000;
@@ -124,6 +125,10 @@ describe.skipIf(!TEST_DATABASE_URL)("moteur des automatisations : relance des in
 
     await executerAutomatisations(db.pool, plus(0.01), bas);
     expect((await suivis())[p]).toMatchObject({ etat: "attente_reinvitation", prochaine_decision_le: plus(21) });
+    // Fiche : retrait marqué comme fait par l'automatisation, état de la relance et prochaine date.
+    const fiche = await ficheProspectDepuis(db.pool, p, plus(0.01));
+    expect(fiche?.historique.find((e) => e.type === "retrait_invitation")).toMatchObject({ resultat: "succes", auto: true });
+    expect(fiche?.relance).toEqual({ etat: "attente_reinvitation", prochaineLe: plus(21), cycle: 0 });
     await executerAutomatisations(db.pool, plus(10), bas);
     expect((await taches()).filter((t) => t.type_action === "invitation")).toEqual([]);
 

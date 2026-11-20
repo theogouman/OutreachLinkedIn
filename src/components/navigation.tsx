@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef } from "react";
+import { IconeWorkflow } from "./icones";
 import { IconePageInbox, IconePageProspects, IconePageReglages, IconePageStats } from "./icones-pages";
 
 const LIENS = [
   { href: "/", libelle: "Prospects", Icone: IconePageProspects, compte: null },
   { href: "/inbox", libelle: "Inbox", Icone: IconePageInbox, compte: "nonLus" },
+  { href: "/workflow", libelle: "Workflow", Icone: IconeWorkflow, compte: null },
   { href: "/statistiques", libelle: "Stats", Icone: IconePageStats, compte: null },
   { href: "/reglages", libelle: "Réglages", Icone: IconePageReglages, compte: null },
 ] as const;

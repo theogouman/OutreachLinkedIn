@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { exigerUtilisateur } from "@/server/auth";
 import { poolServeur } from "@/server/db";
-import { annulerTache, basculerArret, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, modifierPropriete, supprimerConversation, trancherIncertaine } from "@/server/mutations";
+import { annulerTache, basculerArret, basculerAutomatisation, reglerAutomatisation, EnvoiRefuse, majNotes, majPlafonds, supprimerProspect, majReglages, marquerLue, marquerNonLue, mettreInvitationEnFile, mettreMessageEnFile, modifierPropriete, supprimerConversation, trancherIncertaine } from "@/server/mutations";
 import { creerVue, majOptionsVue, renommerVue, supprimerVue } from "@/server/vues";
 import { envUnipile } from "@/server/env-serveur";
 import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
@@ -193,6 +193,25 @@ export async function actionSupprimerProspect(id: unknown): Promise<Retour> {
   return executer("supprimer-prospect", async () => {
     await supprimerProspect(poolServeur(), id);
     return "Prospect supprimé, avec toutes ses données.";
+  });
+}
+
+// ─── Automatisations (page Workflow) ──────────────────────────────────────────
+
+/** Active ou met en pause une automatisation. */
+export async function actionBasculerAutomatisation(entree: unknown): Promise<Retour> {
+  return executer("basculer-automatisation", async () => {
+    await basculerAutomatisation(poolServeur(), entree);
+    const actif = typeof entree === "object" && entree !== null && (entree as { active?: unknown }).active === true;
+    return actif ? "Automatisation activée." : "Automatisation en pause.";
+  });
+}
+
+/** Enregistre les réglages d'une automatisation (bornés côté serveur). */
+export async function actionReglerAutomatisation(entree: unknown): Promise<Retour> {
+  return executer("regler-automatisation", async () => {
+    await reglerAutomatisation(poolServeur(), entree);
+    return "Réglages enregistrés.";
   });
 }
 

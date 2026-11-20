@@ -342,8 +342,10 @@ function CorpsFiche({
               id: "historique",
               libelle: "Historique",
               compte: fiche.historique.length,
-              contenu:
-                fiche.historique.length === 0 ? (
+              contenu: (
+                <div className="flex flex-col gap-4">
+                {fiche.relance && <EtatRelance relance={fiche.relance} />}
+                {fiche.historique.length === 0 ? (
                   <p className="rounded-2xl bg-creux px-4 py-6 text-center caption-5 text-encre-3">
                     Aucun événement
                   </p>
@@ -358,6 +360,7 @@ function CorpsFiche({
                         <p className="title-4 text-encre">
                           {EVENEMENTS[e.type] ?? e.type}
                           <span className="font-normal text-encre-3">
+                            {e.auto ? " · automatique" : ""}
                             {e.enFile
                               ? " · en file"
                               : (RESULTATS[e.resultat ?? ""] ?? "")}
@@ -373,7 +376,9 @@ function CorpsFiche({
                       </li>
                     ))}
                   </ol>
-                ),
+                )}
+                </div>
+              ),
             },
           ]}
         />
@@ -638,5 +643,26 @@ function OngletConversation({
         </Link>
       )}
     </div>
+  );
+}
+
+const ETATS_RELANCE: Record<string, string> = {
+  attente_retrait: "retrait prévu",
+  retrait_en_file: "retrait en file",
+  attente_reinvitation: "réinvitation prévue",
+  reinvitation_en_file: "réinvitation en file",
+  mis_de_cote: "relances épuisées",
+  termine: "terminée",
+};
+const fmtRelance = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" });
+
+/** Relance automatique des invitations (page Workflow) : étape du prospect et prochaine date. */
+function EtatRelance({ relance }: { relance: NonNullable<FicheProspect["relance"]> }) {
+  return (
+    <p className="rounded-2xl bg-creux px-4 py-3 caption-4 text-encre-2 ring-1 ring-trait">
+      Relance automatique : {ETATS_RELANCE[relance.etat] ?? relance.etat}
+      {relance.prochaineLe && ["attente_retrait", "attente_reinvitation"].includes(relance.etat) ? ` le ${fmtRelance.format(new Date(relance.prochaineLe))}` : ""}
+      {relance.cycle > 0 ? ` · ${relance.cycle} relance${relance.cycle > 1 ? "s" : ""} faite${relance.cycle > 1 ? "s" : ""}` : ""}
+    </p>
   );
 }

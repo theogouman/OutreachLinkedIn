@@ -12,6 +12,7 @@ import { chargerContexte } from "./queue/worker";
 import { dernierRetrait, notesInvitationRestantes } from "./mutations";
 import { reinvitationPossibleLe } from "@/lib/invitation";
 import { vuesDepuis } from "./vues";
+import { automatisationsDepuis } from "./automatisations/lecture";
 import { TYPES_QUOTA, type TypeQuota } from "@/lib/plafonds";
 import { termesRecherche, TRANSLATE_DE, TRANSLATE_VERS } from "@/lib/recherche";
 
@@ -179,6 +180,8 @@ export interface EvenementHistorique {
   type: string;
   resultat: string | null;
   enFile: boolean;
+  /** Action d'une automatisation (Workflow), pas une demande de l'utilisateur. */
+  auto: boolean;
 }
 
 export interface FicheProspect extends LigneProspect {
@@ -196,6 +199,8 @@ export interface FicheProspect extends LigneProspect {
     /** Retrait récent : date à partir de laquelle LinkedIn accepte une nouvelle invitation (null : aucune attente). */
     possibleLe: Date | null;
   };
+  /** Relance automatique des invitations (Workflow) : où en est ce prospect (null : pas suivi). */
+  relance: { etat: string; prochaineLe: Date | null; cycle: number } | null;
 }
 
 export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = new Date()): Promise<FicheProspect | null> {
@@ -211,11 +216,19 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
   );
   if (!p.rowCount) return null;
   const h = await pool.query(
-    `select created_at as date, type, resultat, false as en_file from public.actions where prospect_id = $1
+    `select a.created_at as date, a.type, a.resultat, false as en_file,
+            exists (select 1 from public.taches t where t.id = a.tache_id and t.automatisation_id is not null) as auto
+       from public.actions a where a.prospect_id = $1
      union all
-     select coalesce(depart_estime, executer_apres), type_action::text, null, true
+     select coalesce(depart_estime, executer_apres), type_action::text, null, true, automatisation_id is not null
        from public.taches where prospect_id = $1 and statut in ('en_attente', 'en_cours', 'incertaine')
      order by 1 desc limit 100`,
+    [parse.data],
+  );
+  const relance = await pool.query(
+    `select s.etat, s.prochaine_decision_le, s.cycle from public.suivis_automatisation s
+       join public.automatisations a on a.id = s.automatisation_id and a.code = 'relance_invitations'
+      where s.prospect_id = $1`,
     [parse.data],
   );
   const profil = await pool.query(
@@ -247,7 +260,8 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
     photo: adressePhoto(x.id, x.photo_maj),
     notes: x.notes,
     informationsListe: detailsAffichables(x.liste_origine, x.details),
-    historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file })),
+    historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file, auto: r.auto })),
+    relance: relance.rows[0] ? { etat: relance.rows[0].etat, prochaineLe: relance.rows[0].prochaine_decision_le, cycle: relance.rows[0].cycle } : null,
   };
 }
 
@@ -643,6 +657,13 @@ export async function photoProspect(id: string): Promise<{ contenu: Buffer; type
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
+
+// ─── Automatisations (page Workflow) ──────────────────────────────────────────
+
+export async function automatisations() {
+  await exigerUtilisateur();
+  return automatisationsDepuis(poolServeur());
+}
 
 export async function notifications() {
   await exigerUtilisateur();

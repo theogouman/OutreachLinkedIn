@@ -40,17 +40,17 @@
 
 ## Phase 4 — Page Workflow (incrément 4) [US2]
 
-- [ ] T025 [P] [US2] Test `tests/db/automatisations.test.ts` (actions) : basculer et régler — entrée invalide refusée, bornes, effet sur les décisions suivantes seulement ; lecture : compteurs par état, prochaines et dernières actions
-- [ ] T026 [US2] `src/server/mutations.ts`, `src/server/automatisations/lecture.ts`, `src/server/donnees.ts`, `src/app/actions.ts` (`exigerUtilisateur`, Zod, erreurs génériques)
-- [ ] T027 [US2] Test : action appelée sans session ou par un utilisateur non autorisé → refusée (`exigerUtilisateur`), aucune écriture
-- [ ] T028 [US2] `src/app/(app)/workflow/page.tsx`, `automatisation.tsx` (encadré, interrupteur, réglages, compteurs, prochaines et dernières actions) ; `src/components/navigation.tsx`, `icones-pages.tsx`
-- [ ] T029 [P] [US2] `fiche.tsx` : actions d'automatisation marquées comme telles dans l'historique ; état de relance (prochaine étape et date)
-- [ ] T030 [US2] Vérification visuelle (téléphone 390 px et bureau, clair et sombre) sur une page d'essai temporaire, jamais committée
+- [x] T025 [P] [US2] Test `tests/db/automatisations.test.ts` (actions) : basculer et régler — entrée invalide refusée, bornes, effet sur les décisions suivantes seulement ; lecture : compteurs par état, prochaines et dernières actions
+- [x] T026 [US2] `src/server/mutations.ts`, `src/server/automatisations/lecture.ts`, `src/server/donnees.ts`, `src/app/actions.ts` (`exigerUtilisateur`, Zod, erreurs génériques)
+- [x] T027 [US2] Test : action appelée sans session ou par un utilisateur non autorisé → refusée (`exigerUtilisateur`), aucune écriture
+- [x] T028 [US2] `src/app/(app)/workflow/page.tsx`, `automatisation.tsx` (encadré, interrupteur, réglages, compteurs, prochaines et dernières actions) ; `src/components/navigation.tsx`, `icones-pages.tsx`
+- [x] T029 [P] [US2] `fiche.tsx` : actions d'automatisation marquées comme telles dans l'historique ; état de relance (prochaine étape et date)
+- [x] T030 [US2] Vérification visuelle (téléphone 390 px et bureau, clair et sombre) sur une page d'essai temporaire, jamais committée
 
 ## Phase 5 — Finitions
 
-- [ ] T031 `docs/architecture.md` (arborescence, décisions), `specs/001-workflows/` à jour (cases cochées, écarts)
-- [ ] T032 Revue sécurité du diff complet (skill `software-security`), Semgrep, revue des refus Unipile au premier cas réel
+- [x] T031 `docs/architecture.md` (arborescence, décisions), `specs/001-workflows/` à jour (cases cochées, écarts)
+- [x] T032 Revue sécurité du diff complet (skill `software-security`), Semgrep — revue des refus Unipile à faire au premier cas réel
 
 ## Dépendances
 
