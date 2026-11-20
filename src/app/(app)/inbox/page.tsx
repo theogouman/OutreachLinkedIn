@@ -85,7 +85,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                   >
                     <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
                     <span className="min-w-0 pr-2">
-                      <h2 className="truncate title-3 text-encre underline-offset-2 group-hover:underline">{ouvert.nom}</h2>
+                      <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
                       {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
                     </span>
                   </Link>
@@ -99,7 +99,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                   >
                     <Avatar nom={ouvert.nom} taille={40} photo={ouvert.photo} />
                     <span className="min-w-0 pr-2">
-                      <h2 className="truncate title-3 text-encre underline-offset-2 group-hover:underline">{ouvert.nom}</h2>
+                      <h2 className="truncate title-3 text-encre">{ouvert.nom}</h2>
                       {ouvert.sousTitre && <span className="block truncate caption-5 text-encre-3">{ouvert.sousTitre}</span>}
                     </span>
                   </Link>

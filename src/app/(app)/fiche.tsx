@@ -7,6 +7,7 @@ import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
 import { IconeFermer, IconeLienExterne } from "@/components/icones";
 import { BadgeStatut } from "@/components/badges";
 import { ChoixEtape } from "@/components/vues/proprietes";
+import { TexteAnime } from "@/components/interface/texte-anime";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
 import { RedactionMessage } from "@/components/redaction-message";
@@ -177,7 +178,7 @@ export function ModaleFiche({
       hauteurFixe
       glisserHorizontal={{ precedent: nav.precedent, suivant: nav.suivant }}
       voisins={nav.position ? { precedent: nav.precedent && apercu(ordre[rang - 1]), suivant: nav.suivant && apercu(ordre[rang + 1]) } : undefined}
-      enTete={enAttente ? <EnTeteSquelette /> : <EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} />}
+      enTete={enAttente ? <EnTeteSquelette /> : <EnTeteFiche fiche={fiche} nom={nom} nav={nav} modeSimule={modeSimule} anime={!telephone} />}
     >
       {enAttente ? (
         <CorpsSquelette />
@@ -191,6 +192,7 @@ export function ModaleFiche({
           modeSimule={modeSimule}
           onglet={onglet}
           changerOnglet={setOnglet}
+          anime={!telephone}
         />
       )}
     </Modale>
@@ -239,7 +241,8 @@ function CorpsFiche({
   modeSimule,
   onglet,
   changerOnglet,
-}: DonneesFiche & { nom: string; restants: number; modeSimule: boolean; onglet: string; changerOnglet: (id: string) => void }) {
+  anime = false,
+}: DonneesFiche & { nom: string; restants: number; modeSimule: boolean; onglet: string; changerOnglet: (id: string) => void; anime?: boolean }) {
   return (
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-1 sm:px-8 sm:pb-8">
         <SectionsGlissantes
@@ -284,7 +287,7 @@ function CorpsFiche({
                       >
                         <dt className="caption-4 text-encre-3">{x.t}</dt>
                         <dd className="flex min-h-6 items-center body-6 text-encre">
-                          {x.d}
+                          {typeof x.d === "string" ? <TexteAnime texte={x.d} actif={anime} /> : x.d}
                         </dd>
                       </div>
                     ))}
@@ -479,6 +482,7 @@ function EnTeteFiche({
   nav,
   modeSimule,
   apercu = false,
+  anime = false,
 }: {
   fiche: FicheProspect;
   nom: string;
@@ -486,6 +490,11 @@ function EnTeteFiche({
   modeSimule: boolean;
   /** Aperçu d'une voisine (carrousel) : pas d'identifiant de titre, rien de focalisable. */
   apercu?: boolean;
+  /**
+   * Passage à la fiche voisine par les flèches ou le clavier : nom et informations changent en
+   * « Blur Out Up » (animate-text). Pas sur téléphone, où le glisser fait déjà entrer la voisine.
+   */
+  anime?: boolean;
 }) {
   const { fermer, titreId } = useModale();
   const lienProfil = lienProfilLinkedIn(fiche.linkedinUrl);
@@ -519,16 +528,20 @@ function EnTeteFiche({
         </button>
         </div>
       </div>
-      <div className={`flex flex-col gap-1.5 transition-opacity duration-150 ${nav.enCours ? "opacity-50" : ""}`}>
+      <div className="flex flex-col gap-1.5">
         <h2
           id={apercu ? undefined : titreId}
           className="text-[28px] font-medium leading-tight tracking-[-0.02em] text-encre sm:text-[32px]"
         >
-          {nom}
+          <TexteAnime texte={nom} actif={anime} />
         </h2>
         {(sousTitre || lienProfil) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {sousTitre && <p className="body-6 text-encre-2">{sousTitre}</p>}
+            {sousTitre && (
+              <p className="body-6 text-encre-2">
+                <TexteAnime texte={sousTitre} actif={anime} />
+              </p>
+            )}
             {sousTitre && lienProfil && <span aria-hidden className="h-3.5 w-px bg-trait-fort" />}
             {lienProfil && (
               <a

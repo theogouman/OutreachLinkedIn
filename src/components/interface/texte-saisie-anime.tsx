@@ -16,47 +16,13 @@
  */
 
 import { useEffect, useLayoutEffect, useRef } from "react";
-
-const ENTREE = { duree: 403, decalage: 20, courbe: "cubic-bezier(0.22, 1, 0.36, 1)" };
-const SORTIE = { duree: 346, decalage: 17, courbe: "cubic-bezier(0.64, 0, 0.78, 0)" };
-const CHEVAUCHEMENT_MS = 170;
-
-const cadre = (opacite: number, y: number, flou: number): Keyframe => ({
-  opacity: opacite,
-  transform: `translate3d(0, ${y}px, 0)`,
-  filter: `blur(${flou}px)`,
-});
-const IMMOBILE = cadre(1, 0, 0);
-const AVANT_ENTREE = cadre(0, 10 * 0.58, 6);
-const APRES_SORTIE = cadre(0, -14 * 0.58, 8);
-
-const totalSortie = (n: number) => SORTIE.duree + Math.max(0, n - 1) * SORTIE.decalage;
+import { APRES_SORTIE, AVANT_ENTREE, CHEVAUCHEMENT_MS, decouper, ENTREE, IMMOBILE, SORTIE, totalSortie } from "./blur-out-up";
 
 type Champ = HTMLInputElement | HTMLTextAreaElement;
 
 /** Le champ voisin de la couche animée (enfant direct du même parent). */
 function trouverChamp(hote: HTMLElement | null): Champ | null {
   return hote?.parentElement?.querySelector<Champ>(":scope > input, :scope > textarea") ?? null;
-}
-
-/** Remplit `parent` avec le texte découpé par mot ; renvoie les mots (les espaces ne s'animent pas). */
-function decouper(parent: HTMLElement, texte: string): HTMLElement[] {
-  parent.replaceChildren();
-  const mots: HTMLElement[] = [];
-  for (const morceau of texte.match(/(\S+|\s+)/g) ?? []) {
-    const s = document.createElement("span");
-    s.textContent = morceau;
-    s.style.whiteSpace = "pre-wrap";
-    if (/\S/.test(morceau)) {
-      s.style.display = "inline-block";
-      s.style.whiteSpace = "pre";
-      s.style.transformOrigin = "50% 55%";
-      s.style.backfaceVisibility = "hidden";
-      mots.push(s);
-    }
-    parent.append(s);
-  }
-  return mots;
 }
 
 export function TexteSaisieAnime({

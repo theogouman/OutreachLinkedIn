@@ -644,7 +644,6 @@ html {
    transition « Page side-by-side » (mêmes durées, courbes et flou ; déplacement un peu plus
    ample pour un vrai glissé). Grand écran : grille côte à côte, sans animation. */
 .inbox-glisse {
-  --inbox-glisse-distance: 28px;
   display: grid;
   gap: 16px;
 }
@@ -681,14 +680,18 @@ html {
       height: calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     }
   }
+  /* Transitions.dev « Page side-by-side » (cli/free/page-side-by-side.md), valeurs d'origine :
+     8 px de glissement, 3 px de flou, 250 ms, même courbe ; la liste (page 1) sort vers la gauche,
+     la conversation (page 2) vers la droite. Ajout : visibility masquée à la fin de la sortie
+     (le volet caché ne prend ni le focus ni les lecteurs d'écran). */
   .inbox-volet {
     position: absolute;
     inset: 0;
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
-    transform: translateX(var(--inbox-volet-x, 0px));
-    filter: blur(var(--page-blur));
+    transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+    filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
     transition:
       opacity var(--page-fade-dur) var(--page-fade-ease),
       transform var(--page-slide-dur) var(--page-slide-ease),
@@ -697,10 +700,10 @@ html {
     will-change: opacity, transform, filter;
   }
   .inbox-volet[data-position="avant"] {
-    --inbox-volet-x: calc(var(--inbox-glisse-distance) * -1);
+    --t-page-from-x: calc(var(--page-slide-distance) * -1);
   }
   .inbox-volet[data-position="apres"] {
-    --inbox-volet-x: var(--inbox-glisse-distance);
+    --t-page-from-x: var(--page-slide-distance);
   }
   .inbox-volet[data-position="actif"] {
     opacity: 1;
@@ -708,7 +711,7 @@ html {
     visibility: visible;
     transform: translateX(0);
     filter: blur(0);
-    transition-delay: 0s;
+    transition-delay: var(--page-stagger);
   }
   /* L'encoche recherche + filtres se dissout comme du verre dépoli à l'ouverture d'une conversation. */
   .inbox-encoche {
