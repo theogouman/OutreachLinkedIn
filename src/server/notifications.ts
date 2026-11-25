@@ -162,3 +162,16 @@ export async function notificationsDepuis(pool: Pool): Promise<{ liste: Notifica
 export async function marquerNotificationsLues(pool: Pool) {
   await pool.query("update public.notifications set lue = true where not lue");
 }
+
+/** Une notification marquée lue ou non lue (geste de la ligne dans le centre de notifications). */
+export const notificationLueSchema = z.object({ id: z.uuid(), lue: z.boolean() }).strict();
+
+export async function basculerNotificationLue(pool: Pool, entree: unknown) {
+  const n = notificationLueSchema.parse(entree);
+  await pool.query("update public.notifications set lue = $2 where id = $1", [n.id, n.lue]);
+}
+
+/** Supprime une notification (rien d'autre : ni prospect, ni Push déjà envoyé). Inconnue : sans effet. */
+export async function supprimerNotification(pool: Pool, id: unknown) {
+  await pool.query("delete from public.notifications where id = $1", [z.uuid().parse(id)]);
+}

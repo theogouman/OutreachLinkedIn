@@ -4,11 +4,17 @@
  * Centre de notifications : cloche dans la barre (pastille rouge = non lues, rouge plein = alerte),
  * panneau des dernières notifications, et activation des notifications Push sur l'appareil
  * (PWA ; sur iPhone, uniquement depuis l'app installée sur l'écran d'accueil).
+ * Chaque notification se glisse (LigneGlissante, d'après « Swipeable List » de beUI Native) :
+ * vers la droite, lue / non lue ; vers la gauche, suppression (glissé complet : la ligne part et
+ * se replie, les suivantes remontent). Changement affiché aussitôt, annulé si le serveur refuse.
  */
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { actionAbonnerPush, actionClePush, actionDesabonnerPush, actionNotificationsLues } from "@/app/actions";
+import { AnimatePresence, motion } from "motion/react";
+import { actionAbonnerPush, actionClePush, actionDesabonnerPush, actionNotificationLue, actionNotificationsLues, actionSupprimerNotification } from "@/app/actions";
+import { LigneGlissante, type LigneOuverte } from "@/components/interface/ligne-glissante";
+import { IconeCorbeille, IconeEnveloppeOuverte } from "@/components/icones-pages";
 import { useRetour } from "@/components/interface/toasts";
 import { IconeCloche } from "@/components/icones";
 import { useDansEcran } from "@/components/interface/dans-ecran";
@@ -161,41 +167,107 @@ export function CentreNotifications({ liste, nonLues }: { liste: NotificationAff
               </button>
             )}
           </div>
-          <ul className="max-h-[50dvh] min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {liste.length === 0 && <li className="px-4 py-8 text-center caption-5 text-encre-3">Aucune notification pour l&apos;instant</li>}
-            {liste.map((n) => {
-              const contenu = (
-                <>
-                  <span
-                    aria-hidden
-                    className={`mt-1.5 size-2 shrink-0 rounded-full ${n.lue ? "bg-transparent" : n.niveau === "alerte" ? "bg-action" : "bg-accent"}`}
-                  />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className={`body-6 ${n.niveau === "alerte" ? "text-rouge" : "text-encre"}`}>{n.titre}</span>
-                    {n.corps && <span className="caption-5 text-encre-2">{n.corps}</span>}
-                    <time dateTime={new Date(n.creeeLe).toISOString()} className="caption-5 text-encre-3">
-                      {fmt.format(new Date(n.creeeLe))}
-                    </time>
-                  </span>
-                </>
-              );
-              const classe = "flex gap-3 px-4 py-3 outline-none transition-colors duration-150 hover:bg-creux focus-visible:bg-creux";
-              return (
-                <li key={n.id} className="border-t border-trait first:border-0">
-                  {n.lien ? (
-                    <Link href={n.lien} onClick={() => setOuvert(false)} className={classe}>
-                      {contenu}
-                    </Link>
-                  ) : (
-                    <div className={classe}>{contenu}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <ListeNotifications liste={liste} fermer={() => setOuvert(false)} />
           <BlocPush />
         </div>
       )}
     </div>
+  );
+}
+
+/** Repli d'une ligne supprimée et glissé des suivantes : valeurs de beUI (260 ms, ressort 380 / 36 / 0,9). */
+const SORTIE = { height: { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const }, marginTop: { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const }, opacity: { duration: 0.18 } };
+const GLISSE_VOISINES = { type: "spring" as const, stiffness: 380, damping: 36, mass: 0.9 };
+
+function ListeNotifications({ liste, fermer }: { liste: NotificationAffichee[]; fermer: () => void }) {
+  const [ouverte, setOuverte] = useState<LigneOuverte>(null);
+  const [masquees, setMasquees] = useState<ReadonlySet<string>>(new Set());
+  const [lues, setLues] = useState<Readonly<Record<string, boolean>>>({});
+  const retourner = useRetour();
+  const visibles = liste.filter((n) => !masquees.has(n.id));
+
+  const basculerLue = (n: NotificationAffichee, lue: boolean) => {
+    setLues((l) => ({ ...l, [n.id]: lue }));
+    void actionNotificationLue({ id: n.id, lue }).then((r) => {
+      if (r.ok) return;
+      setLues((l) => ({ ...l, [n.id]: n.lue }));
+      retourner(r);
+    });
+  };
+  const supprimer = (n: NotificationAffichee) => {
+    setMasquees((m) => new Set(m).add(n.id));
+    void actionSupprimerNotification(n.id).then((r) => {
+      if (r.ok) return;
+      setMasquees((m) => {
+        const suite = new Set(m);
+        suite.delete(n.id);
+        return suite;
+      });
+      retourner(r);
+    });
+  };
+
+  return (
+    <ul className="max-h-[50dvh] min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2">
+      {visibles.length === 0 && <li className="px-4 py-8 text-center caption-5 text-encre-3">Aucune notification pour l&apos;instant</li>}
+      <AnimatePresence initial={false}>
+        {visibles.map((n, i) => {
+          const lue = lues[n.id] ?? n.lue;
+          const contenu = (
+            <>
+              <span
+                aria-hidden
+                className={`mt-1.5 size-2 shrink-0 rounded-full transition-colors duration-150 ${lue ? "bg-transparent" : n.niveau === "alerte" ? "bg-action" : "bg-accent"}`}
+              />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className={`body-6 ${n.niveau === "alerte" ? "text-rouge" : "text-encre"}`}>{n.titre}</span>
+                {n.corps && <span className="caption-5 text-encre-2">{n.corps}</span>}
+                <time dateTime={new Date(n.creeeLe).toISOString()} className="caption-5 text-encre-3">
+                  {fmt.format(new Date(n.creeeLe))}
+                </time>
+              </span>
+            </>
+          );
+          const classe = "flex gap-3 rounded-2xl px-4 py-3 outline-none transition-colors duration-150 hover:bg-creux focus-visible:bg-creux";
+          return (
+            <motion.li
+              key={n.id}
+              layout="position"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, marginTop: i > 0 ? 8 : 0 }}
+              exit={{ height: 0, marginTop: 0, opacity: 0, transition: SORTIE }}
+              transition={{ layout: GLISSE_VOISINES, opacity: { duration: 0.22 }, marginTop: { duration: 0 } }}
+              style={{ marginTop: i > 0 ? 8 : 0 }}
+            >
+              <LigneGlissante
+                id={n.id}
+                ouverte={ouverte}
+                changerOuverte={setOuverte}
+                libelleActions="Flèche droite : marquer comme lue ou non lue. Flèche gauche : supprimer"
+                actionsGauche={[
+                  {
+                    id: "lue",
+                    libelle: lue ? "Non lue" : "Lue",
+                    icone: <IconeEnveloppeOuverte taille={18} />,
+                    executer: () => basculerLue(n, !lue),
+                  },
+                ]}
+                actionsDroite={[{ id: "supprimer", libelle: "Supprimer", icone: <IconeCorbeille taille={18} />, ton: "danger", executer: () => supprimer(n) }]}
+              >
+                {n.lien ? (
+                  <Link href={n.lien} onClick={fermer} draggable={false} className={classe}>
+                    {contenu}
+                  </Link>
+                ) : (
+                  <div tabIndex={0} className={classe}>
+                    {contenu}
+                  </div>
+                )}
+              </LigneGlissante>
+            </motion.li>
+          );
+        })}
+      </AnimatePresence>
+    </ul>
   );
 }

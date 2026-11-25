@@ -11,7 +11,7 @@ import { envUnipile } from "@/server/env-serveur";
 import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
 import { filtresProspectsSchema } from "@/lib/filtres/prospects";
 import { filtresInboxSchema } from "@/lib/filtres/inbox";
-import { clesPush, enregistrerAbonnement, marquerNotificationsLues, supprimerAbonnement } from "@/server/notifications";
+import { basculerNotificationLue, clesPush, enregistrerAbonnement, marquerNotificationsLues, supprimerAbonnement, supprimerNotification } from "@/server/notifications";
 
 /**
  * Server Actions de l'interface. Chacune vérifie l'utilisateur, valide l'entrée
@@ -237,6 +237,22 @@ export async function actionNotificationsLues(): Promise<Retour> {
   return executer("notifications-lues", async () => {
     await marquerNotificationsLues(poolServeur());
     return "Notifications lues.";
+  });
+}
+
+/** Une notification lue ou non lue (glissé vers la droite dans le centre de notifications). */
+export async function actionNotificationLue(entree: unknown): Promise<Retour> {
+  return executer("notification-lue", async () => {
+    await basculerNotificationLue(poolServeur(), entree);
+    return "Notification mise à jour.";
+  });
+}
+
+/** Supprime une notification (glissé vers la gauche dans le centre de notifications). */
+export async function actionSupprimerNotification(id: unknown): Promise<Retour> {
+  return executer("supprimer-notification", async () => {
+    await supprimerNotification(poolServeur(), id);
+    return "Notification supprimée.";
   });
 }
 
