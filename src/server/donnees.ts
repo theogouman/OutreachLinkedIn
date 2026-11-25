@@ -252,6 +252,8 @@ export interface FicheProspect extends Omit<LigneProspect, "relationLe" | "derni
     plafondNotes: number | null;
     /** Retrait récent : date à partir de laquelle LinkedIn accepte une nouvelle invitation (null : aucune attente). */
     possibleLe: Date | null;
+    /** Ajouté depuis l'Inbox, lecture de profil pas encore faite : relation inconnue, pas d'invitation proposée. */
+    relationAVerifier: boolean;
   };
   /** Relance automatique des invitations (Workflow) : où en est ce prospect (null : pas suivi). */
   relance: { etat: string; prochaineLe: Date | null; cycle: number } | null;
@@ -269,7 +271,9 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
     `select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape, notes, details, photo_maj,
             to_char(prochaine_relance, 'YYYY-MM-DD') as prochaine_relance, provider_id is not null as identifie,
             exists (select 1 from public.taches t where t.prospect_id = prospects.id and t.type_action = 'invitation'
-                     and t.statut in ('en_attente', 'en_cours', 'incertaine')) as invitation_en_file
+                     and t.statut in ('en_attente', 'en_cours', 'incertaine')) as invitation_en_file,
+            exists (select 1 from public.taches t where t.prospect_id = prospects.id and t.type_action = 'lecture_profil'
+                     and t.payload ? 'ajout_crm' and t.statut in ('en_attente', 'en_cours')) as relation_a_verifier
        from public.prospects where id = $1`,
     [parse.data],
   );
@@ -306,6 +310,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
       notesRestantes: notes.restantes,
       plafondNotes: notes.plafond,
       possibleLe: reinvitationPossibleLe(await dernierRetrait(pool, parse.data), maintenant),
+      relationAVerifier: x.relation_a_verifier,
     },
     id: x.id,
     prenom: x.prenom,

@@ -162,10 +162,10 @@ describe.skipIf(!TEST_DATABASE_URL)("invitations depuis la fiche prospect", () =
   it("la fiche expose l'invitation en file et les notes restantes", async () => {
     const id = await prospect({ provider: "ACoDEMOf" });
     let f = await ficheProspectDepuis(db.pool, id, JEUDI_10H);
-    expect(f?.invitation).toEqual({ enFile: false, notesRestantes: 4, plafondNotes: 4, possibleLe: null });
+    expect(f?.invitation).toEqual({ enFile: false, notesRestantes: 4, plafondNotes: 4, possibleLe: null, relationAVerifier: false });
     await mettreInvitationEnFile(db.pool, { prospectId: id, note: "Salut", cle: randomUUID() }, REEL);
     f = await ficheProspectDepuis(db.pool, id, JEUDI_10H);
-    expect(f?.invitation).toEqual({ enFile: true, notesRestantes: 3, plafondNotes: 4, possibleLe: null });
+    expect(f?.invitation).toEqual({ enFile: true, notesRestantes: 3, plafondNotes: 4, possibleLe: null, relationAVerifier: false });
   });
 
   // ─── Délai LinkedIn après un retrait (spec 001-workflows, FR-027) ────────────

@@ -2,22 +2,29 @@
 
 /*
  * Carte d'infos d'un interlocuteur hors CRM (ouverte depuis l'en-tête de la conversation, ?interlocuteur=1) :
- * identité lue chez Unipile (nom, poste, photo, profil LinkedIn), sans créer de prospect.
+ * identité lue chez Unipile (nom, poste, photo, profil LinkedIn). Actions : ouvrir son LinkedIn
+ * (première ligne), puis « Ajouter au CRM » et « Ne plus afficher » / « Réafficher » sur deux
+ * colonnes, mêmes actions que le menu « ⋯ » (`useActionsInterlocuteur`).
  */
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Modale, useModale } from "@/components/interface/modale";
 import { Avatar } from "@/components/interface/elements";
-import { IconeFermer } from "@/components/icones";
+import { IconeAfficher, IconeAjouterPersonne, IconeFermer, IconeMasquer } from "@/components/icones";
+import { useActionsInterlocuteur } from "./actions-interlocuteur";
 import { LogoLinkedIn } from "@/components/logos";
 
 export function CarteInterlocuteur({
+  conversationId,
+  masquee,
   nom,
   titre,
   photo,
   lienLinkedIn,
   identifie,
 }: {
+  conversationId: string;
+  masquee: boolean;
   nom: string;
   titre: string | null;
   photo: string | null;
@@ -32,6 +39,7 @@ export function CarteInterlocuteur({
     q.delete("interlocuteur");
     router.replace(q.size ? `${chemin}?${q}` : chemin, { scroll: false });
   };
+  const { enCours, ajouterAuCrm, basculerMasquee } = useActionsInterlocuteur(conversationId, masquee);
   return (
     <Modale fermer={fermer} largeur={460} enTete={<EnTete nom={nom} photo={photo} />}>
       <div className="flex flex-col gap-4 px-6 pb-6 sm:px-8 sm:pb-8">
@@ -40,14 +48,26 @@ export function CarteInterlocuteur({
           <span className="rounded-full bg-amber-50 dark:bg-amber-400/15 px-2.5 py-1 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>
           {!identifie && <span className="caption-5 text-encre-3">Profil en cours d&apos;identification</span>}
         </div>
-        {lienLinkedIn && (
-          <a href={lienLinkedIn} target="_blank" rel="noopener noreferrer" className="bouton bouton-contour self-start">
-            <LogoLinkedIn taille={18} />
-            Ouvrir son LinkedIn
-            <span className="sr-only"> (nouvel onglet)</span>
-          </a>
-        )}
-        <p className="caption-5 text-encre-3">Cette personne n&apos;est pas dans tes prospects : rien n&apos;est ajouté au CRM</p>
+        <div className="flex flex-col gap-2">
+          {lienLinkedIn && (
+            <a href={lienLinkedIn} target="_blank" rel="noopener noreferrer" className="bouton bouton-contour w-full justify-center">
+              <LogoLinkedIn taille={18} />
+              Ouvrir son LinkedIn
+              <span className="sr-only"> (nouvel onglet)</span>
+            </a>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={enCours || !identifie} onClick={ajouterAuCrm} className="bouton bouton-contour justify-center disabled:opacity-50">
+              <IconeAjouterPersonne taille={18} />
+              Ajouter au CRM
+            </button>
+            <button type="button" disabled={enCours} onClick={() => basculerMasquee(true)} className="bouton bouton-contour justify-center disabled:opacity-50">
+              {masquee ? <IconeAfficher taille={18} /> : <IconeMasquer taille={18} />}
+              {masquee ? "Réafficher" : "Ne plus afficher"}
+            </button>
+          </div>
+        </div>
+        <p className="caption-5 text-encre-3">Cette personne n&apos;est pas encore dans tes prospects</p>
       </div>
     </Modale>
   );

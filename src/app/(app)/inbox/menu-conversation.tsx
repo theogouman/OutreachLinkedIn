@@ -12,15 +12,8 @@
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  actionAjouterAuCrm,
-  actionMarquerLue,
-  actionMarquerNonLue,
-  actionMasquerConversation,
-  actionReafficherConversation,
-  actionSupprimerConversation,
-  actionTexteCopie,
-} from "@/app/actions";
+import { actionMarquerLue, actionMarquerNonLue, actionSupprimerConversation, actionTexteCopie } from "@/app/actions";
+import { useActionsInterlocuteur } from "./actions-interlocuteur";
 import { IconeAfficher, IconeAjouterPersonne, IconeMasquer, IconeOptions } from "@/components/icones";
 import { IconeCopier, IconeCorbeille, IconeEnveloppeOuverte } from "@/components/icones-pages";
 import { useRetour } from "@/components/interface/toasts";
@@ -87,6 +80,7 @@ export function MenuConversation({
     setConfirmer(false);
     if (rendreFocus) bouton.current?.focus();
   };
+  const interlocuteur = useActionsInterlocuteur(id, masquee, () => fermer(false));
 
   useEffect(() => {
     if (ouvert) premier.current?.focus();
@@ -146,23 +140,6 @@ export function MenuConversation({
     );
     fermer();
   };
-
-  const ajouterAuCrm = () =>
-    demarrer(async () => {
-      const r = await actionAjouterAuCrm(id);
-      retourner(r);
-      fermer(false);
-      // La fiche créée (ou déjà présente) s'ouvre par-dessus la conversation.
-      if (r.ok && r.prospectId) router.push(`/inbox?${new URLSearchParams({ conversation: id, prospect: r.prospectId })}`, { scroll: false });
-    });
-
-  const basculerMasquee = () =>
-    demarrer(async () => {
-      const r = masquee ? await actionReafficherConversation(id) : await actionMasquerConversation(id);
-      retourner(r);
-      fermer(false);
-      if (r.ok && !masquee && (variante === "entete" || params.get("conversation") === id)) router.replace("/inbox", { scroll: false });
-    });
 
   const supprimer = () =>
     demarrer(async () => {
@@ -244,11 +221,11 @@ export function MenuConversation({
                 )}
               </div>
               {horsCrm && (
-                <Element icone={<IconeAjouterPersonne taille={16} />} disabled={enCours} onClick={ajouterAuCrm}>
+                <Element icone={<IconeAjouterPersonne taille={16} />} disabled={enCours || interlocuteur.enCours} onClick={interlocuteur.ajouterAuCrm}>
                   Ajouter au CRM
                 </Element>
               )}
-              <Element icone={masquee ? <IconeAfficher taille={16} /> : <IconeMasquer taille={16} />} disabled={enCours} onClick={basculerMasquee}>
+              <Element icone={masquee ? <IconeAfficher taille={16} /> : <IconeMasquer taille={16} />} disabled={enCours || interlocuteur.enCours} onClick={() => interlocuteur.basculerMasquee(variante === "entete")}>
                 {masquee ? "Réafficher" : "Ne plus afficher"}
               </Element>
               <Element icone={<IconeCorbeille taille={16} />} onClick={() => setConfirmer(true)} danger>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { identifiantVersProfil } from "@/lib/linkedin-url";
 import { rattacherConversations } from "@/server/conversations";
 import { synchroniserEtapes } from "@/server/etapes";
+import { recalculerStatuts } from "@/server/relations";
 import { EnvoiRefuse } from "@/server/mutations";
 
 /*
@@ -143,6 +144,9 @@ export async function ajouterAuCrm(pool: Pool, id: unknown): Promise<{ prospectI
         [prospectId, { public_identifier: profil.publicIdentifier, ajout_crm: true }, `ajout_crm:${prospectId}`],
       );
     }
+    // Relation déjà connue (liste des relations lue en entier, acceptation reçue par webhook,
+    // invitation en attente) : statut posé tout de suite, sans attendre la lecture de profil.
+    await recalculerStatuts(c, { urls: [profil.urlNormalisee], providerIds: providerId ? [providerId] : [] });
     await synchroniserEtapes(c, [prospectId], "synchro");
     await c.query("commit");
     return { prospectId, existant };

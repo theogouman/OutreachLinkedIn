@@ -12,6 +12,8 @@
  *   (`voisins`, rendus inertes) sont collés de part et d'autre dans le même cadre : tout suit le doigt
  *   1:1 (résistance s'il n'y a rien de ce côté), puis l'animation repart de la vitesse du geste et
  *   décélère (courbe ease-out, sans rebond), sans jamais laisser voir le fond entre deux fiches.
+ * Clavier ouvert sur téléphone : le cadre suit la zone visible (`visualViewport`) et le panneau la
+ * remplit en entier, sans voir la page derrière (iOS décale la page pour montrer le champ).
  * `hauteurFixe` : la modale garde la même taille quel que soit le contenu (min(760 px, écran)) ;
  * le corps ne défile pas, c'est au contenu de gérer son propre défilement.
  */
@@ -70,6 +72,7 @@ export function Modale({
   const [etat, setEtat] = useState<Etat>("entree");
   const titreId = useId();
   const boite = useRef<HTMLDivElement>(null);
+  const cadre = useRef<HTMLDivElement>(null);
   const piste = useRef<HTMLDivElement>(null);
   const retourFocus = useRef<HTMLElement | null>(null);
   const minuteur = useRef<number | undefined>(undefined);
@@ -93,6 +96,32 @@ export function Modale({
       window.clearTimeout(minuteur.current);
       const cible = retourFocus.current;
       if (cible?.isConnected) cible.focus({ preventScroll: true });
+    };
+  }, []);
+
+  // Clavier ouvert (téléphone) : cadre calé sur la zone visible, panneau plein (data-clavier).
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = cadre.current;
+    if (!vv || !el) return;
+    const maj = () => {
+      const clavier = estTelephone() && window.innerHeight - vv.height > 120;
+      if (clavier) {
+        el.style.top = `${vv.offsetTop}px`;
+        el.style.height = `${vv.height}px`;
+        el.style.bottom = "auto";
+        el.dataset.clavier = "";
+      } else if ("clavier" in el.dataset) {
+        el.style.top = el.style.height = el.style.bottom = "";
+        delete el.dataset.clavier;
+      }
+    };
+    maj();
+    vv.addEventListener("resize", maj);
+    vv.addEventListener("scroll", maj);
+    return () => {
+      vv.removeEventListener("resize", maj);
+      vv.removeEventListener("scroll", maj);
     };
   }, []);
 
@@ -251,7 +280,10 @@ export function Modale({
   const classeEtat = etat === "ouverte" ? " is-open" : etat === "sortie" ? " is-closing" : "";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end pt-[max(12px,env(safe-area-inset-top))] sm:place-items-center sm:p-6">
+    <div
+      ref={cadre}
+      className="group/modale fixed inset-0 z-50 grid place-items-end pt-[max(12px,env(safe-area-inset-top))] data-[clavier]:pt-0 sm:place-items-center sm:p-6"
+    >
       <div aria-hidden className={`t-modal-fond absolute inset-0${classeEtat}`} onClick={fermerAnime} />
       <div
         ref={boite}
@@ -261,7 +293,7 @@ export function Modale({
         tabIndex={-1}
         onKeyDown={onKeyDown}
         style={{ maxWidth: largeur }}
-        className={`t-modal${classeEtat} relative flex ${hauteurFixe ? "h-[92dvh] sm:h-[min(760px,calc(100dvh-48px))]" : "max-h-[92dvh]"} w-full flex-col overflow-hidden rounded-t-[24px] bg-carte pb-[env(safe-area-inset-bottom)] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.04)] outline-none sm:max-h-full sm:rounded-[24px] sm:pb-0`}
+        className={`t-modal${classeEtat} relative flex ${hauteurFixe ? "h-[92dvh] sm:h-[min(760px,calc(100dvh-48px))]" : "max-h-[92dvh]"} w-full flex-col overflow-hidden rounded-t-[24px] bg-carte pb-[env(safe-area-inset-bottom)] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.04)] outline-none sm:max-h-full sm:rounded-[24px] sm:pb-0 group-data-[clavier]/modale:h-full group-data-[clavier]/modale:max-h-full group-data-[clavier]/modale:rounded-none group-data-[clavier]/modale:pb-0`}
       >
         <Contexte value={{ fermer: fermerAnime, titreId }}>
           {/* Piste du carrousel : la fiche, et ses voisines collées de part et d'autre (inertes). */}

@@ -61,6 +61,16 @@ export function InvitationProspect({ fiche, prenom, modeSimule }: { fiche: Fiche
 
   if (fiche.statutRelation !== "a_inviter" && !enFile) return null;
 
+  // Ajout depuis l'Inbox : la relation n'est pas encore connue, la lecture de profil va trancher.
+  if (fiche.invitation.relationAVerifier && !enFile) {
+    return (
+      <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-creux px-3 py-1.5 caption-3 text-encre-2">
+        <IconeAttente taille={14} />
+        Relation en cours de vérification
+      </span>
+    );
+  }
+
   if (enFile) {
     return (
       <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-creux px-3 py-1.5 caption-3 text-encre-2">

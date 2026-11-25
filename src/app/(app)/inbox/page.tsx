@@ -136,6 +136,8 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
 
       {ouvert && !ouvert.prospectId && premier(sp.interlocuteur) === "1" && (
         <CarteInterlocuteur
+          conversationId={ouvert.id}
+          masquee={ouvert.masquee}
           nom={ouvert.nom}
           titre={ouvert.sousTitre}
           photo={ouvert.photo}

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb, TEST_DATABASE_URL, type TestDb } from "./helpers";
 import { ajouterAuCrm, entrepriseDepuisTitre, masquerConversation, prenomNom, reafficherConversation } from "@/server/inbox-crm";
-import { etatOutilDepuis, inboxDepuis } from "@/server/donnees";
+import { etatOutilDepuis, ficheProspectDepuis, inboxDepuis } from "@/server/donnees";
 
 const etat = vi.hoisted(() => ({ pool: null as unknown, connecte: true }));
 vi.mock("@/server/auth", () => ({
@@ -39,7 +39,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Inbox : ne plus afficher, ajouter au CRM", 
   afterAll(async () => db?.drop());
   beforeEach(async () => {
     etat.connecte = true;
-    await db.pool.query("truncate public.conversations, public.prospects, public.inbox_masques, public.taches, public.actions cascade");
+    await db.pool.query("truncate public.conversations, public.prospects, public.inbox_masques, public.taches, public.actions, public.liens_linkedin cascade");
   });
 
   const conversation = async (chat: string, nom: string, provider: string | null, pid: string | null, titre: string | null = null, nonLu = true) =>
@@ -110,6 +110,24 @@ describe.skipIf(!TEST_DATABASE_URL)("Inbox : ne plus afficher, ajouter au CRM", 
 
     // Déjà dans le CRM : refusé.
     await expect(ajouterAuCrm(db.pool, a)).rejects.toThrow(/déjà dans le CRM/);
+  });
+
+  it("ajouter au CRM : relation déjà connue (lien enregistré) → « en relation » tout de suite ; inconnue → relation à vérifier, pas d'invitation proposée", async () => {
+    await db.pool.query(
+      "insert into public.liens_linkedin (type, url_normalisee, provider_id, date_lien, source) values ('relation', 'linkedin.com/in/autre-url', 'ACoAAAeK5MUB8z1MTM9Zp', now() - interval '7 days', 'webhook')",
+    );
+    const a = await conversation("c1", "Sarah Ben Allel", "ACoAAAeK5MUB8z1MTM9Zp", "sarah-ben-allel-b1946636", "Chief People Officer at Qonto", false);
+    const r = await ajouterAuCrm(db.pool, a);
+    const p = (await db.pool.query("select statut_relation, etape from public.prospects where id = $1", [r.prospectId])).rows[0];
+    expect(p).toEqual({ statut_relation: "en_relation", etape: "connecte" });
+
+    const b = await conversation("c2", "Hugo Martin", "ACoAAHugoMartin00", "hugo-martin", null, false);
+    const r2 = await ajouterAuCrm(db.pool, b);
+    const f = await ficheProspectDepuis(db.pool, r2.prospectId);
+    expect(f?.statutRelation).toBe("a_inviter");
+    expect(f?.invitation.relationAVerifier).toBe(true);
+    await db.pool.query("update public.taches set statut = 'faite' where prospect_id = $1", [r2.prospectId]);
+    expect((await ficheProspectDepuis(db.pool, r2.prospectId))?.invitation.relationAVerifier).toBe(false);
   });
 
   it("ajouter au CRM une personne déjà présente (même adresse) : conversation rattachée, aucune fiche en double ; sans identifiant : refusé", async () => {
