@@ -13,6 +13,7 @@ import { actionListerProspects } from "@/app/actions";
 import type { LigneProspect } from "@/server/donnees";
 import { BarreVues } from "@/components/vues/barre-vues";
 import { GalerieProspects } from "@/components/vues/galerie";
+import { KanbanProspects } from "@/components/vues/kanban";
 import { ValeurPropriete, valeurPropriete, type ContexteProprietes } from "@/components/vues/proprietes";
 import { PROPRIETES_PROSPECTS, type ClePropriete } from "@/lib/proprietes/prospects";
 import { MISES_EN_PAGE, type Vue } from "@/lib/vues/catalogue";
@@ -109,23 +110,15 @@ export function ListeProspects({
               </div>
             }
           />
-          {vue.type === "galerie" ? (
-            <GalerieProspects
-              lignes={l.lignes}
-              proprietes={vue.options.proprietes}
-              ctx={ctx}
-              ouvrir={ouvrirFiche}
-              vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à ces filtres</p>}
-            />
-          ) : (
-            <TableProspects
-              lignes={l.lignes}
-              proprietes={vue.options.proprietes}
-              ctx={ctx}
-              ouvrir={ouvrirFiche}
-              vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à ces filtres</p>}
-            />
-          )}
+          <RenduVue
+            vue={vue}
+            lignes={l.lignes}
+            etapes={etapes}
+            ctx={ctx}
+            ouvrir={ouvrirFiche}
+            apresModification={l.recharger}
+            vide={<p className="body-6 text-encre-3">Aucun prospect ne correspond à ces filtres</p>}
+          />
           <div className="flex items-center justify-between caption-5 text-encre-3">
             <span aria-live="polite">
               {l.total} prospect{l.total > 1 ? "s" : ""}
@@ -146,6 +139,42 @@ export function ListeProspects({
       )}
     </div>
   );
+}
+
+/** Rendu de la vue ouverte selon son type (catalogue src/lib/vues/catalogue.ts) ; un type ajouté
+ * au catalogue sans rendu ici est une erreur de typage. */
+function RenduVue({
+  vue,
+  lignes,
+  etapes,
+  ctx,
+  ouvrir,
+  apresModification,
+  vide,
+}: {
+  vue: Vue;
+  lignes: LigneProspect[];
+  etapes: { code: string; libelle: string }[];
+  ctx: ContexteProprietes;
+  ouvrir: (id: string) => void;
+  apresModification: () => void;
+  vide: ReactNode;
+}) {
+  const proprietes = vue.options.proprietes;
+  switch (vue.type) {
+    case "table":
+      return <TableProspects lignes={lignes} proprietes={proprietes} ctx={ctx} ouvrir={ouvrir} vide={vide} />;
+    case "galerie":
+      return <GalerieProspects lignes={lignes} proprietes={proprietes} ctx={ctx} ouvrir={ouvrir} vide={vide} />;
+    case "kanban":
+      return (
+        <KanbanProspects lignes={lignes} etapes={etapes} proprietes={proprietes} ctx={ctx} ouvrir={ouvrir} apresDeplacement={apresModification} vide={vide} />
+      );
+    default: {
+      const inconnu: never = vue.type;
+      return inconnu;
+    }
+  }
 }
 
 /** Largeur de colonne par propriété (mise en page « Table »). */

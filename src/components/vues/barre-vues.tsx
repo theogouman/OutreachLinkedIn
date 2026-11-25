@@ -13,12 +13,12 @@ import { createPortal } from "react-dom";
 import { actionCreerVue, actionReglerVue, actionRenommerVue, actionSupprimerVue } from "@/app/actions";
 import { useRetour } from "@/components/interface/toasts";
 import { useDansEcran } from "@/components/interface/dans-ecran";
-import { IconeGalerie, IconePlus, IconeTable } from "@/components/icones";
+import { IconeGalerie, IconeKanban, IconePlus, IconeTable } from "@/components/icones";
 import { MISES_EN_PAGE, TYPES_VUE, type TypeVue, type Vue } from "@/lib/vues/catalogue";
 import { CLES_PROPRIETES, PROPRIETES_PROSPECTS, type ClePropriete } from "@/lib/proprietes/prospects";
 
 type Icone = ComponentType<SVGProps<SVGSVGElement> & { taille?: number }>;
-export const ICONES_VUE: Record<TypeVue, Icone> = { table: IconeTable, galerie: IconeGalerie };
+export const ICONES_VUE: Record<TypeVue, Icone> = { table: IconeTable, galerie: IconeGalerie, kanban: IconeKanban };
 
 /**
  * Panneau ancré sous un bouton, fermé au clic dehors, par Échap ou si la page défile. Rendu hors
@@ -267,7 +267,7 @@ function MenuVue({ vue, peutSupprimer, apresSuppression }: { vue: Vue; peutSuppr
         </form>
         <fieldset className="flex flex-col border-t border-trait px-1 pt-2">
           <legend className="px-1.5 pb-1 caption-4 text-encre-3">Propriétés affichées</legend>
-          {CLES_PROPRIETES.map((cle) => (
+          {CLES_PROPRIETES.filter((cle) => !MISES_EN_PAGE[vue.type].sansProprietes?.includes(cle)).map((cle) => (
             <label key={cle} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-1.5 py-1.5 body-6 text-encre hover:bg-creux">
               <span>{PROPRIETES_PROSPECTS[cle].libelle}</span>
               <input type="checkbox" checked={proprietes.includes(cle)} onChange={() => basculer(cle)} className="size-4 accent-[var(--color-accent)]" />

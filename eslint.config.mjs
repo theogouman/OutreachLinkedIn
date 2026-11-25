@@ -21,6 +21,7 @@ const eslintConfig = defineConfig([
     files: ["src/components/reui/**", "src/components/ui/**"],
     linterOptions: { reportUnusedDisableDirectives: "off" },
     rules: {
+      "@typescript-eslint/no-explicit-any": "off",
       "react-hooks/refs": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/exhaustive-deps": "off",

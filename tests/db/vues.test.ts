@@ -44,12 +44,24 @@ describe.skipIf(!TEST_DATABASE_URL)("vues enregistrées et propriétés modifiab
     const v = (await vuesDepuis(db.pool)).find((x) => x.id === id);
     expect(v).toEqual({ id, nom: "Cartes", type: "galerie", options: { proprietes: ["etape", "liste"] } });
 
-    await expect(creerVue(db.pool, { nom: "x", type: "kanban" })).rejects.toThrow();
+    await expect(creerVue(db.pool, { nom: "x", type: "calendrier" })).rejects.toThrow();
     await expect(creerVue(db.pool, { nom: "   ", type: "table" })).rejects.toThrow();
     await expect(majOptionsVue(db.pool, { id, options: { proprietes: ["mot_de_passe"] } })).rejects.toThrow();
     await expect(renommerVue(db.pool, { id: "pas-un-uuid", nom: "x" })).rejects.toThrow();
     await supprimerVue(db.pool, id);
     expect(await vuesDepuis(db.pool)).toHaveLength(2);
+  });
+
+  it("vue Kanban : créée avec ses réglages par défaut (sans l'étape, qui fait les colonnes) ; type inconnu refusé en base", async () => {
+    const id = await creerVue(db.pool, { nom: "Pipeline", type: "kanban" });
+    expect((await vuesDepuis(db.pool)).find((x) => x.id === id)).toEqual({
+      id,
+      nom: "Pipeline",
+      type: "kanban",
+      options: { proprietes: ["entreprise", "relation", "relance"] },
+    });
+    await expect(db.pool.query("insert into public.vues (liste, nom, type) values ('prospects', 'x', 'calendrier')")).rejects.toThrow(/vues_type_check/);
+    await supprimerVue(db.pool, id);
   });
 
   it("refuse en base des réglages qui ne sont pas un objet, et garde toujours une vue", async () => {

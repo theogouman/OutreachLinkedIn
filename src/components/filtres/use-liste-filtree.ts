@@ -93,6 +93,9 @@ export function useListeFiltree<L, F extends { page: number }>({
     [lancer, setFiltres],
   );
 
+  /** Relit la page en cours sur le serveur (ex. après une modification faite depuis une vue). */
+  const recharger = useCallback(() => lancer(courant.current, 0), [lancer]);
+
   const reinitialiser = useCallback(() => {
     setFiltres(filtresInitiaux);
     lancer(filtresInitiaux, 0);
@@ -105,5 +108,5 @@ export function useListeFiltree<L, F extends { page: number }>({
   // Tant que la réponse n'est pas arrivée, le total suit le filtrage instantané.
   const total = lignes.length === resultat.lignes.length ? resultat.total : lignes.length;
 
-  return { filtres, changer, allerPage, reinitialiser, lignes, total, enCours, erreur, actifs };
+  return { filtres, changer, allerPage, reinitialiser, recharger, lignes, total, enCours, erreur, actifs };
 }
