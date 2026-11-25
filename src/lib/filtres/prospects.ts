@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { correspond } from "@/lib/recherche";
+import { correspond, normaliser } from "@/lib/recherche";
 import type { DefinitionFiltre } from "./definition";
 
 /*
@@ -35,8 +35,21 @@ export const conditionSchema = z.union([
 ]);
 export type Condition = z.infer<typeof conditionSchema>;
 
+/*
+ * Tri de la liste (bouton « Trier ») : un champ d'une liste fermée et un sens. Absent : par nom.
+ * Valeurs vides toujours en dernier, puis départage par nom, prénom et identifiant (ordre stable,
+ * pagination sans doublon). Textes comparés sans casse ni accents (`normaliser`, « Émilie » avant
+ * « Zoé »), octet par octet. Même règle en local (`trierLocalement`) et en SQL (`prospectsDepuis`).
+ */
+export const CHAMPS_TRI = ["nom", "entreprise", "etape", "relance", "relation", "message", "ajout"] as const;
+export type ChampTri = (typeof CHAMPS_TRI)[number];
+export const triSchema = z.object({ champ: z.enum(CHAMPS_TRI), sens: z.enum(["asc", "desc"]) }).strict();
+export type Tri = z.infer<typeof triSchema>;
+export const TRI_DEFAUT: Tri = { champ: "nom", sens: "asc" };
+
 export const filtresProspectsSchema = z.object({
   conditions: z.array(conditionSchema).max(20).optional(),
+  tri: triSchema.optional(),
   recherche: z.string().max(100).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
@@ -54,6 +67,58 @@ export interface ProspectFiltrable {
   prochaineRelance: string | null;
   relationLe: string | null;
   dernierMessageLe: string | null;
+}
+
+/** Ce que le tri local lit d'une ligne (en plus des champs filtrables). */
+export interface ProspectTriable extends ProspectFiltrable {
+  id: string;
+  /** Ajout dans l'outil, horodatage UTC « AAAA-MM-JJTHH:MM:SS.ffffff » (comparable comme texte). */
+  ajouteLe: string;
+}
+
+const comparerTexte = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+function valeurTri(p: ProspectTriable, champ: ChampTri, ordreEtapes: Record<string, number>): string | number | null {
+  switch (champ) {
+    case "nom":
+      return normaliser(p.nom ?? "");
+    case "entreprise":
+      return p.entreprise === null ? null : normaliser(p.entreprise);
+    case "etape":
+      return ordreEtapes[p.etape] ?? null;
+    case "relance":
+      return p.prochaineRelance;
+    case "relation":
+      return p.relationLe;
+    case "message":
+      return p.dernierMessageLe;
+    case "ajout":
+      return p.ajouteLe;
+  }
+}
+
+/** Tri instantané des lignes déjà affichées (la réponse du serveur, exacte, la remplace ensuite). */
+export function trierLocalement<L extends ProspectTriable>(lignes: L[], tri: Tri | undefined, ordreEtapes: Record<string, number>): L[] {
+  const t = tri ?? TRI_DEFAUT;
+  const signe = t.sens === "asc" ? 1 : -1;
+  return [...lignes].sort((a, b) => {
+    const va = valeurTri(a, t.champ, ordreEtapes);
+    const vb = valeurTri(b, t.champ, ordreEtapes);
+    if (va !== vb) {
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      const c = typeof va === "number" && typeof vb === "number" ? va - vb : comparerTexte(String(va), String(vb));
+      if (c !== 0) return c * signe;
+    }
+    if (t.champ === "nom") {
+      const c = comparerTexte(normaliser(a.prenom ?? ""), normaliser(b.prenom ?? ""));
+      if (c !== 0) return c * signe;
+    } else {
+      const c = comparerTexte(normaliser(a.nom ?? ""), normaliser(b.nom ?? "")) || comparerTexte(normaliser(a.prenom ?? ""), normaliser(b.prenom ?? ""));
+      if (c !== 0) return c;
+    }
+    return comparerTexte(a.id, b.id);
+  });
 }
 
 function dateDe(p: ProspectFiltrable, champ: ChampDate) {

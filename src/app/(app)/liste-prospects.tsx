@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableTriable, type Colonne } from "@/components/interface/table-triable";
 import { Avatar } from "@/components/interface/elements";
 import { useListeFiltree } from "@/components/filtres/use-liste-filtree";
 import { FiltresProspects as PanneauFiltres } from "@/components/filtres/filtres-prospects";
 import { RechercheRepliable } from "@/components/filtres/recherche-repliable";
+import { TriProspects } from "@/components/filtres/tri-prospects";
 import { usePublierOrdreFiches } from "@/components/ordre-fiches";
-import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES, type FiltresProspects } from "@/lib/filtres/prospects";
+import { FILTRES_PROSPECTS, FILTRES_PROSPECTS_VIDES, trierLocalement, type FiltresProspects } from "@/lib/filtres/prospects";
 import { actionListerProspects } from "@/app/actions";
 import type { LigneProspect } from "@/server/donnees";
 import { BarreVues } from "@/components/vues/barre-vues";
@@ -50,11 +51,15 @@ export function ListeProspects({
   /** Source des résultats filtrés (l'action serveur ; remplaçable dans les tests). */
   charger?: typeof actionListerProspects;
 }) {
+  // Ordre des étapes du pipeline, pour le tri local par étape (même règle que le serveur).
+  const ordreEtapes = useMemo(() => Object.fromEntries(etapes.map((e, i) => [e.code, i])), [etapes]);
+  const trier = useCallback((lignes: LigneProspect[], f: FiltresProspects) => trierLocalement(lignes, f.tri, ordreEtapes), [ordreEtapes]);
   const l = useListeFiltree({
     initial,
     filtresInitiaux,
     definitions: FILTRES_PROSPECTS,
     charger,
+    trier,
   });
   usePublierOrdreFiches(l.lignes.map((p) => p.id));
   const f = l.filtres;
@@ -100,13 +105,14 @@ export function ListeProspects({
             choisir={choisirVue}
             aDroite={
               <div className="flex shrink-0 items-center gap-2" aria-label="Rechercher et filtrer les prospects" role="group">
-                <RechercheRepliable valeur={f.recherche ?? ""} changer={(v) => l.changer("recherche", v)} enCours={l.enCours} decalageDroite={48} />
+                <RechercheRepliable valeur={f.recherche ?? ""} changer={(v) => l.changer("recherche", v)} enCours={l.enCours} decalageDroite={96} />
                 <PanneauFiltres
                   initiales={filtresInitiaux.conditions}
                   etapes={etapes}
                   listes={listes}
                   changer={(conditions) => l.changer("conditions", conditions)}
                 />
+                <TriProspects tri={f.tri} changer={(tri) => l.regler("tri", tri)} />
               </div>
             }
           />

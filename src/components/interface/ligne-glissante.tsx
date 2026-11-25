@@ -14,7 +14,8 @@
  * Clavier : flèche gauche ou droite sur la ligne pour ouvrir ses actions, Échap pour refermer.
  * Mouvement réduit : positions posées sans ressort.
  * Adaptations web : événements de pointeur (direction décidée dans les 10 premiers pixels, le
- * défilement vertical reste au navigateur), positions écrites directement dans le DOM.
+ * défilement vertical reste au navigateur), glissé à deux doigts au trackpad sans clic (Mac,
+ * événements « wheel »), positions écrites directement dans le DOM.
  */
 
 import { animate, useMotionValue, useMotionValueEvent, useReducedMotion, type AnimationPlaybackControls } from "motion/react";
@@ -46,6 +47,8 @@ const SEUIL_DIRECTION = 10;
 /** Rayon de la ligne : le panneau voisin passe sous ses coins arrondis. */
 const COIN = 16;
 const LARGEUR_ACTION = 72;
+/** Trackpad : fin du geste quand aucun événement n'arrive pendant ce délai (inertie comprise). */
+const FIN_MOLETTE_MS = 140;
 
 const FOND: Record<NonNullable<ActionGlissee["ton"]>, string> = {
   neutre: "bg-encre-2 text-carte",
@@ -241,6 +244,47 @@ export function LigneGlissante({
   const geste = useRef<{ x0: number; y0: number; depart: number; etat: "attente" | "glisse" | "abandon"; points: { x: number; t: number }[] } | null>(null);
   const aGlisse = useRef(false);
 
+  /** Position de la ligne pour un déplacement brut (doigt, souris ou trackpad) : élastique, armement. */
+  const deplacer = (brut: number) => {
+    const largeur = racine.current?.offsetWidth || 1;
+    const completGauche = actionsGauche.length > 0;
+    const completDroite = actionsDroite.length > 0;
+    // Le glissé complet va librement jusqu'au bord ; sinon la résistance commence après les actions.
+    const maxGauche = largeurGauche > 0 ? (completGauche ? largeur : largeurGauche) : 0;
+    const maxDroite = largeurDroite > 0 ? (completDroite ? largeur : largeurDroite) : 0;
+    const v = brut > maxGauche ? maxGauche + elastique(brut - maxGauche, largeur) : brut < -maxDroite ? -maxDroite + elastique(brut + maxDroite, largeur) : brut;
+    x.set(v);
+
+    const cote: CoteGlisse | null = v > 0 ? "gauche" : v < 0 ? "droite" : null;
+    const seuil = Math.max((cote === "gauche" ? largeurGauche : largeurDroite) + DEPASSEMENT_ARME, largeur * PART_ARME);
+    const permis = cote === "gauche" ? completGauche : completDroite;
+    const maintenant = cote !== null && permis && Math.abs(v) > seuil;
+    if (maintenant !== estArmee.current) armer(maintenant);
+  };
+
+  /** Fin du geste : glissé complet si armée, sinon ouverte ou refermée selon la distance et la vitesse. */
+  const relacher = (vitesse: number) => {
+    const v = x.get();
+    const largeur = racine.current?.offsetWidth || 1;
+
+    if (estArmee.current) {
+      const c: CoteGlisse = v > 0 ? "gauche" : "droite";
+      animX.current?.stop();
+      if (reduit) x.set(c === "gauche" ? largeur : -largeur);
+      else animX.current = animate(x, c === "gauche" ? largeur : -largeur, DEPART);
+      glisseComplet(c);
+      return;
+    }
+
+    let c: CoteGlisse | null = null;
+    if (coteOuvert === "gauche") c = v < largeurGauche * 0.6 || vitesse < -VITESSE_FERMETURE ? null : "gauche";
+    else if (coteOuvert === "droite") c = -v < largeurDroite * 0.6 || vitesse > VITESSE_FERMETURE ? null : "droite";
+    else if (largeurGauche > 0 && v > 0 && (v > largeurGauche * PART_OUVERTURE || (vitesse > VITESSE_OUVERTURE && v > DISTANCE_LANCER))) c = "gauche";
+    else if (largeurDroite > 0 && v < 0 && (-v > largeurDroite * PART_OUVERTURE || (vitesse < -VITESSE_OUVERTURE && v < -DISTANCE_LANCER))) c = "droite";
+    poser(reposPour(c), vitesse);
+    valider(c);
+  };
+
   const surAppui = (e: React.PointerEvent) => {
     if (e.button !== 0 || (!largeurGauche && !largeurDroite)) return;
     geste.current = { x0: e.clientX, y0: e.clientY, depart: x.get(), etat: "attente", points: [{ x: e.clientX, t: e.timeStamp }] };
@@ -268,21 +312,7 @@ export function LigneGlissante({
     g.points.push({ x: e.clientX, t: e.timeStamp });
     if (g.points.length > 6) g.points.shift();
 
-    const brut = g.depart + dx;
-    const largeur = racine.current?.offsetWidth || 1;
-    const completGauche = actionsGauche.length > 0;
-    const completDroite = actionsDroite.length > 0;
-    // Le glissé complet va librement jusqu'au bord ; sinon la résistance commence après les actions.
-    const maxGauche = largeurGauche > 0 ? (completGauche ? largeur : largeurGauche) : 0;
-    const maxDroite = largeurDroite > 0 ? (completDroite ? largeur : largeurDroite) : 0;
-    const v = brut > maxGauche ? maxGauche + elastique(brut - maxGauche, largeur) : brut < -maxDroite ? -maxDroite + elastique(brut + maxDroite, largeur) : brut;
-    x.set(v);
-
-    const cote: CoteGlisse | null = v > 0 ? "gauche" : v < 0 ? "droite" : null;
-    const seuil = Math.max((cote === "gauche" ? largeurGauche : largeurDroite) + DEPASSEMENT_ARME, largeur * PART_ARME);
-    const permis = cote === "gauche" ? completGauche : completDroite;
-    const maintenant = cote !== null && permis && Math.abs(v) > seuil;
-    if (maintenant !== estArmee.current) armer(maintenant);
+    deplacer(g.depart + dx);
   };
 
   const surRelache = (e: React.PointerEvent) => {
@@ -293,27 +323,65 @@ export function LigneGlissante({
     const premier = g.points[0]!;
     const dernier = g.points[g.points.length - 1]!;
     const duree = Math.max(1, dernier.t - premier.t);
-    const vitesse = ((dernier.x - premier.x) / duree) * 1000;
-    const v = x.get();
-    const largeur = racine.current?.offsetWidth || 1;
-
-    if (estArmee.current) {
-      const c: CoteGlisse = v > 0 ? "gauche" : "droite";
-      animX.current?.stop();
-      if (reduit) x.set(c === "gauche" ? largeur : -largeur);
-      else animX.current = animate(x, c === "gauche" ? largeur : -largeur, DEPART);
-      glisseComplet(c);
-      return;
-    }
-
-    let c: CoteGlisse | null = null;
-    if (coteOuvert === "gauche") c = v < largeurGauche * 0.6 || vitesse < -VITESSE_FERMETURE ? null : "gauche";
-    else if (coteOuvert === "droite") c = -v < largeurDroite * 0.6 || vitesse > VITESSE_FERMETURE ? null : "droite";
-    else if (largeurGauche > 0 && v > 0 && (v > largeurGauche * PART_OUVERTURE || (vitesse > VITESSE_OUVERTURE && v > DISTANCE_LANCER))) c = "gauche";
-    else if (largeurDroite > 0 && v < 0 && (-v > largeurDroite * PART_OUVERTURE || (vitesse < -VITESSE_OUVERTURE && v < -DISTANCE_LANCER))) c = "droite";
-    poser(reposPour(c), vitesse);
-    valider(c);
+    relacher(((dernier.x - premier.x) / duree) * 1000);
   };
+
+  // Trackpad (Mac) : un glissé horizontal à deux doigts arrive en événements « wheel », sans clic.
+  // Même logique que le doigt : la ligne suit le cumul des déplacements, puis, quand les événements
+  // cessent (inertie comprise), elle s'ouvre, se referme ou exécute l'action comme au relâché.
+  // Le défilement vertical de la liste reste au navigateur ; l'inertie qui suit un geste est absorbée.
+  const autreOuverteRef = useRef(autreOuverte);
+  const changerOuverteRef = useRef(changerOuverte);
+  const deplacerRef = useRef(deplacer);
+  const relacherRef = useRef(relacher);
+  useLayoutEffect(() => {
+    deplacerRef.current = deplacer;
+    relacherRef.current = relacher;
+    autreOuverteRef.current = autreOuverte;
+    changerOuverteRef.current = changerOuverte;
+  });
+  const molette = useRef<{ depart: number; cumul: number; points: { x: number; t: number }[]; minuteur: number } | null>(null);
+  const silenceJusque = useRef(0);
+  const aActions = largeurGauche > 0 || largeurDroite > 0;
+  useEffect(() => {
+    // Sur toute la ligne, panneaux compris : la ligne glisse sous le curseur, qui finit au-dessus
+    // d'un panneau d'action pendant le geste.
+    const el = racine.current;
+    if (!el || !aActions) return;
+    const surMolette = (e: WheelEvent) => {
+      const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      let m = molette.current;
+      if (!m) {
+        if (!horizontal || Math.abs(e.deltaX) < 1) return;
+        if (e.timeStamp < silenceJusque.current) {
+          e.preventDefault();
+          return;
+        }
+        animX.current?.stop();
+        if (autreOuverteRef.current) changerOuverteRef.current(null);
+        m = molette.current = { depart: x.get(), cumul: 0, points: [], minuteur: 0 };
+      }
+      e.preventDefault();
+      m.cumul -= e.deltaMode === 1 ? e.deltaX * 16 : e.deltaX;
+      m.points.push({ x: m.cumul, t: e.timeStamp });
+      if (m.points.length > 6) m.points.shift();
+      deplacerRef.current(m.depart + m.cumul);
+      window.clearTimeout(m.minuteur);
+      const g = m;
+      m.minuteur = window.setTimeout(() => {
+        molette.current = null;
+        silenceJusque.current = performance.now() + FIN_MOLETTE_MS * 2;
+        const premier = g.points[0]!;
+        const dernier = g.points[g.points.length - 1]!;
+        relacherRef.current(((dernier.x - premier.x) / Math.max(1, dernier.t - premier.t)) * 1000);
+      }, FIN_MOLETTE_MS);
+    };
+    el.addEventListener("wheel", surMolette, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", surMolette);
+      if (molette.current) window.clearTimeout(molette.current.minuteur);
+    };
+  }, [aActions, x]);
 
   // Un glissé ne déclenche pas le lien ; toucher une ligne ouverte la referme.
   const surClic = (e: React.MouseEvent) => {
@@ -396,7 +464,7 @@ export function LigneGlissante({
         onPointerCancel={surRelache}
         onClickCapture={surClic}
         aria-description={libelleActions}
-        className="relative z-[2] touch-pan-y select-none rounded-2xl bg-carte ring-1 ring-inset ring-trait shadow-[0_1px_2px_rgba(0,0,0,0.06)] [-webkit-touch-callout:none]"
+        className="relative z-[2] touch-pan-y select-none overscroll-x-contain rounded-2xl bg-carte ring-1 ring-inset ring-trait shadow-[0_1px_2px_rgba(0,0,0,0.06)] [-webkit-touch-callout:none]"
       >
         {children}
       </div>

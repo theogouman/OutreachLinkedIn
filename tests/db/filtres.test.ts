@@ -4,7 +4,7 @@ import { inboxDepuis, prospectsDepuis } from "@/server/donnees";
 import { semerDemo } from "../fixtures/demo";
 import { FILTRES_INBOX, type FiltresInbox } from "@/lib/filtres/inbox";
 import { appliquerLocalement } from "@/lib/filtres/definition";
-import { FILTRES_PROSPECTS, type Condition, type FiltresProspects } from "@/lib/filtres/prospects";
+import { CHAMPS_TRI, FILTRES_PROSPECTS, trierLocalement, type Condition, type FiltresProspects } from "@/lib/filtres/prospects";
 
 /*
  * Cohérence du standard de filtres : pour chaque combinaison, le filtrage instantané du
@@ -75,6 +75,14 @@ describe.skipIf(!TEST_DATABASE_URL)("filtres des prospects : navigateur et serve
     const serveur = (await prospectsDepuis(db.pool, filtres)).lignes.map((l) => l.id).sort();
     const local = appliquerLocalement(tous, filtres, FILTRES_PROSPECTS).map((l) => l.id).sort();
     expect(local).toEqual(serveur);
+  });
+
+  it.each(CHAMPS_TRI.flatMap((champ) => (["asc", "desc"] as const).map((sens) => ({ champ, sens }))))("même ordre pour le tri %o", async (tri) => {
+    const ordre = Object.fromEntries((await db.pool.query("select code, ordre from public.etapes")).rows.map((r) => [r.code, r.ordre as number]));
+    const tous = (await prospectsDepuis(db.pool, { page: 1 })).lignes;
+    const serveur = (await prospectsDepuis(db.pool, { page: 1, tri })).lignes.map((l) => l.id);
+    expect(trierLocalement(tous, tri, ordre).map((l) => l.id)).toEqual(serveur);
+    expect(serveur).toHaveLength(5);
   });
 
   it("dates lues : relation (jour de Paris, lien le plus récent), dernier message", async () => {

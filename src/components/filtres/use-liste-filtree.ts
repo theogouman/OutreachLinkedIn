@@ -24,11 +24,14 @@ export function useListeFiltree<L, F extends { page: number }>({
   filtresInitiaux,
   definitions,
   charger,
+  trier,
 }: {
   initial: { lignes: L[]; total: number };
   filtresInitiaux: F;
   definitions: readonly DefinitionFiltre<L, F>[];
   charger: (filtres: F) => Promise<Reponse<L>>;
+  /** Ordre instantané des lignes affichées (même règle que le serveur), en attendant sa réponse. */
+  trier?: (lignes: L[], filtres: F) => L[];
 }) {
   const [filtres, setFiltresEtat] = useState<F>(filtresInitiaux);
   const courant = useRef(filtresInitiaux);
@@ -93,6 +96,16 @@ export function useListeFiltree<L, F extends { page: number }>({
     [lancer, setFiltres],
   );
 
+  /** Règle un paramètre qui n'est pas un filtre (ex. le tri) : jamais compté comme filtre actif. */
+  const regler = useCallback(
+    <K extends keyof F & string>(cle: K, valeur: F[K]) => {
+      const suivant = { ...courant.current, [cle]: valeur, page: 1 } as F;
+      setFiltres(suivant);
+      lancer(suivant, 0);
+    },
+    [lancer, setFiltres],
+  );
+
   /** Relit la page en cours sur le serveur (ex. après une modification faite depuis une vue). */
   const recharger = useCallback(() => lancer(courant.current, 0), [lancer]);
 
@@ -102,11 +115,14 @@ export function useListeFiltree<L, F extends { page: number }>({
   }, [filtresInitiaux, lancer, setFiltres]);
 
   // Affichage instantané : la dernière réponse, filtrée par les règles locales en attendant la suivante.
-  const lignes = useMemo(() => appliquerLocalement(resultat.lignes, filtres, definitions), [resultat.lignes, filtres, definitions]);
+  const lignes = useMemo(() => {
+    const filtrees = appliquerLocalement(resultat.lignes, filtres, definitions);
+    return trier ? trier(filtrees, filtres) : filtrees;
+  }, [resultat.lignes, filtres, definitions, trier]);
   const actifs = definitions.filter((d) => valeurActive(filtres[d.cle])).length;
 
   // Tant que la réponse n'est pas arrivée, le total suit le filtrage instantané.
   const total = lignes.length === resultat.lignes.length ? resultat.total : lignes.length;
 
-  return { filtres, changer, allerPage, reinitialiser, recharger, lignes, total, enCours, erreur, actifs };
+  return { filtres, changer, regler, allerPage, reinitialiser, recharger, lignes, total, enCours, erreur, actifs };
 }

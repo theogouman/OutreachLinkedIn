@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appliquerLocalement, filtresActifs } from "./definition";
-import { FILTRES_PROSPECTS, filtresProspectsDepuisUrl, filtresProspectsSchema, type Condition, type ProspectFiltrable } from "./prospects";
+import { FILTRES_PROSPECTS, filtresProspectsDepuisUrl, filtresProspectsSchema, trierLocalement, type Condition, type ProspectFiltrable, type ProspectTriable, type Tri } from "./prospects";
 
 const p = (x: Partial<ProspectFiltrable>): ProspectFiltrable => ({
   prenom: "Camille", nom: "Durand", poste: "CEO", entreprise: "Studio Nord", listeOrigine: "Salon",
@@ -63,5 +63,35 @@ describe("lien direct vers la liste filtrée (cartes de la page Statistiques)", 
     expect(filtresProspectsDepuisUrl({ relance: "dues" }, "2026-11-20")).toEqual({ page: 1, conditions: [{ champ: "relance", au: "2026-11-20" }] });
     expect(filtresProspectsDepuisUrl({ statut: "'; drop table", relance: "hier" }, "2026-11-20")).toEqual({ page: 1 });
     expect(filtresProspectsDepuisUrl({}, "2026-11-20")).toEqual({ page: 1 });
+  });
+});
+
+describe("tri des prospects (règle locale)", () => {
+  const t = (x: Partial<ProspectTriable>): ProspectTriable => ({ ...p(x), id: x.id ?? "0", ajouteLe: x.ajouteLe ?? "2026-11-01T10:00:00.000000", ...x });
+  const ordre = { a_contacter: 10, connecte: 30, premier_message: 40 };
+  const lignes = [
+    t({ id: "1", prenom: "Zoé", nom: "Martin", entreprise: "beta", etape: "connecte", prochaineRelance: "2026-11-30", ajouteLe: "2026-11-03T10:00:00.000000" }),
+    t({ id: "2", prenom: "Émilie", nom: "Martin", entreprise: null, etape: "a_contacter", prochaineRelance: null, ajouteLe: "2026-11-01T10:00:00.000000" }),
+    t({ id: "3", prenom: "Hugo", nom: "Écuyer", entreprise: "Alpha", etape: "premier_message", prochaineRelance: "2026-11-25", ajouteLe: "2026-11-02T10:00:00.000000" }),
+  ];
+  const ids = (tri?: Tri) => trierLocalement(lignes, tri, ordre).map((x) => x.id);
+
+  it("par défaut : nom puis prénom, sans casse ni accents (« Écuyer » avant « Martin », « Émilie » avant « Zoé »)", () => {
+    expect(ids()).toEqual(["3", "2", "1"]);
+    expect(ids({ champ: "nom", sens: "desc" })).toEqual(["1", "2", "3"]);
+  });
+  it("entreprise, étape (ordre du pipeline), relance, ajout ; valeurs vides en dernier dans les deux sens", () => {
+    expect(ids({ champ: "entreprise", sens: "asc" })).toEqual(["3", "1", "2"]);
+    expect(ids({ champ: "entreprise", sens: "desc" })).toEqual(["1", "3", "2"]);
+    expect(ids({ champ: "etape", sens: "asc" })).toEqual(["2", "1", "3"]);
+    expect(ids({ champ: "relance", sens: "asc" })).toEqual(["3", "1", "2"]);
+    expect(ids({ champ: "relance", sens: "desc" })).toEqual(["1", "3", "2"]);
+    expect(ids({ champ: "ajout", sens: "desc" })).toEqual(["1", "3", "2"]);
+  });
+  it("valide le tri reçu (champ et sens d'une liste fermée)", () => {
+    expect(filtresProspectsSchema.safeParse({ tri: { champ: "etape", sens: "desc" } }).success).toBe(true);
+    expect(filtresProspectsSchema.safeParse({ tri: { champ: "nom; drop table", sens: "asc" } }).success).toBe(false);
+    expect(filtresProspectsSchema.safeParse({ tri: { champ: "nom", sens: "haut" } }).success).toBe(false);
+    expect(filtresProspectsSchema.safeParse({ tri: { champ: "nom", sens: "asc", sql: "x" } }).success).toBe(false);
   });
 });

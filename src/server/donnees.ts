@@ -81,7 +81,7 @@ export async function etatOutil() {
 // ─── Prospects ────────────────────────────────────────────────────────────────
 
 export { filtresProspectsSchema, type FiltresProspects } from "@/lib/filtres/prospects";
-import type { FiltresProspects } from "@/lib/filtres/prospects";
+import { TRI_DEFAUT, type ChampTri, type FiltresProspects, type Tri } from "@/lib/filtres/prospects";
 
 export interface LigneProspect {
   id: string;
@@ -97,12 +97,36 @@ export interface LigneProspect {
   /** Entrée en relation (lien LinkedIn le plus récent) et dernier message, jours de Paris (AAAA-MM-JJ). */
   relationLe: string | null;
   dernierMessageLe: string | null;
+  /** Ajout dans l'outil, UTC « AAAA-MM-JJTHH:MM:SS.ffffff » (tri). */
+  ajouteLe: string;
   identifie: boolean;
   /** Photo de profil servie par l'outil (null : initiales). */
   photo: string | null;
 }
 
 export const TAILLE_PAGE = 50;
+
+/*
+ * Tri de la liste (même règle que trierLocalement, src/lib/filtres/prospects.ts) : fragments SQL
+ * constants, choisis par le champ et le sens déjà validés par Zod (liste fermée) ; aucune valeur
+ * reçue n'est insérée dans la requête. Textes normalisés ($5 / $6 : TRANSLATE_DE / TRANSLATE_VERS),
+ * comparés octet par octet (collate "C"), valeurs vides en dernier, départage nom, prénom, id.
+ */
+const EXPRESSIONS_TRI: Record<Exclude<ChampTri, "nom">, string> = {
+  entreprise: `translate(lower(entreprise), $5, $6) collate "C"`,
+  etape: "(select e.ordre from public.etapes e where e.code = base.etape)",
+  relance: `relance_le collate "C"`,
+  relation: `relation_le collate "C"`,
+  message: `message_le collate "C"`,
+  ajout: `ajoute_le collate "C"`,
+};
+
+function ordreSql(tri: Tri | undefined): string {
+  const t = tri ?? TRI_DEFAUT;
+  const sens = t.sens === "desc" ? "desc" : "asc";
+  if (t.champ === "nom") return `nom_tri ${sens}, prenom_tri ${sens}, id`;
+  return `${EXPRESSIONS_TRI[t.champ]} ${sens} nulls last, nom_tri, prenom_tri, id`;
+}
 
 export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
   // Conditions du panneau « Filtres » (validées par Zod), toutes en ET ; même règle que
@@ -114,11 +138,14 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
                 where l.type = 'relation'
                   and (l.url_normalisee = p.url_normalisee or (p.provider_id is not null and l.provider_id = p.provider_id))) as relation_le,
               (select to_char(max(c.dernier_message_at) at time zone 'Europe/Paris', 'YYYY-MM-DD') from public.conversations c
-                where c.prospect_id = p.id) as message_le
+                where c.prospect_id = p.id) as message_le,
+              to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') as ajoute_le,
+              translate(lower(coalesce(p.nom, '')), $5, $6) collate "C" as nom_tri,
+              translate(lower(coalesce(p.prenom, '')), $5, $6) collate "C" as prenom_tri
          from public.prospects p
      )
      select id, prenom, nom, poste, entreprise, linkedin_url, liste_origine, statut_relation, etape,
-            relance_le as prochaine_relance, relation_le, message_le, provider_id is not null as identifie,
+            relance_le as prochaine_relance, relation_le, message_le, ajoute_le, provider_id is not null as identifie,
             photo_maj, count(*) over ()::int as total
        from base
       where not exists (
@@ -138,7 +165,7 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
               select 1 from unnest($2::text[]) as terme
                where position(terme in translate(lower(concat_ws(' ', prenom, nom, entreprise, poste)), $5, $6)) = 0
             )
-      order by coalesce(nom, ''), coalesce(prenom, ''), id
+      order by ${ordreSql(filtres.tri)}
       limit $3 offset $4`,
     [
       JSON.stringify(filtres.conditions ?? []),
@@ -162,6 +189,7 @@ export async function prospectsDepuis(pool: Pool, filtres: FiltresProspects) {
     prochaineRelance: x.prochaine_relance,
     relationLe: x.relation_le,
     dernierMessageLe: x.message_le,
+    ajouteLe: x.ajoute_le,
     identifie: x.identifie,
     photo: adressePhoto(x.id, x.photo_maj),
   }));
@@ -207,7 +235,7 @@ export interface EvenementHistorique {
   auto: boolean;
 }
 
-export interface FicheProspect extends Omit<LigneProspect, "relationLe" | "dernierMessageLe"> {
+export interface FicheProspect extends Omit<LigneProspect, "relationLe" | "dernierMessageLe" | "ajouteLe"> {
   notes: string | null;
   /** Informations propres à la liste d'origine, déjà filtrées et revalidées (src/lib/listes.ts). */
   informationsListe: ReturnType<typeof detailsAffichables>;
