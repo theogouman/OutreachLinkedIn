@@ -1,3 +1,5 @@
+import { personnesAssocieesDepuis, type PersonneAssociee } from "@/server/associations";
+import { CONDITION_MASQUEE } from "@/server/inbox-crm";
 import "server-only";
 import type { Pool } from "pg";
 import { z } from "zod";
@@ -48,7 +50,8 @@ export async function etatOutilDepuis(pool: Pool, maintenant = new Date()): Prom
   const f = await pool.query(
     `select count(*) filter (where statut = 'en_attente')::int as en_attente,
             count(*) filter (where statut = 'incertaine')::int as incertaines,
-            (select count(*) from public.conversations where non_lu)::int as non_lus
+            (select count(*) from public.conversations c left join public.prospects p on p.id = c.prospect_id
+              where c.non_lu and not ${CONDITION_MASQUEE})::int as non_lus
        from public.taches`,
   );
   const quotas = {} as EtatOutil["quotas"];
@@ -254,6 +257,9 @@ export interface FicheProspect extends Omit<LigneProspect, "relationLe" | "derni
   relance: { etat: string; prochaineLe: Date | null; cycle: number } | null;
   /** Étapes du pipeline, dans l'ordre : choix possibles pour changer l'étape à la main. */
   etapes: { code: string; libelle: string }[];
+  /** Personnes associées (même groupe) et suggestions (même entreprise, hors groupe). */
+  associes: PersonneAssociee[];
+  suggestions: PersonneAssociee[];
 }
 
 export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = new Date()): Promise<FicheProspect | null> {
@@ -291,6 +297,7 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
   );
   const notes = await notesInvitationRestantes(pool, maintenant);
   const etapes = await pool.query("select code, libelle from public.etapes order by ordre");
+  const associations = await personnesAssocieesDepuis(pool, parse.data);
   const x = p.rows[0];
   return {
     profil: profilAffichable(profil.rows[0] ?? null),
@@ -316,6 +323,8 @@ export async function ficheProspectDepuis(pool: Pool, id: unknown, maintenant = 
     informationsListe: detailsAffichables(x.liste_origine, x.details),
     historique: h.rows.map((r) => ({ date: r.date, type: r.type, resultat: r.resultat, enFile: r.en_file, auto: r.auto })),
     etapes: etapes.rows as { code: string; libelle: string }[],
+    associes: associations.associes,
+    suggestions: associations.suggestions,
     relance: relance.rows[0] ? { etat: relance.rows[0].etat, prochaineLe: relance.rows[0].prochaine_decision_le, cycle: relance.rows[0].cycle } : null,
   };
 }
@@ -408,6 +417,8 @@ export interface LigneConversation {
   dernierSens: "entrant" | "sortant";
   dernierMessageAt: Date | null;
   nonLu: boolean;
+  /** Personne masquée (« Ne plus afficher ») : visible seulement avec le filtre « Masquées ». */
+  masquee: boolean;
   photo: string | null;
 }
 
@@ -421,7 +432,8 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
               coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
               coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre, p.etape,
               p.photo_maj, c.photo_maj as photo_conv_maj,
-              coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens
+              coalesce(m.texte, '') as apercu, coalesce(m.sens, 'sortant') as dernier_sens,
+              ${CONDITION_MASQUEE} as masquee
          from public.conversations c
          left join public.prospects p on p.id = c.prospect_id
          left join lateral (
@@ -433,6 +445,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
       where (not $1::boolean or non_lu)
         and (not $2::boolean or dernier_sens = 'entrant')
         and (not $3::boolean or prospect_id is null)
+        and masquee = $9::boolean
         and not exists (
               select 1 from unnest($4::text[]) as terme
                where position(terme in translate(lower(concat_ws(' ', nom, sous_titre, apercu)), $5, $6)) = 0
@@ -448,6 +461,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
       TRANSLATE_VERS,
       TAILLE_PAGE_INBOX,
       (filtres.page - 1) * TAILLE_PAGE_INBOX,
+      filtres.masquees === "oui",
     ],
   );
   const lignes = r.rows.map((x) => ({
@@ -460,6 +474,7 @@ export async function inboxDepuis(pool: Pool, filtres: FiltresInbox): Promise<{ 
     dernierSens: x.dernier_sens,
     dernierMessageAt: x.dernier_message_at,
     nonLu: x.non_lu,
+    masquee: x.masquee,
     photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
   }));
   return { lignes, total: r.rows[0]?.total ?? 0 };
@@ -491,6 +506,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
   if (!conv.success && !prospect.success) return null;
   const c = await pool.query(
     `select c.id, c.prospect_id, c.non_lu, p.photo_maj, c.photo_maj as photo_conv_maj, c.interlocuteur_public_identifier,
+            ${CONDITION_MASQUEE} as masquee,
             coalesce(nullif(concat_ws(' ', p.prenom, p.nom), ''), c.interlocuteur_nom, 'Contact LinkedIn') as nom,
             coalesce(nullif(concat_ws(' · ', p.poste, p.entreprise), ''), c.interlocuteur_titre) as sous_titre
        from public.conversations c left join public.prospects p on p.id = c.prospect_id
@@ -505,6 +521,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     nom: string;
     sousTitre: string | null;
     nonLu: boolean;
+    masquee: boolean;
     photo: string | null;
     /** Interlocuteur hors CRM : lien LinkedIn reconstruit depuis son identifiant public (carte d'infos). */
     lienLinkedIn: string | null;
@@ -516,6 +533,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
       nom: x.nom,
       sousTitre: x.sous_titre,
       nonLu: x.non_lu,
+      masquee: x.masquee,
       photo: x.prospect_id ? adressePhoto(x.prospect_id, x.photo_maj) : adressePhoto(x.id, x.photo_conv_maj),
       lienLinkedIn: x.prospect_id ? null : lienProfilLinkedIn(x.interlocuteur_public_identifier ? `https://www.linkedin.com/in/${x.interlocuteur_public_identifier}` : null),
     };
@@ -529,7 +547,7 @@ export async function filDepuis(pool: Pool, cle: { conversationId?: unknown; pro
     );
     if (!p.rowCount) return null;
     const y = p.rows[0];
-    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, photo: adressePhoto(y.id, y.photo_maj), lienLinkedIn: null };
+    entete = { id: null, prospectId: y.id, nom: y.nom, sousTitre: y.sous_titre, nonLu: false, masquee: false, photo: adressePhoto(y.id, y.photo_maj), lienLinkedIn: null };
   }
   const m = entete.id
     ? await pool.query(

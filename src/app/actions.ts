@@ -11,6 +11,8 @@ import { envUnipile } from "@/server/env-serveur";
 import { ficheProspectDepuis, filDepuis, inboxDepuis, prospectsDepuis, referentielsDepuis, type FicheProspect, type LigneConversation, type LigneProspect, type MessageFil } from "@/server/donnees";
 import { filtresProspectsSchema } from "@/lib/filtres/prospects";
 import { filtresInboxSchema } from "@/lib/filtres/inbox";
+import { ajouterAuCrm, masquerConversation, reafficherConversation } from "@/server/inbox-crm";
+import { associerProspects, dissocierProspect } from "@/server/associations";
 import { basculerNotificationLue, clesPush, enregistrerAbonnement, marquerNotificationsLues, supprimerAbonnement, supprimerNotification } from "@/server/notifications";
 
 /**
@@ -145,6 +147,49 @@ export async function actionCreerVue(entree: unknown): Promise<Retour & { id?: s
     return "Vue créée.";
   });
   return r.ok ? { ...r, id } : r;
+}
+
+// ─── Inbox : ne plus afficher, ajouter au CRM ──────────────────────────────────
+
+/** « Ne plus afficher » : la personne de cette conversation sort de l'Inbox (filtre « Masquées »). */
+export async function actionMasquerConversation(id: unknown): Promise<Retour> {
+  return executer("masquer-conversation", async () => {
+    await masquerConversation(poolServeur(), id);
+    return "Conversation masquée. Retrouve-la avec le filtre « Masquées ».";
+  });
+}
+
+export async function actionReafficherConversation(id: unknown): Promise<Retour> {
+  return executer("reafficher-conversation", async () => {
+    await reafficherConversation(poolServeur(), id);
+    return "Conversation réaffichée.";
+  });
+}
+
+/** « Ajouter au CRM » : renvoie la fiche créée (ou déjà présente) pour l'ouvrir. */
+export async function actionAjouterAuCrm(id: unknown): Promise<Retour & { prospectId?: string }> {
+  let resultat: { prospectId: string; existant: boolean } | undefined;
+  const r = await executer("ajouter-au-crm", async () => {
+    resultat = await ajouterAuCrm(poolServeur(), id);
+    return resultat.existant ? "Déjà dans le CRM : conversation rattachée à sa fiche." : "Ajouté au CRM. Son profil LinkedIn est en cours de lecture.";
+  });
+  return r.ok && resultat ? { ...r, prospectId: resultat.prospectId } : r;
+}
+
+// ─── Personnes associées ───────────────────────────────────────────────────────
+
+export async function actionAssocierProspects(entree: unknown): Promise<Retour> {
+  return executer("associer-prospects", async () => {
+    await associerProspects(poolServeur(), entree);
+    return "Personnes associées.";
+  });
+}
+
+export async function actionDissocierProspect(id: unknown): Promise<Retour> {
+  return executer("dissocier-prospect", async () => {
+    await dissocierProspect(poolServeur(), id);
+    return "Association retirée.";
+  });
 }
 
 export async function actionRenommerVue(entree: unknown): Promise<Retour> {

@@ -111,7 +111,7 @@ async function Contenu({ searchParams }: { searchParams: PageProps<"/inbox">["se
                 ) : (
                   <span className="whitespace-nowrap rounded-full bg-amber-50 dark:bg-amber-400/15 px-2.5 py-1 caption-4 text-amber-800 dark:text-amber-300">Hors CRM</span>
                 )}
-                <MenuConversation key={ouvert.id} id={ouvert.id} nonLu={ouvert.nonLu} nom={ouvert.nom} variante="entete" />
+                <MenuConversation key={ouvert.id} id={ouvert.id} nonLu={ouvert.nonLu} nom={ouvert.nom} horsCrm={!ouvert.prospectId} masquee={ouvert.masquee} variante="entete" />
               </div>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto bg-carte px-5 py-5">

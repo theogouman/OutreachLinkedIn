@@ -3,16 +3,25 @@
 /*
  * Menu « ⋯ » d'une conversation, le même dans la liste (au survol d'une ligne, sur ordinateur) et
  * dans l'en-tête de la conversation ouverte : marquer comme non lue (ou lue), copier (second menu :
- * profil, conversation, ou les deux, en texte brut), supprimer (avec confirmation ; rien n'est
- * supprimé sur LinkedIn). Panneaux ancrés gardés dans l'écran (`useDansEcran`), Échap et clic
+ * profil, conversation, ou les deux, en texte brut), ajouter au CRM (personne hors CRM : la fiche
+ * créée s'ouvre), ne plus afficher (ou réafficher, filtre « Masquées »), supprimer (avec
+ * confirmation ; rien n'est supprimé sur LinkedIn). Panneaux ancrés gardés dans l'écran (`useDansEcran`), Échap et clic
  * extérieur ferment, le focus revient au bouton.
  */
 
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { actionMarquerLue, actionMarquerNonLue, actionSupprimerConversation, actionTexteCopie } from "@/app/actions";
-import { IconeOptions } from "@/components/icones";
+import {
+  actionAjouterAuCrm,
+  actionMarquerLue,
+  actionMarquerNonLue,
+  actionMasquerConversation,
+  actionReafficherConversation,
+  actionSupprimerConversation,
+  actionTexteCopie,
+} from "@/app/actions";
+import { IconeAfficher, IconeAjouterPersonne, IconeMasquer, IconeOptions } from "@/components/icones";
 import { IconeCopier, IconeCorbeille, IconeEnveloppeOuverte } from "@/components/icones-pages";
 import { useRetour } from "@/components/interface/toasts";
 import { useDansEcran } from "@/components/interface/dans-ecran";
@@ -31,12 +40,18 @@ export function MenuConversation({
   id,
   nonLu,
   nom,
+  horsCrm,
+  masquee,
   variante,
   className,
 }: {
   id: string;
   nonLu: boolean;
   nom: string;
+  /** Personne hors CRM : « Ajouter au CRM » proposé. */
+  horsCrm: boolean;
+  /** Personne masquée : « Réafficher » au lieu de « Ne plus afficher ». */
+  masquee: boolean;
   /** « ligne » : dans la liste (second menu vers la droite) ; « entete » : conversation ouverte. */
   variante: "ligne" | "entete";
   /** Classes du conteneur (position comprise) ; « relative » par défaut. */
@@ -132,6 +147,23 @@ export function MenuConversation({
     fermer();
   };
 
+  const ajouterAuCrm = () =>
+    demarrer(async () => {
+      const r = await actionAjouterAuCrm(id);
+      retourner(r);
+      fermer(false);
+      // La fiche créée (ou déjà présente) s'ouvre par-dessus la conversation.
+      if (r.ok && r.prospectId) router.push(`/inbox?${new URLSearchParams({ conversation: id, prospect: r.prospectId })}`, { scroll: false });
+    });
+
+  const basculerMasquee = () =>
+    demarrer(async () => {
+      const r = masquee ? await actionReafficherConversation(id) : await actionMasquerConversation(id);
+      retourner(r);
+      fermer(false);
+      if (r.ok && !masquee && (variante === "entete" || params.get("conversation") === id)) router.replace("/inbox", { scroll: false });
+    });
+
   const supprimer = () =>
     demarrer(async () => {
       const r = await actionSupprimerConversation(id);
@@ -211,6 +243,14 @@ export function MenuConversation({
                   </div>
                 )}
               </div>
+              {horsCrm && (
+                <Element icone={<IconeAjouterPersonne taille={16} />} disabled={enCours} onClick={ajouterAuCrm}>
+                  Ajouter au CRM
+                </Element>
+              )}
+              <Element icone={masquee ? <IconeAfficher taille={16} /> : <IconeMasquer taille={16} />} disabled={enCours} onClick={basculerMasquee}>
+                {masquee ? "Réafficher" : "Ne plus afficher"}
+              </Element>
               <Element icone={<IconeCorbeille taille={16} />} onClick={() => setConfirmer(true)} danger>
                 Supprimer
               </Element>

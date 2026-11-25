@@ -57,7 +57,7 @@ export function ListeConversations({
       <div className="border-b border-trait p-2">
         <div className="inbox-encoche flex items-center gap-1.5 rounded-[18px] bg-creux p-1" role="search" aria-label="Filtrer les conversations">
           <MenuFiltres
-            cases={CASES_INBOX as { cle: "nonLus" | "aTraiter" | "horsCrm"; libelle: string }[]}
+            cases={CASES_INBOX as { cle: "nonLus" | "aTraiter" | "horsCrm" | "masquees"; libelle: string }[]}
             valeurs={f}
             changer={(cle, v) => l.changer(cle, v)}
             reinitialiser={() => {
@@ -162,6 +162,8 @@ export function ListeConversations({
                   id={c.id}
                   nonLu={c.nonLu}
                   nom={c.nom}
+                  horsCrm={!c.prospectId}
+                  masquee={c.masquee}
                   variante="ligne"
                   className="absolute right-3 top-1/2 hidden -translate-y-1/2 md:block md:opacity-0 md:transition-opacity md:duration-150 md:group-hover:opacity-100 md:focus-within:opacity-100 md:data-[ouvert]:opacity-100"
                 />

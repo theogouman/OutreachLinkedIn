@@ -7,6 +7,7 @@ import { SectionsGlissantes } from "@/components/interface/sections-glissantes";
 import { IconeFermer, IconeLienExterne } from "@/components/icones";
 import { BadgeStatut } from "@/components/badges";
 import { ChoixEtape } from "@/components/vues/proprietes";
+import { PersonnesAssociees } from "./personnes-associees";
 import { TexteAnime } from "@/components/interface/texte-anime";
 import type { FicheProspect, MessageFil } from "@/server/donnees";
 import { FilMessages } from "@/components/fil-messages";
@@ -277,8 +278,8 @@ function CorpsFiche({
                       },
                       { t: "Entreprise", d: fiche.entreprise ?? "Inconnue" },
                       {
-                        t: "Identifiant LinkedIn",
-                        d: fiche.identifie ? "Lu" : "Lecture en file",
+                        t: "Personnes associées",
+                        d: <PersonnesAssociees key={fiche.id} prospectId={fiche.id} nom={nom} associes={fiche.associes} suggestions={fiche.suggestions} />,
                       },
                     ].map((x, i) => (
                       <div

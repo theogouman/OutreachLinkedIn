@@ -9,6 +9,8 @@ export const filtresInboxSchema = z.object({
   nonLus: oui,
   aTraiter: oui,
   horsCrm: oui,
+  /** Personnes masquées (« Ne plus afficher ») : seules affichées quand coché, absentes sinon. */
+  masquees: oui,
   recherche: z.string().max(100).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
@@ -22,6 +24,7 @@ export interface ConversationFiltrable {
   dernierSens: "entrant" | "sortant";
   nonLu: boolean;
   prospectId: string | null;
+  masquee: boolean;
 }
 
 type Def = DefinitionFiltre<ConversationFiltrable, FiltresInbox>;
@@ -31,6 +34,7 @@ export const FILTRES_INBOX: readonly Def[] = [
   { cle: "nonLus", libelle: "Non lues", type: "choix", correspond: (c) => c.nonLu },
   { cle: "aTraiter", libelle: "À traiter", type: "choix", correspond: (c) => c.dernierSens === "entrant" },
   { cle: "horsCrm", libelle: "Hors CRM", type: "choix", correspond: (c) => c.prospectId === null },
+  { cle: "masquees", libelle: "Masquées", type: "choix", correspond: (c) => c.masquee },
 ];
 
 /** Cases du menu de filtres (la recherche a son propre champ). */

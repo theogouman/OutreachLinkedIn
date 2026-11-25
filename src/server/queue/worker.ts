@@ -161,6 +161,7 @@ async function chargerCandidates(c: PoolClient, maintenant: Date) {
                   when t.automatisation_id is not null then 2
                   when t.type_action in ('message', 'invitation') then 0
                   when t.payload ? 'conversation_id' and t.type_action = 'lecture_profil' then 1
+                  when t.payload ? 'ajout_crm' and t.type_action = 'lecture_profil' then 1
                   when t.type_action = 'lecture_liste' then 1
                   when t.prospect_id is not null and exists (
                          select 1 from public.taches m
